@@ -14,106 +14,137 @@ class DashboardScreen extends StatelessWidget {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SOP Management System'),
+        title: Row(
+          children: [
+            Text(
+              "elmo's",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "F U R N I T U R E",
+              style: TextStyle(
+                fontSize: 12,
+                letterSpacing: 2,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xffB21E1E),
+        foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            tooltip: 'Analytics',
-            onPressed: () => context.go('/analytics'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.go('/settings'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authService.logout();
-              if (context.mounted) {
-                context.go('/login');
-              }
-            },
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Row(
+              children: [
+                Text(
+                  'User Name',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.white,
+                  child: Icon(
+                    Icons.person,
+                    color: Color(0xffB21E1E),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.notifications_outlined),
+              ],
+            ),
           ),
         ],
       ),
       drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
+        child: Column(
           children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+            Container(
+              color: const Color(0xffB21E1E),
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              child: SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    Text(
+                      "elmo's",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Text(
+                      "F U R N I T U R E",
+                      style: TextStyle(
+                        fontSize: 16,
+                        letterSpacing: 4,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
                 children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 40,
-                      color: Colors.blue,
-                    ),
+                  ListTile(
+                    leading: const Icon(Icons.home, color: Color(0xffB21E1E)),
+                    title: const Text('Home'),
+                    selected: true,
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    authService.userName ?? 'User',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
+                  ListTile(
+                    leading: const Icon(Icons.apps, color: Color(0xffB21E1E)),
+                    title: const Text('My SOPs'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Navigate to SOPs list
+                      context.go('/sops');
+                    },
                   ),
-                  Text(
-                    authService.userEmail ?? 'user@example.com',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
+                  ListTile(
+                    leading: const Icon(Icons.description, color: Color(0xffB21E1E)),
+                    title: const Text('Templates'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/templates');
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.stacked_bar_chart, color: Color(0xffB21E1E)),
+                    title: const Text('Analytics'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/analytics');
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.settings, color: Color(0xffB21E1E)),
+                    title: const Text('Settings'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/settings');
+                    },
                   ),
                 ],
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dashboard),
-              title: const Text('Dashboard'),
-              selected: true,
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.description),
-              title: const Text('My SOPs'),
-              onTap: () {
-                Navigator.pop(context);
-                // Navigate to SOPs list
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.category),
-              title: const Text('Templates'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/templates');
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.analytics),
-              title: const Text('Analytics'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/analytics');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/settings');
-              },
             ),
           ],
         ),
@@ -149,9 +180,16 @@ class DashboardScreen extends StatelessWidget {
                             },
                             icon: const Icon(Icons.add),
                             label: const Text('Create New SOP'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xffB21E1E),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
@@ -159,6 +197,13 @@ class DashboardScreen extends StatelessWidget {
                             },
                             icon: const Icon(Icons.analytics),
                             label: const Text('View Analytics'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xff17A2B8),
+                              side: const BorderSide(color: Color(0xff17A2B8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -216,6 +261,7 @@ class DashboardScreen extends StatelessWidget {
                 child: TextButton(
                   onPressed: () {
                     // Navigate to all SOPs
+                    context.go('/sops');
                   },
                   child: const Text('View All SOPs'),
                 ),
@@ -271,14 +317,41 @@ class DashboardScreen extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const Spacer(),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      // Use template
-                                    },
-                                    child: const Text('Use'),
-                                  ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: () {
+                                        // View template
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xff17A2B8),
+                                        side: const BorderSide(color: Color(0xff17A2B8)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(30),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                                        minimumSize: const Size(60, 30),
+                                      ),
+                                      child: const Text('View'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton(
+                                      onPressed: () {
+                                        // Edit template
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xff6F42C1),
+                                        side: const BorderSide(color: Color(0xff6F42C1)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(30),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                                        minimumSize: const Size(60, 30),
+                                      ),
+                                      child: const Text('Edit'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -303,6 +376,8 @@ class DashboardScreen extends StatelessWidget {
         onPressed: () {
           context.go('/editor/new');
         },
+        backgroundColor: const Color(0xffB21E1E),
+        foregroundColor: Colors.white,
         child: const Icon(Icons.add),
       ),
     );

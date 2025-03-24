@@ -11,11 +11,14 @@ import 'utils/deep_link_handler.dart';
 // import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/auth/register_screen.dart';
+import 'presentation/screens/auth/create_profile_screen.dart';
+import 'presentation/screens/auth/register_company_screen.dart';
 import 'presentation/screens/dashboard/dashboard_screen.dart';
 import 'presentation/screens/templates/templates_screen.dart';
 import 'presentation/screens/sop_editor/sop_editor_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/screens/analytics/analytics_screen.dart';
+import 'presentation/screens/sops/sops_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -103,6 +106,14 @@ class _MyAppState extends State<MyApp> {
           builder: (context, state) => const RegisterScreen(),
         ),
         GoRoute(
+          path: '/create-profile',
+          builder: (context, state) => const CreateProfileScreen(),
+        ),
+        GoRoute(
+          path: '/register-company',
+          builder: (context, state) => const RegisterCompanyScreen(),
+        ),
+        GoRoute(
           path: '/templates',
           builder: (context, state) => const TemplatesScreen(),
         ),
@@ -121,6 +132,10 @@ class _MyAppState extends State<MyApp> {
           path: '/analytics',
           builder: (context, state) => const AnalyticsScreen(),
         ),
+        GoRoute(
+          path: '/sops',
+          builder: (context, state) => const SOPsScreen(),
+        ),
       ],
       redirect: (context, state) {
         final authService = Provider.of<AuthService>(context, listen: false);
@@ -128,14 +143,24 @@ class _MyAppState extends State<MyApp> {
         
         final isGoingToLogin = state.matchedLocation == '/login';
         final isGoingToRegister = state.matchedLocation == '/register';
+        final isGoingToCreateProfile = state.matchedLocation == '/create-profile';
+        final isGoingToRegisterCompany = state.matchedLocation == '/register-company';
         
-        // If not logged in and not going to login or register, redirect to login
-        if (!isLoggedIn && !isGoingToLogin && !isGoingToRegister) {
+        // If not logged in and not going to auth routes, redirect to login
+        if (!isLoggedIn && 
+            !isGoingToLogin && 
+            !isGoingToRegister && 
+            !isGoingToCreateProfile && 
+            !isGoingToRegisterCompany) {
           return '/login';
         }
         
-        // If logged in and going to login or register, redirect to dashboard
-        if (isLoggedIn && (isGoingToLogin || isGoingToRegister)) {
+        // If logged in and going to auth routes, redirect to dashboard
+        if (isLoggedIn && 
+            (isGoingToLogin || 
+             isGoingToRegister || 
+             isGoingToCreateProfile || 
+             isGoingToRegisterCompany)) {
           return '/';
         }
         
