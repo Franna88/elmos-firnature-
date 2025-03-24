@@ -521,4 +521,111 @@ class AuthService extends ChangeNotifier {
       }
     }
   }
+  
+  // Temporary storage for user data during multi-step registration
+  Map<String, dynamic> _tempUserData = {};
+  
+  // Store temporary user data for multi-step registration
+  void setTemporaryUserData(Map<String, dynamic> userData) {
+    _tempUserData = userData;
+  }
+  
+  // Get temporary user data
+  Map<String, dynamic> getTemporaryUserData() {
+    return _tempUserData;
+  }
+  
+  // Register both company and user in a single operation
+  Future<bool> registerCompanyAndUser(String companyName, String companyEmail) async {
+    // Get the user data from temporary storage
+    final userData = getTemporaryUserData();
+    
+    if (userData.isEmpty) {
+      return false; // No user data available
+    }
+    
+    if (_usingLocalAuth) {
+      return _localRegisterCompanyAndUser(userData, companyName, companyEmail);
+    }
+    
+    try {
+      // First, register the user
+      final UserCredential userCredential = await _auth!.createUserWithEmailAndPassword(
+        email: userData['email'],
+        password: userData['password'],
+      );
+      
+      if (userCredential.user == null) {
+        return false;
+      }
+      
+      // Update user profile
+      await userCredential.user!.updateDisplayName(userData['name']);
+      
+      // Create user document in Firestore
+      await _firestore!.collection('users').doc(userCredential.user!.uid).set({
+        'email': userData['email'],
+        'name': userData['name'],
+        'role': 'user',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Create company document linked to this user
+      final companyRef = await _firestore!.collection('companies').add({
+        'name': companyName,
+        'email': companyEmail,
+        'createdBy': userCredential.user!.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Update user with company reference
+      await _firestore!.collection('users').doc(userCredential.user!.uid).update({
+        'companyId': companyRef.id,
+      });
+      
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Firebase company registration error: $e');
+        print('Falling back to local registration');
+      }
+      
+      _usingLocalAuth = true;
+      return _localRegisterCompanyAndUser(userData, companyName, companyEmail);
+    }
+  }
+  
+  Future<bool> _localRegisterCompanyAndUser(
+    Map<String, dynamic> userData, 
+    String companyName, 
+    String companyEmail
+  ) async {
+    final String email = userData['email'];
+    
+    if (_localUsers.containsKey(email)) {
+      return false; // Email already in use
+    }
+    
+    // Add user to local users
+    _localUsers[email] = {
+      'name': userData['name'],
+      'password': userData['password'],
+      'role': 'user',
+      'companyName': companyName,
+      'companyEmail': companyEmail,
+    };
+    
+    _isLoggedIn = true;
+    _userId = email;
+    _userEmail = email;
+    _userName = userData['name'];
+    _userRole = 'user';
+    
+    // Clear temporary data after successful registration
+    _tempUserData = {};
+    
+    await _saveToStorage();
+    notifyListeners();
+    return true;
+  }
 } 
