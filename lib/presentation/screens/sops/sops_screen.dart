@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
+import '../../widgets/app_scaffold.dart';
 
 class SOPsScreen extends StatefulWidget {
   const SOPsScreen({super.key});
@@ -14,11 +15,11 @@ class SOPsScreen extends StatefulWidget {
 class _SOPsScreenState extends State<SOPsScreen> {
   String _searchQuery = '';
   String _selectedDepartment = 'All';
-  
+
   @override
   Widget build(BuildContext context) {
     final sopService = Provider.of<SOPService>(context);
-    
+
     // Filter SOPs based on search query and department
     List<SOP> filteredSOPs = sopService.searchSOPs(_searchQuery);
     if (_selectedDepartment != 'All') {
@@ -26,42 +27,40 @@ class _SOPsScreenState extends State<SOPsScreen> {
           .where((sop) => sop.department == _selectedDepartment)
           .toList();
     }
-    
+
     // Get unique departments for filter dropdown
-    final departments = ['All', ...sopService.sops
-        .map((sop) => sop.department)
-        .toSet()
-        ];
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My SOPs'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () {
-              // Show help dialog
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('SOPs Help'),
-                  content: const Text(
-                    'Standard Operating Procedures (SOPs) document the standard processes '
-                    'for your organization. Here you can view, edit, and manage all your SOPs '
-                    'in one place.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
+    final departments = [
+      'All',
+      ...sopService.sops.map((sop) => sop.department).toSet()
+    ];
+
+    return AppScaffold(
+      title: 'My SOPs',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.help_outline),
+          onPressed: () {
+            // Show help dialog
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('SOPs Help'),
+                content: const Text(
+                  'Standard Operating Procedures (SOPs) document the standard processes '
+                  'for your organization. Here you can view, edit, and manage all your SOPs '
+                  'in one place.',
                 ),
-              );
-            },
-          ),
-        ],
-      ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
       body: Column(
         children: [
           // Search and filter bar
@@ -112,7 +111,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
               ],
             ),
           ),
-          
+
           // SOPs list
           Expanded(
             child: filteredSOPs.isEmpty
@@ -140,7 +139,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
       ),
     );
   }
-  
+
   Widget _buildSOPCard(BuildContext context, SOP sop) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -160,8 +159,10 @@ class _SOPsScreenState extends State<SOPsScreen> {
                       Text(
                         sop.title,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -169,14 +170,18 @@ class _SOPsScreenState extends State<SOPsScreen> {
                       Text(
                         'Department: ${sop.department} • Rev: ${sop.revisionNumber}',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer
+                              .withOpacity(0.8),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(12),
@@ -192,7 +197,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
               ],
             ),
           ),
-          
+
           // SOP content
           Padding(
             padding: const EdgeInsets.all(16),
@@ -205,6 +210,22 @@ class _SOPsScreenState extends State<SOPsScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (sop.steps.isNotEmpty &&
+                    sop.steps.first.imageUrl != null) ...[
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      sop.steps.first.imageUrl!,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -241,8 +262,8 @@ class _SOPsScreenState extends State<SOPsScreen> {
       ),
     );
   }
-  
+
   String _formatDate(DateTime date) {
     return '${date.month}/${date.day}/${date.year}';
   }
-} 
+}

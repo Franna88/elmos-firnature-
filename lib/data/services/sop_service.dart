@@ -11,38 +11,38 @@ class SOPService extends ChangeNotifier {
   FirebaseFirestore? _firestore;
   FirebaseStorage? _storage;
   FirebaseAuth? _auth;
-  
+
   List<SOP> _sops = [];
   List<SOPTemplate> _templates = [];
-  
+
   // Flag to track if we're using local data
   bool _usingLocalData = false;
-  
+
   List<SOP> get sops => List.unmodifiable(_sops);
   List<SOPTemplate> get templates => List.unmodifiable(_templates);
   bool get usingLocalData => _usingLocalData;
-  
+
   SOPService() {
     _initializeData();
   }
-  
+
   Future<void> _initializeData() async {
     try {
       // Initialize Firebase services
       _firestore = FirebaseFirestore.instance;
       _storage = FirebaseStorage.instance;
       _auth = FirebaseAuth.instance;
-      
+
       // Test if Firestore is working
       await _firestore!.collection('test').limit(1).get();
-      
+
       if (kDebugMode) {
         print('Using Firebase Firestore for SOP data');
       }
-      
+
       await _loadTemplates();
       await _loadSOPs();
-      
+
       // Listen for SOP changes
       _listenForSOPChanges();
     } catch (e) {
@@ -55,17 +55,17 @@ class SOPService extends ChangeNotifier {
       _loadSampleSOPs();
     }
   }
-  
+
   Future<void> _loadTemplates() async {
     if (_usingLocalData) {
       _loadSampleTemplates();
       return;
     }
-    
+
     try {
       final snapshot = await _firestore!.collection('templates').get();
       final List<SOPTemplate> loadedTemplates = [];
-      
+
       for (var doc in snapshot.docs) {
         final data = doc.data();
         loadedTemplates.add(SOPTemplate(
@@ -76,7 +76,7 @@ class SOPService extends ChangeNotifier {
           thumbnailUrl: data['thumbnailUrl'],
         ));
       }
-      
+
       _templates = loadedTemplates;
       notifyListeners();
     } catch (e) {
@@ -87,7 +87,7 @@ class SOPService extends ChangeNotifier {
       _loadSampleTemplates();
     }
   }
-  
+
   void _loadSampleTemplates() {
     _templates = [
       SOPTemplate(
@@ -114,7 +114,7 @@ class SOPService extends ChangeNotifier {
     ];
     notifyListeners();
   }
-  
+
   void _loadSampleSOPs() {
     final now = DateTime.now();
     _sops = [
@@ -131,18 +131,24 @@ class SOPService extends ChangeNotifier {
           SOPStep(
             id: '1_1',
             title: 'Inspect Equipment',
-            instruction: 'Check all kitchen equipment for signs of wear or damage.',
+            instruction:
+                'Check all kitchen equipment for signs of wear or damage.',
             helpNote: 'Look for frayed cords, loose parts, or unusual sounds.',
           ),
           SOPStep(
             id: '1_2',
             title: 'Clean Equipment',
-            instruction: 'Clean all equipment according to manufacturer specifications.',
+            instruction:
+                'Clean all equipment according to manufacturer specifications.',
             assignedTo: 'Kitchen Staff',
             estimatedTime: 45,
           ),
         ],
-        tools: ['Cleaning supplies', 'Inspection checklist', 'Maintenance tools'],
+        tools: [
+          'Cleaning supplies',
+          'Inspection checklist',
+          'Maintenance tools'
+        ],
         safetyRequirements: ['Wear gloves', 'Unplug equipment before cleaning'],
         cautions: ['Do not use abrasive cleaners on stainless steel'],
       ),
@@ -173,19 +179,22 @@ class SOPService extends ChangeNotifier {
           ),
         ],
         tools: ['Keys', 'Opening checklist'],
-        safetyRequirements: ['Check fire extinguishers', 'Ensure exits are clear'],
+        safetyRequirements: [
+          'Check fire extinguishers',
+          'Ensure exits are clear'
+        ],
         cautions: ['Do not rush through safety checks'],
       ),
     ];
     notifyListeners();
   }
-  
+
   void _listenForSOPChanges() {
     if (_usingLocalData) return;
-    
+
     final userId = _auth?.currentUser?.uid;
     if (userId == null) return;
-    
+
     _firestore!
         .collection('sops')
         .where('createdBy', isEqualTo: userId)
@@ -194,13 +203,13 @@ class SOPService extends ChangeNotifier {
       _loadSOPs();
     });
   }
-  
+
   Future<void> _loadSOPs() async {
     if (_usingLocalData) {
       _loadSampleSOPs();
       return;
     }
-    
+
     try {
       final userId = _auth?.currentUser?.uid;
       if (userId == null) {
@@ -208,18 +217,18 @@ class SOPService extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      
+
       final snapshot = await _firestore!
           .collection('sops')
           .where('createdBy', isEqualTo: userId)
           .get();
-      
+
       final List<SOP> loadedSOPs = [];
-      
+
       for (var doc in snapshot.docs) {
         final sopData = doc.data();
         final stepsData = sopData['steps'] as List<dynamic>? ?? [];
-        
+
         final List<SOPStep> steps = stepsData.map<SOPStep>((stepData) {
           return SOPStep(
             id: stepData['id'] ?? '',
@@ -229,9 +238,15 @@ class SOPService extends ChangeNotifier {
             helpNote: stepData['helpNote'],
             assignedTo: stepData['assignedTo'],
             estimatedTime: stepData['estimatedTime'],
+            stepTools: stepData['stepTools'] != null
+                ? List<String>.from(stepData['stepTools'])
+                : [],
+            stepHazards: stepData['stepHazards'] != null
+                ? List<String>.from(stepData['stepHazards'])
+                : [],
           );
         }).toList();
-        
+
         loadedSOPs.add(SOP(
           id: doc.id,
           title: sopData['title'] ?? '',
@@ -239,15 +254,18 @@ class SOPService extends ChangeNotifier {
           department: sopData['department'] ?? '',
           revisionNumber: sopData['revisionNumber'] ?? 1,
           createdBy: sopData['createdBy'] ?? '',
-          createdAt: (sopData['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          updatedAt: (sopData['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          createdAt:
+              (sopData['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          updatedAt:
+              (sopData['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
           steps: steps,
           tools: List<String>.from(sopData['tools'] ?? []),
-          safetyRequirements: List<String>.from(sopData['safetyRequirements'] ?? []),
+          safetyRequirements:
+              List<String>.from(sopData['safetyRequirements'] ?? []),
           cautions: List<String>.from(sopData['cautions'] ?? []),
         ));
       }
-      
+
       _sops = loadedSOPs;
       notifyListeners();
     } catch (e) {
@@ -257,7 +275,7 @@ class SOPService extends ChangeNotifier {
       }
     }
   }
-  
+
   SOP? getSopById(String id) {
     try {
       return _sops.firstWhere((sop) => sop.id == id);
@@ -265,7 +283,7 @@ class SOPService extends ChangeNotifier {
       return null;
     }
   }
-  
+
   SOPTemplate? getTemplateById(String id) {
     try {
       return _templates.firstWhere((template) => template.id == id);
@@ -273,13 +291,14 @@ class SOPService extends ChangeNotifier {
       return null;
     }
   }
-  
-  Future<SOP> createSop(String title, String description, String department) async {
+
+  Future<SOP> createSop(
+      String title, String description, String department) async {
     final String sopId = const Uuid().v4();
     final now = DateTime.now();
-    
+
     final userId = _auth?.currentUser?.uid ?? 'local_user';
-    
+
     if (!_usingLocalData) {
       try {
         final sopData = {
@@ -295,7 +314,7 @@ class SOPService extends ChangeNotifier {
           'safetyRequirements': [],
           'cautions': [],
         };
-        
+
         // Create the SOP in Firestore
         await _firestore!.collection('sops').doc(sopId).set(sopData);
       } catch (e) {
@@ -306,7 +325,7 @@ class SOPService extends ChangeNotifier {
         _usingLocalData = true;
       }
     }
-    
+
     // Create and return the local SOP object
     final sop = SOP(
       id: sopId,
@@ -322,21 +341,22 @@ class SOPService extends ChangeNotifier {
       safetyRequirements: [],
       cautions: [],
     );
-    
+
     _sops.add(sop);
     notifyListeners();
     return sop;
   }
-  
-  Future<SOP> createSopFromTemplate(String templateId, String title, String department) async {
+
+  Future<SOP> createSopFromTemplate(
+      String templateId, String title, String department) async {
     final template = getTemplateById(templateId);
     if (template == null) {
       throw Exception('Template not found');
     }
-    
+
     return createSop(title, template.description, department);
   }
-  
+
   Future<void> updateSop(SOP sop) async {
     try {
       if (!_usingLocalData) {
@@ -346,23 +366,27 @@ class SOPService extends ChangeNotifier {
           'department': sop.department,
           'revisionNumber': sop.revisionNumber,
           'updatedAt': Timestamp.fromDate(DateTime.now()),
-          'steps': sop.steps.map((step) => {
-            'id': step.id,
-            'title': step.title,
-            'instruction': step.instruction,
-            'imageUrl': step.imageUrl,
-            'helpNote': step.helpNote,
-            'assignedTo': step.assignedTo,
-            'estimatedTime': step.estimatedTime,
-          }).toList(),
+          'steps': sop.steps
+              .map((step) => {
+                    'id': step.id,
+                    'title': step.title,
+                    'instruction': step.instruction,
+                    'imageUrl': step.imageUrl,
+                    'helpNote': step.helpNote,
+                    'assignedTo': step.assignedTo,
+                    'estimatedTime': step.estimatedTime,
+                    'stepTools': step.stepTools,
+                    'stepHazards': step.stepHazards,
+                  })
+              .toList(),
           'tools': sop.tools,
           'safetyRequirements': sop.safetyRequirements,
           'cautions': sop.cautions,
         };
-        
+
         await _firestore!.collection('sops').doc(sop.id).update(sopData);
       }
-      
+
       // Update the local list
       final index = _sops.indexWhere((s) => s.id == sop.id);
       if (index >= 0) {
@@ -373,11 +397,11 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('Error updating SOP: $e');
       }
-      
+
       // If using Firestore failed, switch to local data
       if (!_usingLocalData) {
         _usingLocalData = true;
-        
+
         // Update local list
         final index = _sops.indexWhere((s) => s.id == sop.id);
         if (index >= 0) {
@@ -389,12 +413,12 @@ class SOPService extends ChangeNotifier {
       }
     }
   }
-  
+
   Future<void> deleteSop(String id) async {
     try {
       if (!_usingLocalData) {
         await _firestore!.collection('sops').doc(id).delete();
-        
+
         // Delete any associated images from storage
         final sop = getSopById(id);
         if (sop != null) {
@@ -411,7 +435,7 @@ class SOPService extends ChangeNotifier {
           }
         }
       }
-      
+
       // Update the local list
       _sops.removeWhere((sop) => sop.id == id);
       notifyListeners();
@@ -419,7 +443,7 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('Error deleting SOP: $e');
       }
-      
+
       if (!_usingLocalData) {
         _usingLocalData = true;
         // Update the local list
@@ -430,15 +454,16 @@ class SOPService extends ChangeNotifier {
       }
     }
   }
-  
+
   Future<String> uploadImage(File file, String sopId, String stepId) async {
     if (_usingLocalData) {
       // Just return a placeholder URL for local mode
       return 'assets/images/placeholder.png';
     }
-    
+
     try {
-      final ref = _storage!.ref().child('sops/$sopId/steps/$stepId/${DateTime.now().millisecondsSinceEpoch}');
+      final ref = _storage!.ref().child(
+          'sops/$sopId/steps/$stepId/${DateTime.now().millisecondsSinceEpoch}');
       final uploadTask = await ref.putFile(file);
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       return downloadUrl;
@@ -450,7 +475,7 @@ class SOPService extends ChangeNotifier {
       return 'assets/images/placeholder.png';
     }
   }
-  
+
   List<SOP> searchSOPs(String query) {
     final lowercaseQuery = query.toLowerCase();
     return _sops.where((sop) {
@@ -459,7 +484,7 @@ class SOPService extends ChangeNotifier {
           sop.department.toLowerCase().contains(lowercaseQuery);
     }).toList();
   }
-  
+
   List<SOPTemplate> searchTemplates(String query) {
     final lowercaseQuery = query.toLowerCase();
     return _templates.where((template) {
@@ -468,4 +493,4 @@ class SOPService extends ChangeNotifier {
           template.category.toLowerCase().contains(lowercaseQuery);
     }).toList();
   }
-} 
+}

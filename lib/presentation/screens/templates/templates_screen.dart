@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
+import '../../widgets/app_scaffold.dart';
 
 class TemplatesScreen extends StatefulWidget {
   const TemplatesScreen({super.key});
@@ -14,54 +15,53 @@ class TemplatesScreen extends StatefulWidget {
 class _TemplatesScreenState extends State<TemplatesScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'All';
-  
+
   @override
   Widget build(BuildContext context) {
     final sopService = Provider.of<SOPService>(context);
-    
+
     // Filter templates based on search query and category
-    List<SOPTemplate> filteredTemplates = sopService.searchTemplates(_searchQuery);
+    List<SOPTemplate> filteredTemplates =
+        sopService.searchTemplates(_searchQuery);
     if (_selectedCategory != 'All') {
       filteredTemplates = filteredTemplates
           .where((template) => template.category == _selectedCategory)
           .toList();
     }
-    
+
     // Get unique categories for filter dropdown
-    final categories = ['All', ...sopService.templates
-        .map((template) => template.category)
-        .toSet()
-        ];
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('SOP Templates'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () {
-              // Show help dialog
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Templates Help'),
-                  content: const Text(
-                    'Templates provide a starting point for creating SOPs. '
-                    'Select a template that best matches your needs, then customize it '
-                    'to fit your specific requirements.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
+    final categories = [
+      'All',
+      ...sopService.templates.map((template) => template.category).toSet()
+    ];
+
+    return AppScaffold(
+      title: 'SOP Templates',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.help_outline),
+          onPressed: () {
+            // Show help dialog
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Templates Help'),
+                content: const Text(
+                  'Templates provide a starting point for creating SOPs. '
+                  'Select a template that best matches your needs, then customize it '
+                  'to fit your specific requirements.',
                 ),
-              );
-            },
-          ),
-        ],
-      ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
       body: Column(
         children: [
           // Search and filter bar
@@ -112,7 +112,7 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
               ],
             ),
           ),
-          
+
           // Templates grid
           Expanded(
             child: filteredTemplates.isEmpty
@@ -121,7 +121,8 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 1.2,
                       crossAxisSpacing: 16,
@@ -138,7 +139,7 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
       ),
     );
   }
-  
+
   Widget _buildTemplateCard(BuildContext context, SOPTemplate template) {
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -155,14 +156,16 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
                   child: Text(
                     template.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(12),
@@ -178,7 +181,7 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
               ],
             ),
           ),
-          
+
           // Template content
           Expanded(
             child: Padding(
@@ -221,7 +224,7 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
       ),
     );
   }
-  
+
   void _showTemplatePreview(BuildContext context, SOPTemplate template) {
     showDialog(
       context: context,
@@ -266,11 +269,21 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
               const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _PreviewItem(icon: Icons.check_circle_outline, text: 'Basic information'),
-                  _PreviewItem(icon: Icons.check_circle_outline, text: 'Step-by-step instructions'),
-                  _PreviewItem(icon: Icons.check_circle_outline, text: 'Required tools and equipment'),
-                  _PreviewItem(icon: Icons.check_circle_outline, text: 'Safety requirements'),
-                  _PreviewItem(icon: Icons.check_circle_outline, text: 'Cautions and limitations'),
+                  _PreviewItem(
+                      icon: Icons.check_circle_outline,
+                      text: 'Basic information'),
+                  _PreviewItem(
+                      icon: Icons.check_circle_outline,
+                      text: 'Step-by-step instructions'),
+                  _PreviewItem(
+                      icon: Icons.check_circle_outline,
+                      text: 'Required tools and equipment'),
+                  _PreviewItem(
+                      icon: Icons.check_circle_outline,
+                      text: 'Safety requirements'),
+                  _PreviewItem(
+                      icon: Icons.check_circle_outline,
+                      text: 'Cautions and limitations'),
                 ],
               ),
               const SizedBox(height: 24),
@@ -297,11 +310,12 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
       ),
     );
   }
-  
-  void _showCreateFromTemplateDialog(BuildContext context, SOPTemplate template) {
+
+  void _showCreateFromTemplateDialog(
+      BuildContext context, SOPTemplate template) {
     final titleController = TextEditingController();
     final departmentController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -335,16 +349,18 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (titleController.text.isNotEmpty && departmentController.text.isNotEmpty) {
+              if (titleController.text.isNotEmpty &&
+                  departmentController.text.isNotEmpty) {
                 Navigator.pop(context);
-                
-                final sopService = Provider.of<SOPService>(context, listen: false);
+
+                final sopService =
+                    Provider.of<SOPService>(context, listen: false);
                 final sop = await sopService.createSopFromTemplate(
                   template.id,
                   titleController.text.trim(),
                   departmentController.text.trim(),
                 );
-                
+
                 if (context.mounted) {
                   context.go('/editor/${sop.id}');
                 }
@@ -361,12 +377,12 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
 class _PreviewItem extends StatelessWidget {
   final IconData icon;
   final String text;
-  
+
   const _PreviewItem({
     required this.icon,
     required this.text,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -380,4 +396,4 @@ class _PreviewItem extends StatelessWidget {
       ),
     );
   }
-} 
+}

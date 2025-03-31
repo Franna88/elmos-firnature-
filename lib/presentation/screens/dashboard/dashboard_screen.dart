@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/sop_service.dart';
+import '../../widgets/app_scaffold.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -11,144 +12,9 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final sopService = Provider.of<SOPService>(context);
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Text(
-              "elmo's",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              "F U R N I T U R E",
-              style: TextStyle(
-                fontSize: 12,
-                letterSpacing: 2,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xffB21E1E),
-        foregroundColor: Colors.white,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Row(
-              children: [
-                Text(
-                  'User Name',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    color: Color(0xffB21E1E),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.notifications_outlined),
-              ],
-            ),
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: Column(
-          children: [
-            Container(
-              color: const Color(0xffB21E1E),
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 10),
-                    Text(
-                      "elmo's",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(
-                      "F U R N I T U R E",
-                      style: TextStyle(
-                        fontSize: 16,
-                        letterSpacing: 4,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.home, color: Color(0xffB21E1E)),
-                    title: const Text('Home'),
-                    selected: true,
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.apps, color: Color(0xffB21E1E)),
-                    title: const Text('My SOPs'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Navigate to SOPs list
-                      context.go('/sops');
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.description, color: Color(0xffB21E1E)),
-                    title: const Text('Templates'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go('/templates');
-                    },
-                  ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.stacked_bar_chart, color: Color(0xffB21E1E)),
-                    title: const Text('Analytics'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go('/analytics');
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.settings, color: Color(0xffB21E1E)),
-                    title: const Text('Settings'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go('/settings');
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+
+    return AppScaffold(
+      title: "Dashboard",
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -213,7 +79,7 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Recent SOPs section
             Text(
               'Recent SOPs',
@@ -235,22 +101,50 @@ class DashboardScreen extends StatelessWidget {
                 : ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: sopService.sops.length > 3
-                        ? 3
-                        : sopService.sops.length,
+                    itemCount:
+                        sopService.sops.length > 3 ? 3 : sopService.sops.length,
                     itemBuilder: (context, index) {
                       final sop = sopService.sops[index];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          title: Text(sop.title),
-                          subtitle: Text(
-                            'Department: ${sop.department} • Rev: ${sop.revisionNumber}',
-                          ),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                          onTap: () {
-                            context.go('/editor/${sop.id}');
-                          },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // SOP details
+                            ListTile(
+                              title: Text(sop.title),
+                              subtitle: Text(
+                                'Department: ${sop.department} • Rev: ${sop.revisionNumber}',
+                              ),
+                              trailing:
+                                  const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () {
+                                context.go('/editor/${sop.id}');
+                              },
+                            ),
+                            // Show image from first step if available
+                            if (sop.steps.isNotEmpty &&
+                                sop.steps.first.imageUrl != null)
+                              Container(
+                                height: 120,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: Colors.grey.shade300,
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: Image.network(
+                                  sop.steps.first.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const SizedBox.shrink();
+                                  },
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     },
@@ -267,119 +161,98 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             ],
-            
+
             const SizedBox(height: 24),
-            
-            // Templates section
+
+            // Quick Stats section
             Text(
-              'Templates',
+              'Quick Stats',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 180,
-              child: sopService.templates.isEmpty
-                  ? const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Center(
-                          child: Text(
-                            'No templates available.',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: sopService.templates.length,
-                      itemBuilder: (context, index) {
-                        final template = sopService.templates[index];
-                        return Card(
-                          margin: const EdgeInsets.only(right: 16),
-                          child: Container(
-                            width: 200,
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  template.title,
-                                  style: Theme.of(context).textTheme.titleMedium,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  template.description,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const Spacer(),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    OutlinedButton(
-                                      onPressed: () {
-                                        // View template
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: const Color(0xff17A2B8),
-                                        side: const BorderSide(color: Color(0xff17A2B8)),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(30),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                                        minimumSize: const Size(60, 30),
-                                      ),
-                                      child: const Text('View'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton(
-                                      onPressed: () {
-                                        // Edit template
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: const Color(0xff6F42C1),
-                                        side: const BorderSide(color: Color(0xff6F42C1)),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(30),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                                        minimumSize: const Size(60, 30),
-                                      ),
-                                      child: const Text('Edit'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  context.go('/templates');
-                },
-                child: const Text('View All Templates'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Total SOPs',
+                    value: '${sopService.sops.length}',
+                    icon: Icons.description,
+                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Templates',
+                    value: '${sopService.templates.length}',
+                    icon: Icons.style,
+                    color: Colors.purple,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Departments',
+                    value: '${_getUniqueDepartments(sopService).length}',
+                    icon: Icons.business,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.go('/editor/new');
-        },
-        backgroundColor: const Color(0xffB21E1E),
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+    );
+  }
+
+  // Helper method to get unique departments
+  Set<String> _getUniqueDepartments(SOPService sopService) {
+    return sopService.sops.map((sop) => sop.department).toSet();
+  }
+
+  Widget _buildStatCard(
+    BuildContext context, {
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Icon(
+                  icon,
+                  color: color,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
-} 
+}

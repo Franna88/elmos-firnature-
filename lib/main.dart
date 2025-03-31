@@ -30,10 +30,10 @@ import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Skip Firebase initialization and use fallback authentication
   // Try using the app with fallback authentication only
-  
+
   runApp(
     MultiProvider(
       providers: [
@@ -44,11 +44,12 @@ void main() async {
             sopService: Provider.of<SOPService>(context, listen: false),
             authService: Provider.of<AuthService>(context, listen: false),
           ),
-          update: (context, authService, sopService, previous) => 
-            previous ?? AnalyticsService(
-              sopService: sopService,
-              authService: authService,
-            ),
+          update: (context, authService, sopService, previous) =>
+              previous ??
+              AnalyticsService(
+                sopService: sopService,
+                authService: authService,
+              ),
         ),
       ],
       child: const MyApp(),
@@ -73,7 +74,8 @@ class _MyAppState extends State<MyApp> {
       Future.delayed(const Duration(seconds: 2), () {
         if (context.mounted) {
           // Simulate an email link coming in
-          const testLink = 'https://www.example.com/finishSignUp?cartId=1234&signIn=true';
+          const testLink =
+              'https://www.example.com/finishSignUp?cartId=1234&signIn=true';
           DeepLinkHandler.handleLink(context, testLink);
         }
       });
@@ -140,30 +142,32 @@ class _MyAppState extends State<MyApp> {
       redirect: (context, state) {
         final authService = Provider.of<AuthService>(context, listen: false);
         final isLoggedIn = authService.isLoggedIn;
-        
+
         final isGoingToLogin = state.matchedLocation == '/login';
         final isGoingToRegister = state.matchedLocation == '/register';
-        final isGoingToCreateProfile = state.matchedLocation == '/create-profile';
-        final isGoingToRegisterCompany = state.matchedLocation == '/register-company';
-        
+        final isGoingToCreateProfile =
+            state.matchedLocation == '/create-profile';
+        final isGoingToRegisterCompany =
+            state.matchedLocation == '/register-company';
+
         // If not logged in and not going to auth routes, redirect to login
-        if (!isLoggedIn && 
-            !isGoingToLogin && 
-            !isGoingToRegister && 
-            !isGoingToCreateProfile && 
+        if (!isLoggedIn &&
+            !isGoingToLogin &&
+            !isGoingToRegister &&
+            !isGoingToCreateProfile &&
             !isGoingToRegisterCompany) {
           return '/login';
         }
-        
+
         // If logged in and going to auth routes, redirect to dashboard
-        if (isLoggedIn && 
-            (isGoingToLogin || 
-             isGoingToRegister || 
-             isGoingToCreateProfile || 
-             isGoingToRegisterCompany)) {
+        if (isLoggedIn &&
+            (isGoingToLogin ||
+                isGoingToRegister ||
+                isGoingToCreateProfile ||
+                isGoingToRegisterCompany)) {
           return '/';
         }
-        
+
         return null;
       },
     );

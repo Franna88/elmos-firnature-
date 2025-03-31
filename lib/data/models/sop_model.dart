@@ -66,6 +66,8 @@ class SOPStep {
   final String? helpNote;
   final String? assignedTo;
   final int? estimatedTime; // in minutes
+  final List<String> stepTools; // Tools needed specifically for this step
+  final List<String> stepHazards; // Hazards specific to this step
 
   SOPStep({
     required this.id,
@@ -75,6 +77,8 @@ class SOPStep {
     this.helpNote,
     this.assignedTo,
     this.estimatedTime,
+    this.stepTools = const [],
+    this.stepHazards = const [],
   });
 
   SOPStep copyWith({
@@ -85,6 +89,8 @@ class SOPStep {
     String? helpNote,
     String? assignedTo,
     int? estimatedTime,
+    List<String>? stepTools,
+    List<String>? stepHazards,
   }) {
     return SOPStep(
       id: id ?? this.id,
@@ -94,6 +100,8 @@ class SOPStep {
       helpNote: helpNote ?? this.helpNote,
       assignedTo: assignedTo ?? this.assignedTo,
       estimatedTime: estimatedTime ?? this.estimatedTime,
+      stepTools: stepTools ?? this.stepTools,
+      stepHazards: stepHazards ?? this.stepHazards,
     );
   }
 }
@@ -128,4 +136,4 @@ class SOPTemplate {
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
     );
   }
-} 
+}

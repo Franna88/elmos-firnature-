@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import 'dart:html' as html;
+import 'dart:typed_data';
+import 'dart:convert';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
+import '../../widgets/sop_viewer.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -18,18 +24,18 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
   bool _isLoading = true;
   bool _isEditing = false;
   final _formKey = GlobalKey<FormState>();
-  
+
   // Form controllers
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _departmentController;
-  
+
   @override
   void initState() {
     super.initState();
     _loadSOP();
   }
-  
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -37,15 +43,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     _departmentController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _loadSOP() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final sopService = Provider.of<SOPService>(context, listen: false);
-      
+
       if (widget.sopId == 'new') {
         // Schedule the creation of a new SOP after the current build phase is complete
         // This prevents the "setState during build" error
@@ -55,14 +61,16 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
             'Description of the new SOP',
             'Department',
           );
-          
+
           if (mounted) {
             setState(() {
               _sop = newSop;
               // Initialize controllers
               _titleController = TextEditingController(text: _sop.title);
-              _descriptionController = TextEditingController(text: _sop.description);
-              _departmentController = TextEditingController(text: _sop.department);
+              _descriptionController =
+                  TextEditingController(text: _sop.description);
+              _departmentController =
+                  TextEditingController(text: _sop.department);
               _isLoading = false;
               _isEditing = true;
             });
@@ -83,12 +91,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
         }
         _sop = existingSop!;
       }
-      
+
       // Initialize controllers
       _titleController = TextEditingController(text: _sop.title);
       _descriptionController = TextEditingController(text: _sop.description);
       _departmentController = TextEditingController(text: _sop.department);
-      
+
       setState(() {
         _isLoading = false;
         _isEditing = widget.sopId == 'new';
@@ -102,16 +110,16 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       }
     }
   }
-  
+
   Future<void> _saveSOP() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
         final sopService = Provider.of<SOPService>(context, listen: false);
-        
+
         // Update SOP with form values
         final updatedSop = _sop.copyWith(
           title: _titleController.text,
@@ -119,15 +127,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
           department: _departmentController.text,
           updatedAt: DateTime.now(),
         );
-        
+
         await sopService.updateSop(updatedSop);
-        
+
         setState(() {
           _sop = updatedSop;
           _isLoading = false;
           _isEditing = false;
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('SOP saved successfully')),
@@ -137,7 +145,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
         setState(() {
           _isLoading = false;
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error saving SOP: $e')),
@@ -146,12 +154,14 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: _isLoading ? const Text('Loading...') : Text(_isEditing ? 'Edit SOP' : _sop.title),
+        title: _isLoading
+            ? const Text('Loading...')
+            : Text(_isEditing ? 'Edit SOP' : _sop.title),
         actions: [
           if (!_isLoading) // Only show these actions when not loading
             IconButton(
@@ -212,10 +222,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _buildSOPEditor(),
+          : _isEditing
+              ? _buildSOPEditor()
+              : SOPViewer(sop: _sop),
     );
   }
-  
+
   Widget _buildSOPEditor() {
     return Form(
       key: _formKey,
@@ -244,7 +256,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                       // Add tool
                       _showAddItemDialog('Tool', (item) {
                         setState(() {
-                          final updatedTools = List<String>.from(_sop.tools)..add(item);
+                          final updatedTools = List<String>.from(_sop.tools)
+                            ..add(item);
                           _sop = _sop.copyWith(tools: updatedTools);
                         });
                       });
@@ -258,8 +271,11 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                       // Add safety requirement
                       _showAddItemDialog('Safety Requirement', (item) {
                         setState(() {
-                          final updatedSafety = List<String>.from(_sop.safetyRequirements)..add(item);
-                          _sop = _sop.copyWith(safetyRequirements: updatedSafety);
+                          final updatedSafety =
+                              List<String>.from(_sop.safetyRequirements)
+                                ..add(item);
+                          _sop =
+                              _sop.copyWith(safetyRequirements: updatedSafety);
                         });
                       });
                     },
@@ -267,7 +283,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                 ],
               ),
             ),
-          
+
           // SOP content
           Expanded(
             child: SingleChildScrollView(
@@ -433,7 +449,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Steps section
                   Text(
                     'Steps',
@@ -465,46 +481,87 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(12),
-                                    color: Theme.of(context).colorScheme.primaryContainer,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer,
                                     child: Row(
                                       children: [
                                         CircleAvatar(
-                                          backgroundColor: Theme.of(context).colorScheme.primary,
-                                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          foregroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .onPrimary,
                                           child: Text('${index + 1}'),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
                                             step.title,
-                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onPrimaryContainer,
+                                                ),
                                           ),
                                         ),
-                                        if (_isEditing)
+                                        if (_isEditing) ...[
+                                          IconButton(
+                                            icon: const Icon(Icons.edit),
+                                            onPressed: () {
+                                              _showEditStepDialog(step, index);
+                                            },
+                                          ),
                                           IconButton(
                                             icon: const Icon(Icons.delete),
                                             onPressed: () {
                                               // Remove step
                                               setState(() {
-                                                final updatedSteps = List<SOPStep>.from(_sop.steps)
-                                                  ..removeAt(index);
-                                                _sop = _sop.copyWith(steps: updatedSteps);
+                                                final updatedSteps =
+                                                    List<SOPStep>.from(
+                                                        _sop.steps)
+                                                      ..removeAt(index);
+                                                _sop = _sop.copyWith(
+                                                    steps: updatedSteps);
                                               });
                                             },
                                           ),
+                                        ],
                                       ],
                                     ),
                                   ),
+                                  if (step.imageUrl != null) ...[
+                                    Image.network(
+                                      step.imageUrl!,
+                                      width: double.infinity,
+                                      height: 200,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return const Center(
+                                          child: Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child: Text('Failed to load image'),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                   Padding(
                                     padding: const EdgeInsets.all(16),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           step.instruction,
-                                          style: Theme.of(context).textTheme.bodyLarge,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyLarge,
                                         ),
                                         if (step.helpNote != null) ...[
                                           const SizedBox(height: 12),
@@ -512,11 +569,13 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
                                               color: Colors.amber.shade100,
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Row(
                                               children: [
-                                                const Icon(Icons.info_outline, color: Colors.amber),
+                                                const Icon(Icons.info_outline,
+                                                    color: Colors.amber),
                                                 const SizedBox(width: 8),
                                                 Expanded(
                                                   child: Text(
@@ -530,23 +589,115 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                             ),
                                           ),
                                         ],
-                                        if (step.assignedTo != null || step.estimatedTime != null) ...[
+                                        if (step.assignedTo != null ||
+                                            step.estimatedTime != null) ...[
                                           const SizedBox(height: 12),
                                           Row(
                                             children: [
                                               if (step.assignedTo != null)
                                                 Chip(
-                                                  avatar: const Icon(Icons.person, size: 16),
+                                                  avatar: const Icon(
+                                                      Icons.person,
+                                                      size: 16),
                                                   label: Text(step.assignedTo!),
                                                 ),
                                               const SizedBox(width: 8),
                                               if (step.estimatedTime != null)
                                                 Chip(
-                                                  avatar: const Icon(Icons.timer, size: 16),
-                                                  label: Text('${step.estimatedTime} min'),
+                                                  avatar: const Icon(
+                                                      Icons.timer,
+                                                      size: 16),
+                                                  label: Text(
+                                                      '${step.estimatedTime} min'),
                                                 ),
                                             ],
                                           ),
+                                        ],
+                                        if (step.stepTools.isNotEmpty ||
+                                            step.stepHazards.isNotEmpty) ...[
+                                          const SizedBox(height: 16),
+                                          const Divider(),
+                                          const SizedBox(height: 8),
+
+                                          // Step Tools Section
+                                          if (step.stepTools.isNotEmpty) ...[
+                                            Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Icon(Icons.build,
+                                                    color: Colors.blue,
+                                                    size: 18),
+                                                const SizedBox(width: 8),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'Tools Needed:',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      children: step.stepTools
+                                                          .map((tool) => Chip(
+                                                                label:
+                                                                    Text(tool),
+                                                                backgroundColor:
+                                                                    Colors.blue
+                                                                        .shade50,
+                                                              ))
+                                                          .toList(),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                          ],
+
+                                          // Step Hazards Section
+                                          if (step.stepHazards.isNotEmpty) ...[
+                                            Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Icon(Icons.warning,
+                                                    color: Colors.orange,
+                                                    size: 18),
+                                                const SizedBox(width: 8),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'Hazards:',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      children: step.stepHazards
+                                                          .map((hazard) => Chip(
+                                                                label: Text(
+                                                                    hazard),
+                                                                backgroundColor:
+                                                                    Colors
+                                                                        .orange
+                                                                        .shade50,
+                                                              ))
+                                                          .toList(),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ],
                                       ],
                                     ),
@@ -557,7 +708,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                           },
                         ),
                   const SizedBox(height: 24),
-                  
+
                   // Tools section
                   Text(
                     'Tools and Equipment',
@@ -587,12 +738,16 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                         Expanded(child: Text(_sop.tools[i])),
                                         if (_isEditing)
                                           IconButton(
-                                            icon: const Icon(Icons.delete, size: 16),
+                                            icon: const Icon(Icons.delete,
+                                                size: 16),
                                             onPressed: () {
                                               setState(() {
-                                                final updatedTools = List<String>.from(_sop.tools)
-                                                  ..removeAt(i);
-                                                _sop = _sop.copyWith(tools: updatedTools);
+                                                final updatedTools =
+                                                    List<String>.from(
+                                                        _sop.tools)
+                                                      ..removeAt(i);
+                                                _sop = _sop.copyWith(
+                                                    tools: updatedTools);
                                               });
                                             },
                                           ),
@@ -604,7 +759,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Safety requirements section
                   Text(
                     'Safety Requirements',
@@ -624,22 +779,32 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                for (int i = 0; i < _sop.safetyRequirements.length; i++)
+                                for (int i = 0;
+                                    i < _sop.safetyRequirements.length;
+                                    i++)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.security, size: 16, color: Colors.red),
+                                        const Icon(Icons.security,
+                                            size: 16, color: Colors.red),
                                         const SizedBox(width: 8),
-                                        Expanded(child: Text(_sop.safetyRequirements[i])),
+                                        Expanded(
+                                            child: Text(
+                                                _sop.safetyRequirements[i])),
                                         if (_isEditing)
                                           IconButton(
-                                            icon: const Icon(Icons.delete, size: 16),
+                                            icon: const Icon(Icons.delete,
+                                                size: 16),
                                             onPressed: () {
                                               setState(() {
-                                                final updatedSafety = List<String>.from(_sop.safetyRequirements)
-                                                  ..removeAt(i);
-                                                _sop = _sop.copyWith(safetyRequirements: updatedSafety);
+                                                final updatedSafety =
+                                                    List<String>.from(
+                                                        _sop.safetyRequirements)
+                                                      ..removeAt(i);
+                                                _sop = _sop.copyWith(
+                                                    safetyRequirements:
+                                                        updatedSafety);
                                               });
                                             },
                                           ),
@@ -651,7 +816,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Cautions section
                   Text(
                     'Cautions and Limitations',
@@ -676,17 +841,22 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.warning, size: 16, color: Colors.orange),
+                                        const Icon(Icons.warning,
+                                            size: 16, color: Colors.orange),
                                         const SizedBox(width: 8),
                                         Expanded(child: Text(_sop.cautions[i])),
                                         if (_isEditing)
                                           IconButton(
-                                            icon: const Icon(Icons.delete, size: 16),
+                                            icon: const Icon(Icons.delete,
+                                                size: 16),
                                             onPressed: () {
                                               setState(() {
-                                                final updatedCautions = List<String>.from(_sop.cautions)
-                                                  ..removeAt(i);
-                                                _sop = _sop.copyWith(cautions: updatedCautions);
+                                                final updatedCautions =
+                                                    List<String>.from(
+                                                        _sop.cautions)
+                                                      ..removeAt(i);
+                                                _sop = _sop.copyWith(
+                                                    cautions: updatedCautions);
                                               });
                                             },
                                           ),
@@ -705,103 +875,242 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       ),
     );
   }
-  
+
   void _showAddStepDialog() {
     final titleController = TextEditingController();
     final instructionController = TextEditingController();
     final helpNoteController = TextEditingController();
     final assignedToController = TextEditingController();
     final estimatedTimeController = TextEditingController();
-    
+    String? imageUrl;
+    List<String> stepTools = [];
+    List<String> stepHazards = [];
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Step'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Step Title',
-                  hintText: 'Enter a title for this step',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add Step'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Step Title',
+                    hintText: 'Enter a title for this step',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: instructionController,
-                decoration: const InputDecoration(
-                  labelText: 'Instructions',
-                  hintText: 'Enter detailed instructions for this step',
+                const SizedBox(height: 16),
+                TextField(
+                  controller: instructionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Step Description',
+                    hintText: 'Enter detailed instructions for this step',
+                  ),
+                  maxLines: 3,
                 ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: helpNoteController,
-                decoration: const InputDecoration(
-                  labelText: 'Help Note (Optional)',
-                  hintText: 'Enter any additional notes or tips',
+                const SizedBox(height: 16),
+                // Image upload section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Step Image (Optional)'),
+                    const SizedBox(height: 8),
+                    if (imageUrl != null) ...[
+                      Image.network(
+                        imageUrl!,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.image),
+                      label:
+                          Text(imageUrl == null ? 'Add Image' : 'Change Image'),
+                      onPressed: () async {
+                        final stepId =
+                            DateTime.now().millisecondsSinceEpoch.toString();
+                        final url =
+                            await _pickAndUploadImage(context, _sop.id, stepId);
+                        if (url != null) {
+                          setState(() {
+                            imageUrl = url;
+                          });
+                        }
+                      },
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: assignedToController,
-                decoration: const InputDecoration(
-                  labelText: 'Assigned To (Optional)',
-                  hintText: 'Enter who should perform this step',
+                const SizedBox(height: 16),
+                // Step-specific tools section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Tools Needed for this Step',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...stepTools.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      String tool = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.build, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(tool)),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 16),
+                              onPressed: () {
+                                setState(() {
+                                  stepTools.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Tool'),
+                      onPressed: () {
+                        _showAddItemToListDialog('Tool', (tool) {
+                          setState(() {
+                            stepTools.add(tool);
+                          });
+                        });
+                      },
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: estimatedTimeController,
-                decoration: const InputDecoration(
-                  labelText: 'Estimated Time (Minutes, Optional)',
-                  hintText: 'Enter estimated time to complete',
+                const SizedBox(height: 16),
+                // Step-specific hazards section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Hazards for this Step',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...stepHazards.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      String hazard = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning,
+                                size: 16, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(hazard)),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 16),
+                              onPressed: () {
+                                setState(() {
+                                  stepHazards.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Hazard'),
+                      onPressed: () {
+                        _showAddItemToListDialog('Hazard', (hazard) {
+                          setState(() {
+                            stepHazards.add(hazard);
+                          });
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                keyboardType: TextInputType.number,
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: helpNoteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Help Note (Optional)',
+                    hintText: 'Enter any additional notes or tips',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: assignedToController,
+                  decoration: const InputDecoration(
+                    labelText: 'Assigned To (Optional)',
+                    hintText: 'Enter who should perform this step',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: estimatedTimeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Estimated Time (Minutes, Optional)',
+                    hintText: 'Enter estimated time to complete',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.isNotEmpty &&
+                    instructionController.text.isNotEmpty) {
+                  final newStep = SOPStep(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    title: titleController.text,
+                    instruction: instructionController.text,
+                    imageUrl: imageUrl,
+                    helpNote: helpNoteController.text.isNotEmpty
+                        ? helpNoteController.text
+                        : null,
+                    assignedTo: assignedToController.text.isNotEmpty
+                        ? assignedToController.text
+                        : null,
+                    estimatedTime: estimatedTimeController.text.isNotEmpty
+                        ? int.tryParse(estimatedTimeController.text)
+                        : null,
+                    stepTools: stepTools,
+                    stepHazards: stepHazards,
+                  );
+
+                  this.setState(() {
+                    final updatedSteps = List<SOPStep>.from(_sop.steps)
+                      ..add(newStep);
+                    _sop = _sop.copyWith(steps: updatedSteps);
+                  });
+
+                  Navigator.pop(context);
+
+                  // Immediately save the SOP with the new step
+                  _saveSOP();
+                }
+              },
+              child: const Text('Add Step'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (titleController.text.isNotEmpty && instructionController.text.isNotEmpty) {
-                final newStep = SOPStep(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  title: titleController.text,
-                  instruction: instructionController.text,
-                  helpNote: helpNoteController.text.isNotEmpty ? helpNoteController.text : null,
-                  assignedTo: assignedToController.text.isNotEmpty ? assignedToController.text : null,
-                  estimatedTime: estimatedTimeController.text.isNotEmpty
-                      ? int.tryParse(estimatedTimeController.text)
-                      : null,
-                );
-                
-                setState(() {
-                  final updatedSteps = List<SOPStep>.from(_sop.steps)..add(newStep);
-                  _sop = _sop.copyWith(steps: updatedSteps);
-                });
-                
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
-  
-  void _showAddItemDialog(String itemType, Function(String) onAdd) {
+
+  // Helper method to add an item to a list
+  void _showAddItemToListDialog(String itemType, Function(String) onAdd) {
     final itemController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -831,7 +1140,40 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       ),
     );
   }
-  
+
+  void _showAddItemDialog(String itemType, Function(String) onAdd) {
+    final itemController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add $itemType'),
+        content: TextField(
+          controller: itemController,
+          decoration: InputDecoration(
+            labelText: itemType,
+            hintText: 'Enter $itemType',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (itemController.text.isNotEmpty) {
+                onAdd(itemController.text);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showQRCodeDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -869,7 +1211,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       ),
     );
   }
-  
+
   void _confirmDelete() {
     showDialog(
       context: context,
@@ -890,11 +1232,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
             ),
             onPressed: () async {
               Navigator.pop(context);
-              
+
               try {
-                final sopService = Provider.of<SOPService>(context, listen: false);
+                final sopService =
+                    Provider.of<SOPService>(context, listen: false);
                 await sopService.deleteSop(_sop.id);
-                
+
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('SOP deleted successfully')),
@@ -915,8 +1258,320 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       ),
     );
   }
-  
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
-} 
+
+  Future<String?> _pickAndUploadImage(
+      BuildContext context, String sopId, String stepId) async {
+    try {
+      // Use file picker to pick an image
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final PlatformFile file = result.files.first;
+        final sopService = Provider.of<SOPService>(context, listen: false);
+
+        // For web, convert to File and upload
+        if (file.bytes != null) {
+          // We're on the web, create a temporary file or use bytes directly
+          final webImage = html.File(
+            [file.bytes!],
+            file.name,
+            {'type': 'image/${file.extension}'},
+          );
+
+          // Convert web file to Flutter File for upload
+          final tempFile = File(file.name);
+          final path = await _createFileFromBytes(file.bytes!);
+
+          if (path != null) {
+            final uploadedUrl =
+                await sopService.uploadImage(File(path), sopId, stepId);
+            return uploadedUrl;
+          }
+
+          // For local auth mode, return a data URL
+          if (sopService.usingLocalData) {
+            final base64 = base64Encode(file.bytes!);
+            final dataUrl = 'data:image/${file.extension};base64,$base64';
+            return dataUrl;
+          }
+        } else if (file.path != null) {
+          // We're on a mobile platform
+          final uploadedUrl =
+              await sopService.uploadImage(File(file.path!), sopId, stepId);
+          return uploadedUrl;
+        }
+      }
+      return null;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+      return null;
+    }
+  }
+
+  Future<String?> _createFileFromBytes(Uint8List bytes) async {
+    try {
+      // On web, we can't create a real file, so we use a data URL
+      return null;
+    } catch (e) {
+      print('Error creating file from bytes: $e');
+      return null;
+    }
+  }
+
+  void _showEditStepDialog(SOPStep step, int index) {
+    final titleController = TextEditingController(text: step.title);
+    final instructionController = TextEditingController(text: step.instruction);
+    final helpNoteController = TextEditingController(text: step.helpNote ?? '');
+    final assignedToController =
+        TextEditingController(text: step.assignedTo ?? '');
+    final estimatedTimeController = TextEditingController(
+      text: step.estimatedTime != null ? step.estimatedTime.toString() : '',
+    );
+    String? imageUrl = step.imageUrl;
+    List<String> stepTools = List<String>.from(step.stepTools);
+    List<String> stepHazards = List<String>.from(step.stepHazards);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Step'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Step Title',
+                    hintText: 'Enter a title for this step',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: instructionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Step Description',
+                    hintText: 'Enter detailed instructions for this step',
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                // Image upload section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Step Image (Optional)'),
+                    const SizedBox(height: 8),
+                    if (imageUrl != null) ...[
+                      Image.network(
+                        imageUrl!,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('Failed to load image'),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Remove Image'),
+                        onPressed: () {
+                          setState(() {
+                            imageUrl = null;
+                          });
+                        },
+                      ),
+                    ],
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.image),
+                      label:
+                          Text(imageUrl == null ? 'Add Image' : 'Change Image'),
+                      onPressed: () async {
+                        final url = await _pickAndUploadImage(
+                            context, _sop.id, step.id);
+                        if (url != null) {
+                          setState(() {
+                            imageUrl = url;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Step-specific tools section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Tools Needed for this Step',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...stepTools.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      String tool = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.build, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(tool)),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 16),
+                              onPressed: () {
+                                setState(() {
+                                  stepTools.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Tool'),
+                      onPressed: () {
+                        _showAddItemToListDialog('Tool', (tool) {
+                          setState(() {
+                            stepTools.add(tool);
+                          });
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Step-specific hazards section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Hazards for this Step',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...stepHazards.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      String hazard = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning,
+                                size: 16, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(hazard)),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 16),
+                              onPressed: () {
+                                setState(() {
+                                  stepHazards.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Hazard'),
+                      onPressed: () {
+                        _showAddItemToListDialog('Hazard', (hazard) {
+                          setState(() {
+                            stepHazards.add(hazard);
+                          });
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: helpNoteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Help Note (Optional)',
+                    hintText: 'Enter any additional notes or tips',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: assignedToController,
+                  decoration: const InputDecoration(
+                    labelText: 'Assigned To (Optional)',
+                    hintText: 'Enter who should perform this step',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: estimatedTimeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Estimated Time (Minutes, Optional)',
+                    hintText: 'Enter estimated time to complete',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.isNotEmpty &&
+                    instructionController.text.isNotEmpty) {
+                  final updatedStep = step.copyWith(
+                    title: titleController.text,
+                    instruction: instructionController.text,
+                    imageUrl: imageUrl,
+                    helpNote: helpNoteController.text.isNotEmpty
+                        ? helpNoteController.text
+                        : null,
+                    assignedTo: assignedToController.text.isNotEmpty
+                        ? assignedToController.text
+                        : null,
+                    estimatedTime: estimatedTimeController.text.isNotEmpty
+                        ? int.tryParse(estimatedTimeController.text)
+                        : null,
+                    stepTools: stepTools,
+                    stepHazards: stepHazards,
+                  );
+
+                  this.setState(() {
+                    final updatedSteps = List<SOPStep>.from(_sop.steps);
+                    updatedSteps[index] = updatedStep;
+                    _sop = _sop.copyWith(steps: updatedSteps);
+                  });
+
+                  Navigator.pop(context);
+
+                  // Immediately save the SOP with the updated step
+                  _saveSOP();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
