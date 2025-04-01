@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/sop_model.dart';
+import 'dart:convert';
 
 class SOPViewer extends StatelessWidget {
   final SOP sop;
@@ -163,24 +164,7 @@ class SOPViewer extends StatelessWidget {
                                 bottomLeft: Radius.circular(4),
                                 bottomRight: Radius.circular(4),
                               ),
-                              child: Image.network(
-                                step.imageUrl!,
-                                width: double.infinity,
-                                height: 200,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const SizedBox(
-                                    height: 100,
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.broken_image,
-                                        size: 50,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                              child: _buildStepImage(step.imageUrl!, context),
                             ),
                           ],
                           Padding(
@@ -471,5 +455,61 @@ class SOPViewer extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Widget _buildStepImage(String imageUrl, BuildContext context) {
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      return Image.memory(
+        base64Decode(imageUrl.split(',')[1]),
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+  }
+
+  Widget _buildImageError() {
+    return const SizedBox(
+      height: 100,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.broken_image,
+              size: 40,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Image could not be loaded',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

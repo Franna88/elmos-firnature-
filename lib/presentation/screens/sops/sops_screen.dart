@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../widgets/app_scaffold.dart';
+import 'dart:convert';
 
 class SOPsScreen extends StatefulWidget {
   const SOPsScreen({super.key});
@@ -44,11 +45,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('SOPs Help'),
+                title: const Text('Furniture SOPs Help'),
                 content: const Text(
                   'Standard Operating Procedures (SOPs) document the standard processes '
-                  'for your organization. Here you can view, edit, and manage all your SOPs '
-                  'in one place.',
+                  'for your furniture manufacturing operations. Here you can manage SOPs for wood finishing, '
+                  'assembly, upholstery, and CNC operations to ensure consistent quality in all your products.',
                 ),
                 actions: [
                   TextButton(
@@ -213,18 +214,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                 if (sop.steps.isNotEmpty &&
                     sop.steps.first.imageUrl != null) ...[
                   const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      sop.steps.first.imageUrl!,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
+                  _buildImage(sop.steps.first.imageUrl),
                 ],
                 const SizedBox(height: 16),
                 Row(
@@ -259,6 +249,79 @@ class _SOPsScreenState extends State<SOPsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildImage(String? imageUrl) {
+    if (imageUrl == null) {
+      return Container(
+        color: Colors.grey[300],
+        height: 120,
+        child: const Center(
+          child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+        ),
+      );
+    }
+
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',')[1]);
+        return Image.memory(
+          bytes,
+          height: 120,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        );
+      } catch (e) {
+        debugPrint('Error displaying data URL image: $e');
+        return _buildImageError();
+      }
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        height: 120,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        height: 120,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+  }
+
+  Widget _buildImageError() {
+    return Container(
+      height: 120,
+      color: Colors.grey[200],
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.broken_image,
+              size: 30,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Image not available',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }

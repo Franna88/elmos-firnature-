@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/sop_service.dart';
 import '../../widgets/app_scaffold.dart';
+import 'dart:convert';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -33,7 +34,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Manage your Standard Operating Procedures efficiently with our platform.',
+                      'Manage your furniture manufacturing SOPs efficiently with our platform. Create detailed procedures for assembly, finishing, and quality control.',
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -123,27 +124,10 @@ class DashboardScreen extends StatelessWidget {
                               },
                             ),
                             // Show image from first step if available
-                            if (sop.steps.isNotEmpty &&
-                                sop.steps.first.imageUrl != null)
-                              Container(
-                                height: 120,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(
-                                      color: Colors.grey.shade300,
-                                      width: 1,
-                                    ),
-                                  ),
-                                ),
-                                child: Image.network(
-                                  sop.steps.first.imageUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const SizedBox.shrink();
-                                  },
-                                ),
-                              ),
+                            _buildImage(sop.steps.isNotEmpty &&
+                                    sop.steps.first.imageUrl != null
+                                ? sop.steps.first.imageUrl
+                                : null),
                           ],
                         ),
                       );
@@ -249,6 +233,79 @@ class DashboardScreen extends StatelessWidget {
                     color: color,
                     fontWeight: FontWeight.bold,
                   ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImage(String? imageUrl) {
+    if (imageUrl == null) {
+      return Container(
+        color: Colors.grey[300],
+        height: 120,
+        child: const Center(
+          child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+        ),
+      );
+    }
+
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',')[1]);
+        return Image.memory(
+          bytes,
+          height: 120,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        );
+      } catch (e) {
+        debugPrint('Error displaying data URL image: $e');
+        return _buildImageError();
+      }
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        height: 120,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        height: 120,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+  }
+
+  Widget _buildImageError() {
+    return Container(
+      height: 120,
+      color: Colors.grey[200],
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.broken_image,
+              size: 30,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Image not available',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
         ),

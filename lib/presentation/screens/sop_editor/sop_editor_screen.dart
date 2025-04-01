@@ -9,6 +9,7 @@ import 'dart:convert';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../widgets/sop_viewer.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -535,21 +536,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                     ),
                                   ),
                                   if (step.imageUrl != null) ...[
-                                    Image.network(
-                                      step.imageUrl!,
-                                      width: double.infinity,
-                                      height: 200,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return const Center(
-                                          child: Padding(
-                                            padding: EdgeInsets.all(8.0),
-                                            child: Text('Failed to load image'),
-                                          ),
-                                        );
-                                      },
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: _buildStepImage(
+                                          step.imageUrl, context),
                                     ),
+                                    const SizedBox(height: 8),
                                   ],
                                   Padding(
                                     padding: const EdgeInsets.all(16),
@@ -919,11 +911,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                     const Text('Step Image (Optional)'),
                     const SizedBox(height: 8),
                     if (imageUrl != null) ...[
-                      Image.network(
-                        imageUrl!,
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _buildStepImage(imageUrl, context),
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -1272,57 +1262,69 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
         allowMultiple: false,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final PlatformFile file = result.files.first;
-        final sopService = Provider.of<SOPService>(context, listen: false);
+      if (result == null || result.files.isEmpty) {
+        // User canceled the picker
+        return null;
+      }
 
-        // For web, convert to File and upload
-        if (file.bytes != null) {
-          // We're on the web, create a temporary file or use bytes directly
-          final webImage = html.File(
-            [file.bytes!],
-            file.name,
-            {'type': 'image/${file.extension}'},
-          );
+      final PlatformFile file = result.files.first;
+      final sopService = Provider.of<SOPService>(context, listen: false);
 
-          // Convert web file to Flutter File for upload
-          final tempFile = File(file.name);
-          final path = await _createFileFromBytes(file.bytes!);
+      // If we're in local data mode, just create a data URL
+      if (sopService.usingLocalData && file.bytes != null) {
+        final base64 = base64Encode(file.bytes!);
+        final extension = file.extension?.toLowerCase() ?? 'jpg';
+        final dataUrl = 'data:image/$extension;base64,$base64';
+        return dataUrl;
+      }
 
-          if (path != null) {
-            final uploadedUrl =
-                await sopService.uploadImage(File(path), sopId, stepId);
-            return uploadedUrl;
-          }
+      // For web, handle file.bytes
+      if (file.bytes != null) {
+        try {
+          // On web, we'll use a workaround since we can't directly create a File
+          // Instead, we'll create a data URL and pass it to the service
+          final base64 = base64Encode(file.bytes!);
+          final extension = file.extension?.toLowerCase() ?? 'jpg';
+          final dataUrl = 'data:image/$extension;base64,$base64';
 
-          // For local auth mode, return a data URL
-          if (sopService.usingLocalData) {
-            final base64 = base64Encode(file.bytes!);
-            final dataUrl = 'data:image/${file.extension};base64,$base64';
+          if (kIsWeb) {
+            // In web mode, we'll use this directly
             return dataUrl;
+          } else {
+            // This is a fallback that shouldn't happen - web detected but not using kIsWeb
+            return 'assets/images/placeholder.png';
           }
-        } else if (file.path != null) {
-          // We're on a mobile platform
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error processing web image: $e');
+          }
+          // Return a placeholder as fallback
+          return 'assets/images/placeholder.png';
+        }
+      }
+      // For mobile platforms with file.path
+      else if (file.path != null) {
+        try {
           final uploadedUrl =
               await sopService.uploadImage(File(file.path!), sopId, stepId);
           return uploadedUrl;
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error uploading image from path: $e');
+          }
+          return 'assets/images/placeholder.png';
         }
       }
-      return null;
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
-      return null;
-    }
-  }
 
-  Future<String?> _createFileFromBytes(Uint8List bytes) async {
-    try {
-      // On web, we can't create a real file, so we use a data URL
-      return null;
+      // If we reach here, something went wrong but we have a fallback
+      return 'assets/images/placeholder.png';
     } catch (e) {
-      print('Error creating file from bytes: $e');
+      if (kDebugMode) {
+        print('Error in image picking process: $e');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not select image: $e')),
+      );
       return null;
     }
   }
@@ -1373,19 +1375,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                     const Text('Step Image (Optional)'),
                     const SizedBox(height: 8),
                     if (imageUrl != null) ...[
-                      Image.network(
-                        imageUrl!,
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('Failed to load image'),
-                            ),
-                          );
-                        },
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _buildStepImage(imageUrl, context),
                       ),
                       const SizedBox(height: 8),
                       TextButton.icon(
@@ -1568,6 +1560,70 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                 }
               },
               child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepImage(String? imageUrl, BuildContext context) {
+    if (imageUrl == null) return Container();
+
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',')[1]);
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: 200,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        );
+      } catch (e) {
+        debugPrint('Error displaying data URL image: $e');
+        return _buildImageError();
+      }
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+  }
+
+  Widget _buildImageError() {
+    return const SizedBox(
+      height: 100,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.broken_image,
+              size: 40,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Image could not be loaded',
+              style: TextStyle(color: Colors.grey),
             ),
           ],
         ),

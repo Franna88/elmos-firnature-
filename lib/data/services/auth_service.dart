@@ -37,10 +37,30 @@ class AuthService extends ChangeNotifier {
       'password': 'password123',
       'role': 'admin',
     },
-    'user@example.com': {
-      'name': 'Regular User',
+    'manager@elmosfurniture.com': {
+      'name': 'John Carpenter',
       'password': 'password123',
-      'role': 'user',
+      'role': 'manager',
+    },
+    'assembly@elmosfurniture.com': {
+      'name': 'Mike Wood',
+      'password': 'password123',
+      'role': 'assembly',
+    },
+    'finishing@elmosfurniture.com': {
+      'name': 'Lisa Stain',
+      'password': 'password123',
+      'role': 'finishing',
+    },
+    'cnc@elmosfurniture.com': {
+      'name': 'Robert CNC',
+      'password': 'password123',
+      'role': 'machinery',
+    },
+    'quality@elmosfurniture.com': {
+      'name': 'Sarah Quality',
+      'password': 'password123',
+      'role': 'quality',
     }
   };
 
@@ -249,13 +269,13 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> _localGoogleSignIn() async {
-    const email = 'google@example.com';
+    const email = 'google@elmosfurniture.com';
 
     if (!_localUsers.containsKey(email)) {
       _localUsers[email] = {
-        'name': 'Google User',
+        'name': 'Elmo Woodcraft',
         'password': 'google123',
-        'role': 'user',
+        'role': 'manager',
       };
     }
 

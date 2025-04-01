@@ -26,7 +26,18 @@ class AppScaffold extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: title.isEmpty
+            ? Row(
+                children: [
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: 32,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text("Elmo's Furniture SOP Manager"),
+                ],
+              )
+            : Text(title),
         automaticallyImplyLeading: false,
         leading: showBackButton
             ? IconButton(
