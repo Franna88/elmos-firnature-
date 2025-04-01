@@ -95,35 +95,40 @@ class SOPService extends ChangeNotifier {
         title: 'Furniture Assembly Template',
         description: 'Standard template for furniture assembly procedures',
         category: 'Assembly',
-        thumbnailUrl: 'assets/images/assembly.png',
+        thumbnailUrl:
+            'https://media.istockphoto.com/id/1271691214/photo/successful-furniture-assembly-worker-reads-instructions-to-assemble-shelf.jpg?s=612x612&w=0&k=20&c=KBMOiPX2o2WeTN6jcdpDVbMlBwizXTM2Sps2Jex2eQ0=',
       ),
       SOPTemplate(
         id: '2',
         title: 'Wood Finishing Template',
         description: 'Standard procedures for wood finishing and treatment',
         category: 'Finishing',
-        thumbnailUrl: 'assets/images/finishing.png',
+        thumbnailUrl:
+            'https://media.istockphoto.com/id/1303862719/photo/applying-varnish-to-a-wooden-surface-with-a-brush.jpg?s=612x612&w=0&k=20&c=F5VFRuPmX_yreFirNlBBX98lPg_l2CqCDnG6I2WyFSY=',
       ),
       SOPTemplate(
         id: '3',
         title: 'Quality Control Template',
         description: 'Quality control procedures for furniture inspection',
         category: 'Quality',
-        thumbnailUrl: 'assets/images/quality.png',
+        thumbnailUrl:
+            'https://media.istockphoto.com/id/655986486/photo/man-using-a-digital-level-while-installing-furniture.jpg?s=612x612&w=0&k=20&c=Ih_mSCZaM7Q0JnLniCdaFMJE38XWQNc15GmiXaZVkM0=',
       ),
       SOPTemplate(
         id: '4',
         title: 'Upholstery Template',
         description: 'Standard procedures for furniture upholstery',
         category: 'Upholstery',
-        thumbnailUrl: 'assets/images/upholstery.png',
+        thumbnailUrl:
+            'https://media.istockphoto.com/id/1440598592/photo/close-up-hands-of-professional-upholsterer-stapling-fabric-to-a-furniture-upholstery-of-a.jpg?s=612x612&w=0&k=20&c=N1T8eAe1vP38ek4DxSXBt5rJ6p0ZfOiX62QkTIyUn10=',
       ),
       SOPTemplate(
         id: '5',
         title: 'Machine Operation Template',
         description: 'Safety procedures for woodworking machinery operation',
         category: 'Machinery',
-        thumbnailUrl: 'assets/images/machinery.png',
+        thumbnailUrl:
+            'https://media.istockphoto.com/id/1132841403/photo/a-cnc-wood-router-cutting-out-a-pattern-for-furniture.jpg?s=612x612&w=0&k=20&c=Bh-G3D0Fdo5RZtZdvnJxm-J1-qdmKI7hGU_WcGx29so=',
       ),
     ];
     notifyListeners();
@@ -139,7 +144,7 @@ class SOPService extends ChangeNotifier {
             'Procedure for assembling wooden dining tables with four legs',
         department: 'Assembly',
         revisionNumber: 2,
-        createdBy: 'admin@example.com',
+        createdBy: 'assembly@elmosfurniture.com',
         createdAt: now.subtract(const Duration(days: 45)),
         updatedAt: now.subtract(const Duration(days: 5)),
         steps: [
@@ -151,6 +156,8 @@ class SOPService extends ChangeNotifier {
             helpNote: 'Ensure all parts are free from damage and defects.',
             stepTools: ['Inspection checklist', 'Measuring tape'],
             stepHazards: ['Splinters from rough edges'],
+            imageUrl:
+                'https://images.unsplash.com/photo-1581539250439-c96689b516dd?q=80&w=1000',
           ),
           SOPStep(
             id: '1_2',
@@ -161,6 +168,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 20,
             stepTools: ['Electric screwdriver', '5mm hex key', 'Rubber mallet'],
             stepHazards: ['Pinch points when aligning legs', 'Heavy lifting'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1271691214/photo/successful-furniture-assembly-worker-reads-instructions-to-assemble-shelf.jpg?s=612x612&w=0&k=20&c=KBMOiPX2o2WeTN6jcdpDVbMlBwizXTM2Sps2Jex2eQ0=',
           ),
           SOPStep(
             id: '1_3',
@@ -171,6 +180,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 15,
             stepTools: ['Electric screwdriver', 'Level', 'Tape measure'],
             stepHazards: ['Unstable structure during assembly'],
+            imageUrl:
+                'https://media.istockphoto.com/id/825530266/photo/assembling-of-furniture-closeup-hex-wrench-in-hand-furniture-screw-screwed-into-board-of-bench.jpg?s=612x612&w=0&k=20&c=tUMEuNdtJ7N0sNwIkJ0J5kMkzG0OjLB7MZlqKl-0Uo8=',
           ),
           SOPStep(
             id: '1_4',
@@ -183,6 +194,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 10,
             stepTools: ['Level', 'Inspection checklist'],
             stepHazards: [],
+            imageUrl:
+                'https://media.istockphoto.com/id/655986486/photo/man-using-a-digital-level-while-installing-furniture.jpg?s=612x612&w=0&k=20&c=Ih_mSCZaM7Q0JnLniCdaFMJE38XWQNc15GmiXaZVkM0=',
           ),
         ],
         tools: [
@@ -207,7 +220,7 @@ class SOPService extends ChangeNotifier {
         description: 'Standard procedure for applying finish to oak furniture',
         department: 'Finishing',
         revisionNumber: 3,
-        createdBy: 'admin@example.com',
+        createdBy: 'finishing@elmosfurniture.com',
         createdAt: now.subtract(const Duration(days: 90)),
         updatedAt: now.subtract(const Duration(days: 10)),
         steps: [
@@ -227,6 +240,8 @@ class SOPService extends ChangeNotifier {
               'Dust mask'
             ],
             stepHazards: ['Wood dust inhalation', 'Skin irritation from dust'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1200265110/photo/carpenter-working-with-sander-on-wooden-surface-in-carpentry-workshop.jpg?s=612x612&w=0&k=20&c=XxULNxf7adQlV3wMbIvANJ6a3Vp0KdnvqBWRcvP-IlQ=',
           ),
           SOPStep(
             id: '2_2',
@@ -243,6 +258,8 @@ class SOPService extends ChangeNotifier {
               'Pre-stain conditioner'
             ],
             stepHazards: ['Chemical exposure', 'Eye irritation'],
+            imageUrl:
+                'https://media.istockphoto.com/id/960995348/photo/carpenter-rubbing-wood-with-wax-close-up.jpg?s=612x612&w=0&k=20&c=HrwzZ9fZJ9Wr8xLGYPR4KxRxA0zzG5LwiBo6I4oGEUs=',
           ),
           SOPStep(
             id: '2_3',
@@ -255,6 +272,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 40,
             stepTools: ['Stain brushes', 'Clean cloths', 'Stain', 'Gloves'],
             stepHazards: ['Chemical exposure', 'Flammable materials'],
+            imageUrl:
+                'https://media.istockphoto.com/id/178401484/photo/worker-painting-furniture-detail.jpg?s=612x612&w=0&k=20&c=Vc9ZLs--r6b1eLvgO7JjEnTbJQTCuANdzJubLJvO9gY=',
           ),
           SOPStep(
             id: '2_4',
@@ -271,6 +290,8 @@ class SOPService extends ChangeNotifier {
               'Ventilation equipment'
             ],
             stepHazards: ['Chemical fumes', 'Fire hazard'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1303862719/photo/applying-varnish-to-a-wooden-surface-with-a-brush.jpg?s=612x612&w=0&k=20&c=F5VFRuPmX_yreFirNlBBX98lPg_l2CqCDnG6I2WyFSY=',
           ),
         ],
         tools: [
@@ -298,7 +319,7 @@ class SOPService extends ChangeNotifier {
         description: 'Complete process for upholstering dining chairs',
         department: 'Upholstery',
         revisionNumber: 1,
-        createdBy: 'admin@example.com',
+        createdBy: 'admin@elmosfurniture.com',
         createdAt: now.subtract(const Duration(days: 30)),
         updatedAt: now.subtract(const Duration(days: 30)),
         steps: [
@@ -313,6 +334,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 15,
             stepTools: ['Fine sandpaper', 'Wood glue', 'Clamps'],
             stepHazards: ['Wood dust', 'Pinch points from clamps'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1411280311/photo/craftsman-is-assembling-furniture-chair-in-his-workshop.jpg?s=612x612&w=0&k=20&c=Jxn3Kx8LlO_b8ZILd6Ni9h7z_tpCjXFPYHOmxCOZxF8=',
           ),
           SOPStep(
             id: '3_2',
@@ -329,6 +352,8 @@ class SOPService extends ChangeNotifier {
               'Jute webbing'
             ],
             stepHazards: ['Stapler injury', 'Strain from stretching'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1420539579/photo/upholsterer-is-pulling-elastic-webbing-bands-through-the-wooden-seat-frame.jpg?s=612x612&w=0&k=20&c=Oi4rmIZ_6xtW8LkMrTjWTLCrN-7gVuMn_fJMu3UMj0U=',
           ),
           SOPStep(
             id: '3_3',
@@ -346,6 +371,8 @@ class SOPService extends ChangeNotifier {
               'Batting'
             ],
             stepHazards: ['Cutting hazard', 'Chemical exposure from adhesives'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1208764897/photo/upholstery-artisan-adjusts-the-yellow-foam-rubber-on-the-armchair.jpg?s=612x612&w=0&k=20&c=brbJqojaC0G9H9PICPfH0rQQiyPiKa3lsKg-E0qFGf4=',
           ),
           SOPStep(
             id: '3_4',
@@ -363,6 +390,8 @@ class SOPService extends ChangeNotifier {
               'Upholstery tack strips'
             ],
             stepHazards: ['Stapler injury', 'Sharp tools'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1440598592/photo/close-up-hands-of-professional-upholsterer-stapling-fabric-to-a-furniture-upholstery-of-a.jpg?s=612x612&w=0&k=20&c=N1T8eAe1vP38ek4DxSXBt5rJ6p0ZfOiX62QkTIyUn10=',
           ),
           SOPStep(
             id: '3_5',
@@ -379,6 +408,8 @@ class SOPService extends ChangeNotifier {
               'Inspection mirror'
             ],
             stepHazards: ['Sharp tools'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1413018543/photo/female-upholsterer-working-at-her-studio.jpg?s=612x612&w=0&k=20&c=v0n7-0pL7RUyH--VaX42hWVJMUuRvDh0lEfQ7IRz1Q8=',
           ),
         ],
         tools: [
@@ -405,7 +436,7 @@ class SOPService extends ChangeNotifier {
         description: 'Safe operation procedure for CNC wood cutting machine',
         department: 'Machinery',
         revisionNumber: 5,
-        createdBy: 'admin@example.com',
+        createdBy: 'cnc@elmosfurniture.com',
         createdAt: now.subtract(const Duration(days: 120)),
         updatedAt: now.subtract(const Duration(days: 15)),
         steps: [
@@ -420,6 +451,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 10,
             stepTools: ['Inspection checklist', 'Flashlight'],
             stepHazards: ['Electrical hazards', 'Moving parts'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1461036269/photo/checking-the-cnc-machine-before-starting-the-production-of-molds-and-dies.jpg?s=612x612&w=0&k=20&c=kJ6TjC6lNuS9LiJrfqjvvxbMt2uBP_J3qfR4sNpRMuE=',
           ),
           SOPStep(
             id: '4_2',
@@ -432,6 +465,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 15,
             stepTools: ['T-clamps', 'Alignment squares', 'Measuring tape'],
             stepHazards: ['Pinch points', 'Heavy materials'],
+            imageUrl:
+                'https://media.istockphoto.com/id/538018043/photo/wooden-manufacturing-worker-using-industrial-tools.jpg?s=612x612&w=0&k=20&c=D64UHxPUBFFIqgfT_7UKlcXaRN8QPpMTGTVXvA1OP-s=',
           ),
           SOPStep(
             id: '4_3',
@@ -444,6 +479,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 10,
             stepTools: ['CNC software', 'Tool verification gauge'],
             stepHazards: ['Software errors could lead to machine crashes'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1214577526/photo/checking-details-on-a-digital-screen.jpg?s=612x612&w=0&k=20&c=pMtcdBVTkftv9m0i7T6WzAIPgKXWx21a3tCOo0QGIh0=',
           ),
           SOPStep(
             id: '4_4',
@@ -456,6 +493,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 45,
             stepTools: ['Hearing protection', 'Safety glasses', 'Dust mask'],
             stepHazards: ['Flying debris', 'Loud noise', 'Dust exposure'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1132841403/photo/a-cnc-wood-router-cutting-out-a-pattern-for-furniture.jpg?s=612x612&w=0&k=20&c=Bh-G3D0Fdo5RZtZdvnJxm-J1-qdmKI7hGU_WcGx29so=',
           ),
           SOPStep(
             id: '4_5',
@@ -468,6 +507,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 10,
             stepTools: ['Air hose', 'Vacuum', 'Deburring tool'],
             stepHazards: ['Sharp edges on cut material', 'Residual dust'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1189749481/photo/man-cleaning-and-blowing-debris-and-dust-from-cnc-cutter.jpg?s=612x612&w=0&k=20&c=Ix2JZVzbx-ky5Uy0nUUubVKw2DTEf9_lZJpyGx-KdKI=',
           ),
         ],
         tools: [
@@ -498,7 +539,7 @@ class SOPService extends ChangeNotifier {
             'Process for installing precision drawer slides in furniture',
         department: 'Assembly',
         revisionNumber: 2,
-        createdBy: 'admin@example.com',
+        createdBy: 'assembly@elmosfurniture.com',
         createdAt: now.subtract(const Duration(days: 60)),
         updatedAt: now.subtract(const Duration(days: 20)),
         steps: [
@@ -513,6 +554,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 10,
             stepTools: ['Measuring tape', 'Carpenter\'s square', 'Pencil'],
             stepHazards: [],
+            imageUrl:
+                'https://media.istockphoto.com/id/584705692/photo/carpenter-at-work.jpg?s=612x612&w=0&k=20&c=q0hy4YWDlol4SdGG-S7y_BfGAWxmkOcm_hRIgBW84rE=',
           ),
           SOPStep(
             id: '5_2',
@@ -525,6 +568,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 15,
             stepTools: ['Cordless drill', 'Drill bits', 'Level', 'Screwdriver'],
             stepHazards: ['Drill injuries', 'Wood splinters'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1397745117/photo/artisan-working-on-a-drawer.jpg?s=612x612&w=0&k=20&c=J0-ypHWrtm9q3DGdh4M9VUBx1bvxZXTGwxH3-H6_vTQ=',
           ),
           SOPStep(
             id: '5_3',
@@ -536,6 +581,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 15,
             stepTools: ['Cordless drill', 'Drill bits', 'Screwdriver'],
             stepHazards: ['Drill injuries'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1391236532/photo/carpenter-installing-drawer-slides-in-custom-cabinets.jpg?s=612x612&w=0&k=20&c=DnJGbPp4yEZx52DF0Qn1ePJEUU6MFu0QEUNfqVp2QTw=',
           ),
           SOPStep(
             id: '5_4',
@@ -548,6 +595,8 @@ class SOPService extends ChangeNotifier {
             estimatedTime: 5,
             stepTools: ['Adjustment tool for slides'],
             stepHazards: ['Pinch points between drawer and cabinet'],
+            imageUrl:
+                'https://media.istockphoto.com/id/1355063876/photo/man-opening-kitchen-cupboard-drawer.jpg?s=612x612&w=0&k=20&c=H9ExaGJzIEuHr2cMuR_ugtI1RYKSXLYmpJPR_I7D-pM=',
           ),
         ],
         tools: [
@@ -681,6 +730,34 @@ class SOPService extends ChangeNotifier {
 
     final userId = _auth?.currentUser?.uid ?? 'local_user';
 
+    // Default placeholder image for new SOPs
+    String defaultImageUrl =
+        'https://media.istockphoto.com/id/1271691214/photo/successful-furniture-assembly-worker-reads-instructions-to-assemble-shelf.jpg?s=612x612&w=0&k=20&c=KBMOiPX2o2WeTN6jcdpDVbMlBwizXTM2Sps2Jex2eQ0=';
+
+    // Choose department-specific default image
+    if (department.toLowerCase().contains('finish')) {
+      defaultImageUrl =
+          'https://media.istockphoto.com/id/1303862719/photo/applying-varnish-to-a-wooden-surface-with-a-brush.jpg?s=612x612&w=0&k=20&c=F5VFRuPmX_yreFirNlBBX98lPg_l2CqCDnG6I2WyFSY=';
+    } else if (department.toLowerCase().contains('upholstery')) {
+      defaultImageUrl =
+          'https://media.istockphoto.com/id/1440598592/photo/close-up-hands-of-professional-upholsterer-stapling-fabric-to-a-furniture-upholstery-of-a.jpg?s=612x612&w=0&k=20&c=N1T8eAe1vP38ek4DxSXBt5rJ6p0ZfOiX62QkTIyUn10=';
+    } else if (department.toLowerCase().contains('machine') ||
+        department.toLowerCase().contains('cnc')) {
+      defaultImageUrl =
+          'https://media.istockphoto.com/id/1132841403/photo/a-cnc-wood-router-cutting-out-a-pattern-for-furniture.jpg?s=612x612&w=0&k=20&c=Bh-G3D0Fdo5RZtZdvnJxm-J1-qdmKI7hGU_WcGx29so=';
+    }
+
+    // Default first step for a new SOP
+    final defaultFirstStep = SOPStep(
+      id: "${sopId}_1",
+      title: "Initial Step",
+      instruction:
+          "This is the first step of your SOP. Edit this step or add new ones.",
+      imageUrl: defaultImageUrl,
+      stepTools: [],
+      stepHazards: [],
+    );
+
     if (!_usingLocalData) {
       try {
         final sopData = {
@@ -691,7 +768,16 @@ class SOPService extends ChangeNotifier {
           'createdBy': userId,
           'createdAt': Timestamp.fromDate(now),
           'updatedAt': Timestamp.fromDate(now),
-          'steps': [],
+          'steps': [
+            {
+              'id': defaultFirstStep.id,
+              'title': defaultFirstStep.title,
+              'instruction': defaultFirstStep.instruction,
+              'imageUrl': defaultFirstStep.imageUrl,
+              'stepTools': defaultFirstStep.stepTools,
+              'stepHazards': defaultFirstStep.stepHazards,
+            }
+          ],
           'tools': [],
           'safetyRequirements': [],
           'cautions': [],
@@ -718,7 +804,7 @@ class SOPService extends ChangeNotifier {
       createdBy: userId,
       createdAt: now,
       updatedAt: now,
-      steps: [],
+      steps: [defaultFirstStep],
       tools: [],
       safetyRequirements: [],
       cautions: [],
