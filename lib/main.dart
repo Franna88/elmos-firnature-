@@ -6,7 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'utils/deep_link_handler.dart';
-// import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 // Screens
 // import 'presentation/screens/home_screen.dart';
@@ -32,8 +33,20 @@ import 'core/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Skip Firebase initialization and use fallback authentication
-  // Try using the app with fallback authentication only
+  try {
+    // Initialize Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    if (kDebugMode) {
+      print('Firebase initialized successfully');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error initializing Firebase: $e');
+      print('The app will run in local data mode');
+    }
+  }
 
   runApp(
     MultiProvider(
