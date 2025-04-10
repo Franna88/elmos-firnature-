@@ -750,9 +750,8 @@ class SOPService extends ChangeNotifier {
     // Default first step for a new SOP
     final defaultFirstStep = SOPStep(
       id: "${sopId}_1",
-      title: "Initial Step",
-      instruction:
-          "This is the first step of your SOP. Edit this step or add new ones.",
+      title: "",
+      instruction: "",
       imageUrl: defaultImageUrl,
       stepTools: [],
       stepHazards: [],

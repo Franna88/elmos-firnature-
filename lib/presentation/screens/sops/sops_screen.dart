@@ -5,6 +5,7 @@ import '../../../data/services/sop_service.dart';
 import '../../../data/services/print_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../widgets/app_scaffold.dart';
+import '../../../core/theme/app_theme.dart';
 import 'dart:convert';
 
 class SOPsScreen extends StatefulWidget {
@@ -120,19 +121,28 @@ class _SOPsScreenState extends State<SOPsScreen> {
             ),
           ),
 
-          // SOPs list
+          // SOPs grid view (matching dashboard style)
           Expanded(
             child: filteredSOPs.isEmpty
                 ? const Center(
                     child: Text('No SOPs found.'),
                   )
-                : ListView.builder(
+                : Padding(
                     padding: const EdgeInsets.all(16),
-                    itemCount: filteredSOPs.length,
-                    itemBuilder: (context, index) {
-                      final sop = filteredSOPs[index];
-                      return _buildSOPCard(context, sop);
-                    },
+                    child: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 3.0,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                      ),
+                      itemCount: filteredSOPs.length,
+                      itemBuilder: (context, index) {
+                        final sop = filteredSOPs[index];
+                        return _buildSOPCard(context, sop);
+                      },
+                    ),
                   ),
           ),
         ],
@@ -149,119 +159,178 @@ class _SOPsScreenState extends State<SOPsScreen> {
   }
 
   Widget _buildSOPCard(BuildContext context, SOP sop) {
+    // Get primary image for the card
+    final String? imageUrl =
+        sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
+            ? sop.steps.first.imageUrl
+            : null;
+
+    // Get department color
+    final Color departmentColor = _getDepartmentColor(sop.department);
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // SOP header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Theme.of(context).colorScheme.primaryContainer,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        sop.title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer,
-                            ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      margin: const EdgeInsets.all(0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: AppColors.cardBorder),
+      ),
+      child: InkWell(
+        onTap: () {
+          context.go('/editor/${sop.id}');
+        },
+        child: Row(
+          children: [
+            // Image section (35% of width)
+            Expanded(
+              flex: 35,
+              child: Stack(
+                children: [
+                  SizedBox(
+                    height: double.infinity,
+                    child: _buildImage(imageUrl),
+                  ),
+                  // Department badge
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: departmentColor.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Department: ${sop.department} • Rev: ${sop.revisionNumber}',
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer
-                              .withOpacity(0.8),
+                      child: Text(
+                        sop.department,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Last updated: ${_formatDate(sop.updatedAt)}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontSize: 12,
                     ),
                   ),
+                ],
+              ),
+            ),
+
+            // Content section (65% of width)
+            Expanded(
+              flex: 65,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title with Rev number
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            sop.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                              color: AppColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            'Rev ${sop.revisionNumber}',
+                            style: TextStyle(
+                              color: AppColors.textMedium,
+                              fontSize: 7,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Stats in a row
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.checklist,
+                          size: 10,
+                          color: AppColors.textLight,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${sop.steps.length} steps',
+                          style: TextStyle(
+                            color: AppColors.textLight,
+                            fontSize: 8,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 10,
+                          color: AppColors.textLight,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          _formatDate(sop.createdAt),
+                          style: TextStyle(
+                            color: AppColors.textLight,
+                            fontSize: 8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-
-          // SOP description
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              sop.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-
-          // SOP image (if available)
-          if (sop.steps.isNotEmpty && sop.steps.first.imageUrl != null) ...[
-            const SizedBox(height: 16),
-            _buildImage(sop.steps.first.imageUrl),
           ],
-
-          // Add buttons for actions
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.print),
-                  tooltip: 'Print SOP',
-                  onPressed: () => _printSOP(sop),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  tooltip: 'Edit SOP',
-                  onPressed: () {
-                    context.go('/editor/${sop.id}');
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.visibility),
-                  tooltip: 'View SOP',
-                  onPressed: () {
-                    context.go('/editor/${sop.id}');
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  Color _getDepartmentColor(String department) {
+    switch (department.toLowerCase()) {
+      case 'assembly':
+        return AppColors.blueAccent;
+      case 'finishing':
+        return AppColors.greenAccent;
+      case 'machinery':
+        return AppColors.orangeAccent;
+      case 'quality':
+        return AppColors.purpleAccent;
+      case 'upholstery':
+        return Colors.redAccent;
+      default:
+        return AppColors.primaryRed;
+    }
   }
 
   Widget _buildImage(String? imageUrl) {
     if (imageUrl == null) {
       return Container(
-        color: Colors.grey[300],
-        height: 120,
-        child: const Center(
-          child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+        color: Colors.grey[100],
+        width: double.infinity,
+        child: Center(
+          child: Icon(
+            Icons.image_not_supported,
+            size: 14,
+            color: AppColors.textLight.withOpacity(0.5),
+          ),
         ),
       );
     }
@@ -272,8 +341,8 @@ class _SOPsScreenState extends State<SOPsScreen> {
         final bytes = base64Decode(imageUrl.split(',')[1]);
         return Image.memory(
           bytes,
-          height: 120,
           width: double.infinity,
+          height: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
         );
@@ -286,8 +355,8 @@ class _SOPsScreenState extends State<SOPsScreen> {
     else if (imageUrl.startsWith('assets/')) {
       return Image.asset(
         imageUrl,
-        height: 120,
         width: double.infinity,
+        height: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
@@ -296,8 +365,8 @@ class _SOPsScreenState extends State<SOPsScreen> {
     else {
       return Image.network(
         imageUrl,
-        height: 120,
         width: double.infinity,
+        height: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
@@ -306,29 +375,19 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
   Widget _buildImageError() {
     return Container(
-      height: 120,
-      color: Colors.grey[200],
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.broken_image,
-              size: 30,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Image not available',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
+      width: double.infinity,
+      color: Colors.grey[100],
+      child: Center(
+        child: Icon(
+          Icons.broken_image,
+          size: 14,
+          color: AppColors.textLight.withOpacity(0.5),
         ),
       ),
     );
   }
 
   String _formatDate(DateTime date) {
-    return '${date.month}/${date.day}/${date.year}';
+    return "${date.day}/${date.month}/${date.year}";
   }
 }

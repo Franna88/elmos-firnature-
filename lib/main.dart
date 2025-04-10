@@ -212,8 +212,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp.router(
       title: 'SOP Management System',
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_scaffold.dart';
 import 'dart:convert';
 
@@ -18,97 +20,151 @@ class DashboardScreen extends StatelessWidget {
     return AppScaffold(
       title: "Dashboard",
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome section
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome, ${authService.userName ?? 'User'}!',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Manage your furniture manufacturing SOPs efficiently with our platform. Create detailed procedures for assembly, finishing, and quality control.',
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              // Navigate to create new SOP
-                              context.go('/editor/new');
-                            },
-                            icon: const Icon(Icons.add),
-                            label: const Text('Create New SOP'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xffB21E1E),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
+            // Welcome header with stats
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Welcome message
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome back, ${authService.userName ?? 'User'}',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Manage your furniture manufacturing procedures efficiently.',
+                        style: TextStyle(
+                          color: AppColors.textMedium,
+                          fontSize: 15,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                context.go('/editor/new');
+                              },
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Create SOP'),
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
+                          const SizedBox(width: 16),
+                          OutlinedButton.icon(
                             onPressed: () {
                               context.go('/analytics');
                             },
-                            icon: const Icon(Icons.analytics),
-                            label: const Text('View Analytics'),
+                            icon: const Icon(Icons.insights_outlined, size: 18),
+                            label: const Text('Analytics'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xff17A2B8),
-                              side: const BorderSide(color: Color(0xff17A2B8)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 16),
                             ),
                           ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 48),
+                // Quick stats
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Your Activity',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
                         ),
+                        const SizedBox(height: 16),
+                        _buildStatRow(
+                          Icons.description_outlined,
+                          '${sopService.sops.length} SOPs',
+                          'Created',
+                          AppColors.primaryRed,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildStatRow(
+                          Icons.category_outlined,
+                          '${sopService.templates.length} Templates',
+                          'Available',
+                          AppColors.blueAccent,
+                        ),
+                        if (kDebugMode) const SizedBox(height: 12),
+                        if (kDebugMode)
+                          _buildStatRow(
+                            Icons.person_outline,
+                            'Admin',
+                            'Role',
+                            AppColors.greenAccent,
+                          ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 24),
 
-            // Recent SOPs section
-            Text(
-              'Recent SOPs',
-              style: Theme.of(context).textTheme.titleLarge,
+            const SizedBox(height: 32),
+
+            // Section title with action
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent SOPs',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                if (sopService.sops.length > 6)
+                  TextButton.icon(
+                    onPressed: () {
+                      context.go('/sops');
+                    },
+                    icon: const Icon(Icons.arrow_forward, size: 18),
+                    label: const Text('View All'),
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
+
+            // SOP cards grid
             sopService.sops.isEmpty
-                ? const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Center(
-                        child: Text(
-                          'No SOPs created yet. Create your first SOP to get started!',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  )
+                ? _buildEmptyState(context)
                 : GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
-                      childAspectRatio: 1.5,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
+                      childAspectRatio: 3.0,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
                     ),
                     itemCount:
                         sopService.sops.length > 6 ? 6 : sopService.sops.length,
@@ -117,29 +173,96 @@ class DashboardScreen extends StatelessWidget {
                       return _buildSOPCard(context, sop);
                     },
                   ),
-            if (sopService.sops.length > 6) ...[
-              const SizedBox(height: 16),
-              Center(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Navigate to all SOPs
-                    context.go('/sops');
-                  },
-                  icon: const Icon(Icons.view_list),
-                  label: const Text('View All SOPs'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff17A2B8),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.description_outlined,
+            size: 48,
+            color: AppColors.textLight.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No SOPs created yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create your first SOP to get started with the manufacturing process',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textMedium,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              context.go('/editor/new');
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create First SOP'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(IconData icon, String value, String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textLight,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -153,16 +276,13 @@ class DashboardScreen extends StatelessWidget {
     // Get department color
     final Color departmentColor = _getDepartmentColor(sop.department);
 
-    // Format creation date
-    final String formattedDate =
-        "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}";
-
     return Card(
       clipBehavior: Clip.antiAlias,
-      elevation: 3,
+      elevation: 0,
+      margin: const EdgeInsets.all(0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: departmentColor.withOpacity(0.3), width: 1),
+        side: BorderSide(color: AppColors.cardBorder),
       ),
       child: InkWell(
         onTap: () {
@@ -170,54 +290,22 @@ class DashboardScreen extends StatelessWidget {
         },
         child: Row(
           children: [
-            // Image section (40% of width)
+            // Image section (35% of width)
             Expanded(
-              flex: 2,
+              flex: 35,
               child: Stack(
                 children: [
                   SizedBox(
                     height: double.infinity,
                     child: _buildImage(imageUrl),
                   ),
-                  // Revision badge
+                  // Department badge
                   Positioned(
-                    top: 2,
-                    left: 2,
+                    top: 4,
+                    right: 4,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Rev ${sop.revisionNumber}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 7,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Content section (60% of width)
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(6.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Department badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 1),
-                      margin: const EdgeInsets.only(bottom: 3),
+                          horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
                         color: departmentColor.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(4),
@@ -227,49 +315,88 @@ class DashboardScreen extends StatelessWidget {
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 7,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
 
-                    // Title
-                    Text(
-                      sop.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    // Description
-                    Text(
-                      sop.description,
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 8,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    // Info row
+            // Content section (65% of width)
+            Expanded(
+              flex: 65,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title with Rev number
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Expanded(
+                          child: Text(
+                            sop.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                              color: AppColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            'Rev ${sop.revisionNumber}',
+                            style: TextStyle(
+                              color: AppColors.textMedium,
+                              fontSize: 7,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Stats in a row
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.checklist,
+                          size: 10,
+                          color: AppColors.textLight,
+                        ),
+                        const SizedBox(width: 3),
                         Text(
                           '${sop.steps.length} steps',
                           style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 7,
+                            color: AppColors.textLight,
+                            fontSize: 8,
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 10,
+                          color: AppColors.textLight,
+                        ),
+                        const SizedBox(width: 3),
                         Text(
-                          formattedDate,
+                          "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}",
                           style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 7,
+                            color: AppColors.textLight,
+                            fontSize: 8,
                           ),
                         ),
                       ],
@@ -287,25 +414,31 @@ class DashboardScreen extends StatelessWidget {
   Color _getDepartmentColor(String department) {
     switch (department.toLowerCase()) {
       case 'assembly':
-        return Colors.blue;
+        return AppColors.blueAccent;
       case 'finishing':
-        return Colors.green;
+        return AppColors.greenAccent;
       case 'machinery':
-        return Colors.orange;
+        return AppColors.orangeAccent;
       case 'quality':
-        return Colors.purple;
+        return AppColors.purpleAccent;
+      case 'upholstery':
+        return Colors.redAccent;
       default:
-        return const Color(0xffB21E1E); // Default red color
+        return AppColors.primaryRed;
     }
   }
 
   Widget _buildImage(String? imageUrl) {
     if (imageUrl == null) {
       return Container(
-        color: Colors.grey[300],
+        color: Colors.grey[100],
         width: double.infinity,
-        child: const Center(
-          child: Icon(Icons.image_not_supported, size: 20, color: Colors.grey),
+        child: Center(
+          child: Icon(
+            Icons.image_not_supported,
+            size: 14,
+            color: AppColors.textLight.withOpacity(0.5),
+          ),
         ),
       );
     }
@@ -317,6 +450,7 @@ class DashboardScreen extends StatelessWidget {
         return Image.memory(
           bytes,
           width: double.infinity,
+          height: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
         );
@@ -330,6 +464,7 @@ class DashboardScreen extends StatelessWidget {
       return Image.asset(
         imageUrl,
         width: double.infinity,
+        height: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
@@ -339,6 +474,7 @@ class DashboardScreen extends StatelessWidget {
       return Image.network(
         imageUrl,
         width: double.infinity,
+        height: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
@@ -348,12 +484,12 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildImageError() {
     return Container(
       width: double.infinity,
-      color: Colors.grey[200],
-      child: const Center(
+      color: Colors.grey[100],
+      child: Center(
         child: Icon(
           Icons.broken_image,
-          size: 20,
-          color: Colors.grey,
+          size: 14,
+          color: AppColors.textLight.withOpacity(0.5),
         ),
       ),
     );
