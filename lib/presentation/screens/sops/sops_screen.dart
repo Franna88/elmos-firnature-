@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/sop_service.dart';
+import '../../../data/services/print_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../widgets/app_scaffold.dart';
 import 'dart:convert';
@@ -16,6 +17,12 @@ class SOPsScreen extends StatefulWidget {
 class _SOPsScreenState extends State<SOPsScreen> {
   String _searchQuery = '';
   String _selectedDepartment = 'All';
+  final _printService = PrintService();
+
+  // Method to handle printing an SOP
+  void _printSOP(SOP sop) {
+    _printService.printSOP(context, sop);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,51 +206,46 @@ class _SOPsScreenState extends State<SOPsScreen> {
             ),
           ),
 
-          // SOP content
+          // SOP description
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Text(
+              sop.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // SOP image (if available)
+          if (sop.steps.isNotEmpty && sop.steps.first.imageUrl != null) ...[
+            const SizedBox(height: 16),
+            _buildImage(sop.steps.first.imageUrl),
+          ],
+
+          // Add buttons for actions
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text(
-                  sop.description,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                IconButton(
+                  icon: const Icon(Icons.print),
+                  tooltip: 'Print SOP',
+                  onPressed: () => _printSOP(sop),
                 ),
-                if (sop.steps.isNotEmpty &&
-                    sop.steps.first.imageUrl != null) ...[
-                  const SizedBox(height: 16),
-                  _buildImage(sop.steps.first.imageUrl),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.visibility),
-                      label: const Text('View'),
-                      onPressed: () {
-                        context.go('/editor/${sop.id}');
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xff17A2B8),
-                        side: const BorderSide(color: Color(0xff17A2B8)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Edit'),
-                      onPressed: () {
-                        context.go('/editor/${sop.id}');
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xff6F42C1),
-                        side: const BorderSide(color: Color(0xff6F42C1)),
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  tooltip: 'Edit SOP',
+                  onPressed: () {
+                    context.go('/editor/${sop.id}');
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.visibility),
+                  tooltip: 'View SOP',
+                  onPressed: () {
+                    context.go('/editor/${sop.id}');
+                  },
                 ),
               ],
             ),

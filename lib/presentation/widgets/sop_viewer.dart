@@ -5,11 +5,13 @@ import 'dart:convert';
 class SOPViewer extends StatelessWidget {
   final SOP sop;
   final bool showFullDetails;
+  final VoidCallback? onPrint;
 
   const SOPViewer({
     super.key,
     required this.sop,
     this.showFullDetails = true,
+    this.onPrint,
   });
 
   @override
@@ -26,9 +28,23 @@ class SOPViewer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    sop.title,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          sop.title,
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                      ),
+                      if (onPrint != null)
+                        IconButton(
+                          onPressed: onPrint,
+                          icon: const Icon(Icons.print),
+                          tooltip: 'Print SOP',
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(

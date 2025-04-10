@@ -19,6 +19,9 @@ class AuthService extends ChangeNotifier {
   // Flag to track if we're using local auth
   bool _usingLocalAuth = false;
 
+  // Flag to enable auto-login for development
+  bool _enableDevAutoLogin = true; // Set to true for development
+
   // Action code settings for email links
   final ActionCodeSettings _actionCodeSettings = ActionCodeSettings(
     url: 'https://www.example.com/finishSignUp?cartId=1234',
@@ -77,6 +80,10 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _initializeServices() async {
     try {
+      // First try to load persisted login state
+      await _loadFromStorage();
+
+      // Then attempt to initialize Firebase (if available)
       _auth = FirebaseAuth.instance;
       _firestore = FirebaseFirestore.instance;
       _googleSignIn = GoogleSignIn();
@@ -88,11 +95,13 @@ class AuthService extends ChangeNotifier {
         print('Using Firebase authentication');
       }
 
-      // Listen for authentication state changes
+      // If using Firebase, listen for authentication state changes
       _auth!.authStateChanges().listen((User? user) {
         if (user != null && !_usingLocalAuth) {
           _setUserData(user);
-        } else if (!_usingLocalAuth) {
+        } else if (!_usingLocalAuth && _isLoggedIn) {
+          // Only clear user data if we're not using local auth
+          // and no Firebase user exists but we think we're logged in
           _clearUserData();
         }
       });
@@ -102,23 +111,32 @@ class AuthService extends ChangeNotifier {
         print('Falling back to local authentication');
       }
       _usingLocalAuth = true;
+      // If we've already loaded a valid local user session, maintain it
+      if (!_isLoggedIn) {
+        await _loadFromStorage();
+      }
     }
-
-    // Load from storage if available
-    await _loadFromStorage();
   }
 
   Future<void> _loadFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      if (prefs.getBool('isLoggedIn') == true) {
+      final savedIsLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+      final savedUsingLocalAuth = prefs.getBool('usingLocalAuth') ?? false;
+
+      if (savedIsLoggedIn) {
         _isLoggedIn = true;
         _userId = prefs.getString('userId');
         _userEmail = prefs.getString('userEmail');
         _userName = prefs.getString('userName');
         _userRole = prefs.getString('userRole') ?? 'user';
-        _usingLocalAuth = prefs.getBool('usingLocalAuth') ?? false;
+        _usingLocalAuth = savedUsingLocalAuth;
+
+        if (kDebugMode) {
+          print('Restored login session for: $_userName ($_userEmail)');
+        }
+
         notifyListeners();
       }
     } catch (e) {
@@ -131,19 +149,27 @@ class AuthService extends ChangeNotifier {
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      prefs.setBool('isLoggedIn', _isLoggedIn);
-      prefs.setBool('usingLocalAuth', _usingLocalAuth);
+      await prefs.setBool('isLoggedIn', _isLoggedIn);
+      await prefs.setBool('usingLocalAuth', _usingLocalAuth);
 
       if (_isLoggedIn) {
-        prefs.setString('userId', _userId!);
-        prefs.setString('userEmail', _userEmail ?? '');
-        prefs.setString('userName', _userName ?? '');
-        prefs.setString('userRole', _userRole ?? 'user');
+        await prefs.setString('userId', _userId!);
+        await prefs.setString('userEmail', _userEmail ?? '');
+        await prefs.setString('userName', _userName ?? '');
+        await prefs.setString('userRole', _userRole ?? 'user');
+
+        if (kDebugMode) {
+          print('Saved login session for: $_userName ($_userEmail)');
+        }
       } else {
-        prefs.remove('userId');
-        prefs.remove('userEmail');
-        prefs.remove('userName');
-        prefs.remove('userRole');
+        await prefs.remove('userId');
+        await prefs.remove('userEmail');
+        await prefs.remove('userName');
+        await prefs.remove('userRole');
+
+        if (kDebugMode) {
+          print('Cleared login session');
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -370,6 +396,42 @@ class AuthService extends ChangeNotifier {
     _userRole = null;
 
     await _saveToStorage();
+
+    // Also clear any other session-related data
+    await clearCachedEmailForSignIn();
+    _tempUserData = {};
+
+    notifyListeners();
+  }
+
+  // Development-friendly logout that allows auto-login on next hot reload
+  Future<void> devFriendlyLogout() async {
+    if (!_usingLocalAuth) {
+      try {
+        await _auth?.signOut();
+      } catch (e) {
+        if (kDebugMode) {
+          print('Firebase logout error: $e');
+        }
+      }
+    }
+
+    _isLoggedIn = false;
+    // Don't clear these fields to enable smoother hot reload experience
+    // _userId = null;
+    // _userEmail = null;
+    // _userName = null;
+    // _userRole = null;
+
+    // Only mark as logged out but keep credentials in SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
+
+    if (kDebugMode) {
+      print(
+          'Development-friendly logout completed. Auto-login will work on next reload.');
+    }
+
     notifyListeners();
   }
 
@@ -561,6 +623,51 @@ class AuthService extends ChangeNotifier {
     return _tempUserData;
   }
 
+  // Check if user is authenticated and force refresh from storage if needed
+  Future<bool> checkAuthentication({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      await _loadFromStorage();
+    }
+    return _isLoggedIn;
+  }
+
+  // Verify credentials without logging in
+  Future<bool> verifyCredentials(String email, String password) async {
+    if (_usingLocalAuth) {
+      return _localUsers.containsKey(email) &&
+          _localUsers[email]!['password'] == password;
+    }
+
+    try {
+      // Use Firebase to check credentials
+      // This is just a validation, it won't actually sign in the user
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+
+      // If user is already signed in, we can reauthenticate
+      if (_auth!.currentUser != null) {
+        await _auth!.currentUser!.reauthenticateWithCredential(credential);
+        return true;
+      } else {
+        // Otherwise, we need to try signing in but not updating state
+        final userCredential = await _auth!.signInWithCredential(credential);
+        final isValid = userCredential.user != null;
+        // Sign out immediately to not affect current state
+        if (isValid) {
+          await _auth!.signOut();
+        }
+        return isValid;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Credential verification error: $e');
+      }
+      return false;
+    }
+  }
+
   // Register both company and user in a single operation
   Future<bool> registerCompanyAndUser(
       String companyName, String companyEmail) async {
@@ -655,5 +762,38 @@ class AuthService extends ChangeNotifier {
     await _saveToStorage();
     notifyListeners();
     return true;
+  }
+
+  // Auto-login with default credentials (for development/testing)
+  Future<bool> autoLogin({String? email, String? password}) async {
+    // If already logged in, do nothing
+    if (_isLoggedIn) return true;
+
+    // Skip if dev auto-login is disabled
+    if (!_enableDevAutoLogin) return false;
+
+    // Use default testing credentials if none provided
+    final loginEmail = email ?? 'admin@example.com';
+    final loginPassword = password ?? 'password123';
+
+    if (kDebugMode) {
+      print('Auto-logging in with $loginEmail for development');
+    }
+
+    return login(loginEmail, loginPassword);
+  }
+
+  // Enable or disable development auto-login
+  void setDevAutoLogin(bool enable) {
+    _enableDevAutoLogin = enable;
+  }
+
+  // Toggle development auto-login
+  void toggleDevAutoLogin() {
+    _enableDevAutoLogin = !_enableDevAutoLogin;
+    if (kDebugMode) {
+      print(
+          'Development auto-login ${_enableDevAutoLogin ? 'enabled' : 'disabled'}');
+    }
   }
 }

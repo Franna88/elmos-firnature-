@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 import '../../data/services/auth_service.dart';
 
 class AppScaffold extends StatelessWidget {
@@ -53,6 +54,25 @@ class AppScaffold extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 16.0),
                 child: Row(
                   children: [
+                    if (kDebugMode && authService.isLoggedIn)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.amber),
+                        ),
+                        child: const Text(
+                          'DEV',
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     Text(
                       authService.userName ?? 'User',
                       style: const TextStyle(
@@ -159,7 +179,14 @@ class AppScaffold extends StatelessWidget {
                         icon: Icons.logout,
                         label: 'Sign Out',
                         onTap: () async {
-                          await authService.logout();
+                          // Use development-friendly logout to enable auto-login on hot reload
+                          if (kDebugMode) {
+                            await authService.devFriendlyLogout();
+                          } else {
+                            // In production, use regular logout
+                            await authService.logout();
+                          }
+
                           if (context.mounted) {
                             context.go('/login');
                           }

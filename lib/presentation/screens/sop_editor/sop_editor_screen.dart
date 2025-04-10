@@ -7,6 +7,7 @@ import 'dart:html' as html;
 import 'dart:typed_data';
 import 'dart:convert';
 import '../../../data/services/sop_service.dart';
+import '../../../data/services/print_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../widgets/sop_viewer.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
@@ -25,6 +26,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
   bool _isLoading = true;
   bool _isEditing = false;
   final _formKey = GlobalKey<FormState>();
+  final _printService = PrintService();
 
   // Form controllers
   late TextEditingController _titleController;
@@ -156,6 +158,11 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     }
   }
 
+  // Method to handle printing
+  void _printSOP() {
+    _printService.printSOP(context, _sop);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -192,30 +199,51 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                 ? null
                 : () {
                     // Print functionality
+                    _printSOP();
                   },
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'export_pdf') {
                 // Export to PDF
-              } else if (value == 'export_word') {
-                // Export to Word
+                _printSOP();
+              } else if (value == 'share') {
+                // Share SOP
+              } else if (value == 'duplicate') {
+                // Duplicate SOP
               } else if (value == 'delete') {
-                _confirmDelete();
+                // Delete SOP
+                _showDeleteConfirmationDialog();
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
                 value: 'export_pdf',
-                child: Text('Export as PDF'),
+                child: ListTile(
+                  leading: Icon(Icons.picture_as_pdf),
+                  title: Text('Export to PDF'),
+                ),
               ),
-              const PopupMenuItem(
-                value: 'export_word',
-                child: Text('Export as Word'),
+              const PopupMenuItem<String>(
+                value: 'share',
+                child: ListTile(
+                  leading: Icon(Icons.share),
+                  title: Text('Share SOP'),
+                ),
               ),
-              const PopupMenuItem(
+              const PopupMenuItem<String>(
+                value: 'duplicate',
+                child: ListTile(
+                  leading: Icon(Icons.copy),
+                  title: Text('Duplicate'),
+                ),
+              ),
+              const PopupMenuItem<String>(
                 value: 'delete',
-                child: Text('Delete SOP'),
+                child: ListTile(
+                  leading: Icon(Icons.delete, color: Colors.red),
+                  title: Text('Delete'),
+                ),
               ),
             ],
           ),
@@ -225,7 +253,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _isEditing
               ? _buildSOPEditor()
-              : SOPViewer(sop: _sop),
+              : SOPViewer(sop: _sop, onPrint: _printSOP),
     );
   }
 
@@ -1202,26 +1230,26 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     );
   }
 
-  void _confirmDelete() {
+  void _showDeleteConfirmationDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete SOP'),
         content: const Text(
-          'Are you sure you want to delete this SOP? This action cannot be undone.',
-        ),
+            'Are you sure you want to delete this SOP? This cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+          TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              setState(() {
+                _isLoading = true;
+              });
 
               try {
                 final sopService =
@@ -1232,9 +1260,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('SOP deleted successfully')),
                   );
-                  context.go('/');
+                  context.go('/sops');
                 }
               } catch (e) {
+                setState(() {
+                  _isLoading = false;
+                });
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Error deleting SOP: $e')),
@@ -1242,6 +1273,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                 }
               }
             },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
           ),
         ],

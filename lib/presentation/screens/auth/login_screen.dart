@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/analytics_service.dart';
 import '../../../data/models/analytics_model.dart';
@@ -19,6 +20,44 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedEmail = prefs.getString('saved_email');
+      final rememberMe = prefs.getBool('remember_me') ?? false;
+
+      if (savedEmail != null && rememberMe) {
+        setState(() {
+          _emailController.text = savedEmail;
+          _rememberMe = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading saved credentials: $e');
+    }
+  }
+
+  Future<void> _saveCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setString('saved_email', _emailController.text);
+      } else {
+        await prefs.remove('saved_email');
+      }
+      await prefs.setBool('remember_me', _rememberMe);
+    } catch (e) {
+      debugPrint('Error saving credentials: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -36,17 +75,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
       try {
         final authService = Provider.of<AuthService>(context, listen: false);
-        final analyticsService = Provider.of<AnalyticsService>(context, listen: false);
-        
+        final analyticsService =
+            Provider.of<AnalyticsService>(context, listen: false);
+
         final success = await authService.login(
           _emailController.text.trim(),
           _passwordController.text,
         );
 
         if (success) {
+          // Save credentials if remember me is checked
+          await _saveCredentials();
+
           // Record login activity
           await analyticsService.recordActivity(ActivityType.userLoggedIn);
-          
+
           if (mounted) {
             context.go('/');
           }
@@ -67,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showForgotPasswordDialog() {
     final resetEmailController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -96,10 +139,12 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: () async {
               if (resetEmailController.text.isNotEmpty) {
                 Navigator.pop(context);
-                
-                final authService = Provider.of<AuthService>(context, listen: false);
-                final success = await authService.resetPassword(resetEmailController.text.trim());
-                
+
+                final authService =
+                    Provider.of<AuthService>(context, listen: false);
+                final success = await authService
+                    .resetPassword(resetEmailController.text.trim());
+
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -134,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          
+
           // Content
           Row(
             children: [
@@ -185,7 +230,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red[800],
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 30, vertical: 15),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
@@ -196,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              
+
               // Right side (login form)
               Expanded(
                 flex: 1,
@@ -244,20 +290,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                       decoration: BoxDecoration(
                                         color: Colors.grey[100],
                                         borderRadius: BorderRadius.circular(30),
-                                        border: Border.all(color: Colors.grey[300]!),
+                                        border: Border.all(
+                                            color: Colors.grey[300]!),
                                       ),
                                       child: TextFormField(
                                         controller: _emailController,
                                         decoration: InputDecoration(
                                           hintText: 'Enter your email',
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(30),
+                                            borderRadius:
+                                                BorderRadius.circular(30),
                                             borderSide: BorderSide.none,
                                           ),
-                                          suffixIcon: const Icon(Icons.person_outline),
-                                          contentPadding: const EdgeInsets.all(20),
+                                          suffixIcon:
+                                              const Icon(Icons.person_outline),
+                                          contentPadding:
+                                              const EdgeInsets.all(20),
                                         ),
-                                        keyboardType: TextInputType.emailAddress,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
                                             return 'Please enter your email';
@@ -272,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 20),
-                                
+
                                 // Password field
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,27 +340,33 @@ class _LoginScreenState extends State<LoginScreen> {
                                       decoration: BoxDecoration(
                                         color: Colors.grey[100],
                                         borderRadius: BorderRadius.circular(30),
-                                        border: Border.all(color: Colors.grey[300]!),
+                                        border: Border.all(
+                                            color: Colors.grey[300]!),
                                       ),
                                       child: TextFormField(
                                         controller: _passwordController,
                                         decoration: InputDecoration(
                                           hintText: 'Enter your password',
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(30),
+                                            borderRadius:
+                                                BorderRadius.circular(30),
                                             borderSide: BorderSide.none,
                                           ),
                                           suffixIcon: IconButton(
                                             icon: Icon(
-                                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                              _obscurePassword
+                                                  ? Icons.visibility_off
+                                                  : Icons.visibility,
                                             ),
                                             onPressed: () {
                                               setState(() {
-                                                _obscurePassword = !_obscurePassword;
+                                                _obscurePassword =
+                                                    !_obscurePassword;
                                               });
                                             },
                                           ),
-                                          contentPadding: const EdgeInsets.all(20),
+                                          contentPadding:
+                                              const EdgeInsets.all(20),
                                         ),
                                         obscureText: _obscurePassword,
                                         validator: (value) {
@@ -322,40 +379,61 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ],
                                 ),
-                                
-                                // Forgot password link
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    onPressed: _showForgotPasswordDialog,
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.red[800],
+
+                                // Remember me checkbox
+                                Row(
+                                  children: [
+                                    Checkbox(
+                                      value: _rememberMe,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _rememberMe = value ?? false;
+                                        });
+                                      },
+                                      activeColor: Colors.red[800],
                                     ),
-                                    child: const Text('Forgot Password'),
-                                  ),
+                                    Text(
+                                      'Remember me',
+                                      style: TextStyle(
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    // Forgot password link
+                                    TextButton(
+                                      onPressed: _showForgotPasswordDialog,
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red[800],
+                                      ),
+                                      child: const Text('Forgot Password'),
+                                    ),
+                                  ],
                                 ),
-                                
+
                                 const SizedBox(height: 10),
-                                
+
                                 if (_errorMessage != null)
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 16.0),
+                                    padding:
+                                        const EdgeInsets.only(bottom: 16.0),
                                     child: Text(
                                       _errorMessage!,
                                       style: TextStyle(
-                                        color: Theme.of(context).colorScheme.error,
+                                        color:
+                                            Theme.of(context).colorScheme.error,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
                                   ),
-                                
+
                                 // Login button
                                 ElevatedButton(
                                   onPressed: _isLoading ? null : _login,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.red[800],
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 20),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 20),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(30),
                                     ),
@@ -374,7 +452,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           style: TextStyle(fontSize: 18),
                                         ),
                                 ),
-                                
+
                                 // Create Profile Link
                                 const SizedBox(height: 16),
                                 Row(
@@ -382,7 +460,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   children: [
                                     const Text("Don't have an account?"),
                                     TextButton(
-                                      onPressed: () => context.go('/create-profile'),
+                                      onPressed: () =>
+                                          context.go('/create-profile'),
                                       style: TextButton.styleFrom(
                                         foregroundColor: Colors.red[800],
                                       ),
@@ -405,4 +484,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-} 
+}

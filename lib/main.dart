@@ -2,6 +2,7 @@ import 'package:elmos_app/data/services/auth_service.dart';
 import 'package:elmos_app/data/services/sop_service.dart';
 import 'package:elmos_app/data/services/analytics_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'utils/deep_link_handler.dart';
@@ -66,6 +67,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  bool _initialLoginAttempted = false;
 
   // For demo purposes: Test email link handling
   void _testEmailLinkHandling() {
@@ -82,11 +84,35 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  // Auto login for development convenience
+  void _attemptAutoLogin() {
+    if (_initialLoginAttempted) return;
+
+    _initialLoginAttempted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Delay slightly to allow the app to initialize
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (!context.mounted) return;
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+
+      // If user is not logged in, attempt auto-login with default credentials
+      if (!authService.isLoggedIn) {
+        // Use the default admin credentials
+        await authService.autoLogin();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     // Uncomment the line below to test email link handling
     // _testEmailLinkHandling();
+
+    // Auto login for development
+    _attemptAutoLogin();
   }
 
   @override
@@ -139,9 +165,9 @@ class _MyAppState extends State<MyApp> {
           builder: (context, state) => const SOPsScreen(),
         ),
       ],
-      redirect: (context, state) {
+      redirect: (context, state) async {
         final authService = Provider.of<AuthService>(context, listen: false);
-        final isLoggedIn = authService.isLoggedIn;
+        final bool isLoggedIn = authService.isLoggedIn;
 
         final isGoingToLogin = state.matchedLocation == '/login';
         final isGoingToRegister = state.matchedLocation == '/register';
@@ -149,22 +175,33 @@ class _MyAppState extends State<MyApp> {
             state.matchedLocation == '/create-profile';
         final isGoingToRegisterCompany =
             state.matchedLocation == '/register-company';
+        final isAuthRelatedRoute = isGoingToLogin ||
+            isGoingToRegister ||
+            isGoingToCreateProfile ||
+            isGoingToRegisterCompany;
+
+        // Important: Always return null for login page when not logged in
+        // to prevent redirect loops
+        if (isGoingToLogin && !isLoggedIn) {
+          return null; // Stay on login page if not logged in
+        }
+
+        // In debug mode, try auto-login when heading to login page
+        if (kDebugMode && isGoingToLogin && !isLoggedIn) {
+          // Auto-login with development credentials
+          final success = await authService.autoLogin();
+          if (success) {
+            return '/'; // Go to dashboard if auto-login succeeded
+          }
+        }
 
         // If not logged in and not going to auth routes, redirect to login
-        if (!isLoggedIn &&
-            !isGoingToLogin &&
-            !isGoingToRegister &&
-            !isGoingToCreateProfile &&
-            !isGoingToRegisterCompany) {
+        if (!isLoggedIn && !isAuthRelatedRoute) {
           return '/login';
         }
 
         // If logged in and going to auth routes, redirect to dashboard
-        if (isLoggedIn &&
-            (isGoingToLogin ||
-                isGoingToRegister ||
-                isGoingToCreateProfile ||
-                isGoingToRegisterCompany)) {
+        if (isLoggedIn && isAuthRelatedRoute) {
           return '/';
         }
 

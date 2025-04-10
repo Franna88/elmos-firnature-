@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/sop_service.dart';
+import '../../../data/models/sop_model.dart';
 import '../../widgets/app_scaffold.dart';
 import 'dart:convert';
 
@@ -99,154 +100,212 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                   )
-                : ListView.builder(
+                : GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 1.5,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
                     itemCount:
-                        sopService.sops.length > 3 ? 3 : sopService.sops.length,
+                        sopService.sops.length > 6 ? 6 : sopService.sops.length,
                     itemBuilder: (context, index) {
                       final sop = sopService.sops[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // SOP details
-                            ListTile(
-                              title: Text(sop.title),
-                              subtitle: Text(
-                                'Department: ${sop.department} • Rev: ${sop.revisionNumber}',
-                              ),
-                              trailing:
-                                  const Icon(Icons.arrow_forward_ios, size: 16),
-                              onTap: () {
-                                context.go('/editor/${sop.id}');
-                              },
-                            ),
-                            // Show image from first step if available
-                            _buildImage(sop.steps.isNotEmpty &&
-                                    sop.steps.first.imageUrl != null
-                                ? sop.steps.first.imageUrl
-                                : null),
-                          ],
-                        ),
-                      );
+                      return _buildSOPCard(context, sop);
                     },
                   ),
-            if (sopService.sops.length > 3) ...[
-              const SizedBox(height: 8),
+            if (sopService.sops.length > 6) ...[
+              const SizedBox(height: 16),
               Center(
-                child: TextButton(
+                child: ElevatedButton.icon(
                   onPressed: () {
                     // Navigate to all SOPs
                     context.go('/sops');
                   },
-                  child: const Text('View All SOPs'),
+                  icon: const Icon(Icons.view_list),
+                  label: const Text('View All SOPs'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff17A2B8),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
                 ),
               ),
             ],
-
-            const SizedBox(height: 24),
-
-            // Quick Stats section
-            Text(
-              'Quick Stats',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    title: 'Total SOPs',
-                    value: '${sopService.sops.length}',
-                    icon: Icons.description,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    title: 'Templates',
-                    value: '${sopService.templates.length}',
-                    icon: Icons.style,
-                    color: Colors.purple,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    title: 'Departments',
-                    value: '${_getUniqueDepartments(sopService).length}',
-                    icon: Icons.business,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
 
-  // Helper method to get unique departments
-  Set<String> _getUniqueDepartments(SOPService sopService) {
-    return sopService.sops.map((sop) => sop.department).toSet();
-  }
+  Widget _buildSOPCard(BuildContext context, SOP sop) {
+    // Get primary image for the card
+    final String? imageUrl =
+        sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
+            ? sop.steps.first.imageUrl
+            : null;
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
+    // Get department color
+    final Color departmentColor = _getDepartmentColor(sop.department);
+
+    // Format creation date
+    final String formattedDate =
+        "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}";
+
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: departmentColor.withOpacity(0.3), width: 1),
+      ),
+      child: InkWell(
+        onTap: () {
+          context.go('/editor/${sop.id}');
+        },
+        child: Row(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+            // Image section (40% of width)
+            Expanded(
+              flex: 2,
+              child: Stack(
+                children: [
+                  SizedBox(
+                    height: double.infinity,
+                    child: _buildImage(imageUrl),
                   ),
-                ),
-                Icon(
-                  icon,
-                  color: color,
-                ),
-              ],
+                  // Revision badge
+                  Positioned(
+                    top: 2,
+                    left: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Rev ${sop.revisionNumber}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                  ),
+
+            // Content section (60% of width)
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(6.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Department badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
+                      margin: const EdgeInsets.only(bottom: 3),
+                      decoration: BoxDecoration(
+                        color: departmentColor.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        sop.department,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    // Title
+                    Text(
+                      sop.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    // Description
+                    Text(
+                      sop.description,
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 8,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    // Info row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${sop.steps.length} steps',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 7,
+                          ),
+                        ),
+                        Text(
+                          formattedDate,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 7,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Color _getDepartmentColor(String department) {
+    switch (department.toLowerCase()) {
+      case 'assembly':
+        return Colors.blue;
+      case 'finishing':
+        return Colors.green;
+      case 'machinery':
+        return Colors.orange;
+      case 'quality':
+        return Colors.purple;
+      default:
+        return const Color(0xffB21E1E); // Default red color
+    }
   }
 
   Widget _buildImage(String? imageUrl) {
     if (imageUrl == null) {
       return Container(
         color: Colors.grey[300],
-        height: 120,
+        width: double.infinity,
         child: const Center(
-          child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+          child: Icon(Icons.image_not_supported, size: 20, color: Colors.grey),
         ),
       );
     }
@@ -257,7 +316,6 @@ class DashboardScreen extends StatelessWidget {
         final bytes = base64Decode(imageUrl.split(',')[1]);
         return Image.memory(
           bytes,
-          height: 120,
           width: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
@@ -271,7 +329,6 @@ class DashboardScreen extends StatelessWidget {
     else if (imageUrl.startsWith('assets/')) {
       return Image.asset(
         imageUrl,
-        height: 120,
         width: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
@@ -281,7 +338,6 @@ class DashboardScreen extends StatelessWidget {
     else {
       return Image.network(
         imageUrl,
-        height: 120,
         width: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
@@ -291,23 +347,13 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _buildImageError() {
     return Container(
-      height: 120,
+      width: double.infinity,
       color: Colors.grey[200],
       child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.broken_image,
-              size: 30,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Image not available',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
+        child: Icon(
+          Icons.broken_image,
+          size: 20,
+          color: Colors.grey,
         ),
       ),
     );
