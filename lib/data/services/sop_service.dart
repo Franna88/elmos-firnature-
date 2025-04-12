@@ -68,17 +68,19 @@ class SOPService extends ChangeNotifier {
           print('Creating initial collections in Firestore');
         }
 
-        // Create a temporary document in sops collection
+        // Create a temporary document in sops collection with embedded steps
         final docRef = await _firestore!.collection('sops').add({
           'title': 'Test SOP',
           'createdAt': Timestamp.now(),
           'isTestDocument': true,
-        });
-
-        // Create the steps subcollection
-        await docRef.collection('steps').add({
-          'title': 'Test Step',
-          'createdAt': Timestamp.now(),
+          'steps': [
+            {
+              'id': 'test_step_1',
+              'title': 'Test Step',
+              'instruction': 'Test instruction',
+              'createdAt': Timestamp.now(),
+            }
+          ]
         });
 
         // Delete the test document
@@ -186,11 +188,17 @@ class SOPService extends ChangeNotifier {
   }
 
   void _listenForSOPChanges() {
-    if (_usingLocalData) return;
+    if (_usingLocalData || _firestore == null) return;
 
     try {
+      // Listen for changes to the SOPs collection
       _firestore!.collection('sops').snapshots().listen((snapshot) {
-        _loadSOPs();
+        if (snapshot.docChanges.isNotEmpty) {
+          if (kDebugMode) {
+            print('SOP changes detected, reloading SOPs...');
+          }
+          _loadSOPs(); // Reload all SOPs when changes are detected
+        }
       });
     } catch (e) {
       if (kDebugMode) {
@@ -206,8 +214,7 @@ class SOPService extends ChangeNotifier {
     }
 
     try {
-      // Get all SOPs from Firestore instead of filtering by user
-      // This ensures all created SOPs will be visible in the list
+      // Get all SOPs from Firestore
       final snapshot = await _firestore!.collection('sops').get();
 
       final List<SOP> loadedSOPs = [];
@@ -215,34 +222,30 @@ class SOPService extends ChangeNotifier {
       for (var doc in snapshot.docs) {
         final sopData = doc.data();
 
-        // Get steps from subcollection
-        final stepsSnapshot = await _firestore!
-            .collection('sops')
-            .doc(doc.id)
-            .collection('steps')
-            .orderBy('createdAt', descending: false)
-            .get();
-
+        // Extract steps directly from the SOP document
         final List<SOPStep> steps = [];
 
-        // Process each step document
-        for (var stepDoc in stepsSnapshot.docs) {
-          final stepData = stepDoc.data();
-          steps.add(SOPStep(
-            id: stepDoc.id,
-            title: stepData['title'] ?? '',
-            instruction: stepData['instruction'] ?? '',
-            imageUrl: stepData['imageUrl'],
-            helpNote: stepData['helpNote'],
-            assignedTo: stepData['assignedTo'],
-            estimatedTime: stepData['estimatedTime'],
-            stepTools: stepData['stepTools'] != null
-                ? List<String>.from(stepData['stepTools'])
-                : [],
-            stepHazards: stepData['stepHazards'] != null
-                ? List<String>.from(stepData['stepHazards'])
-                : [],
-          ));
+        if (sopData['steps'] != null) {
+          // Process each step from the steps array in the document
+          final stepsList = sopData['steps'] as List<dynamic>;
+
+          for (var stepData in stepsList) {
+            steps.add(SOPStep(
+              id: stepData['id'] ?? '',
+              title: stepData['title'] ?? '',
+              instruction: stepData['instruction'] ?? '',
+              imageUrl: stepData['imageUrl'],
+              helpNote: stepData['helpNote'],
+              assignedTo: stepData['assignedTo'],
+              estimatedTime: stepData['estimatedTime'],
+              stepTools: stepData['stepTools'] != null
+                  ? List<String>.from(stepData['stepTools'])
+                  : [],
+              stepHazards: stepData['stepHazards'] != null
+                  ? List<String>.from(stepData['stepHazards'])
+                  : [],
+            ));
+          }
         }
 
         loadedSOPs.add(SOP(
@@ -296,44 +299,19 @@ class SOPService extends ChangeNotifier {
 
   Future<SOP> createSop(
       String title, String description, String department) async {
-    final String sopId = const Uuid().v4();
     final now = DateTime.now();
+    final sopId = const Uuid().v4();
 
-    // Get a user identifier - use email or a default value if not available
-    String userIdentifier;
-    try {
-      userIdentifier =
-          _auth?.currentUser?.email ?? 'anonymous@elmosfurniture.com';
-      if (kDebugMode) {
-        print('Current user email: ${_auth?.currentUser?.email}');
-        print('Using user identifier: $userIdentifier');
-        print('Using local data: $_usingLocalData');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user identifier: $e');
-      }
-      userIdentifier = 'anonymous@elmosfurniture.com';
+    // Get user info
+    String userIdentifier = 'anonymous';
+    if (!_usingLocalData && _auth!.currentUser != null) {
+      userIdentifier = _auth!.currentUser!.email ?? _auth!.currentUser!.uid;
     }
 
-    // Default placeholder image for new SOPs
-    String defaultImageUrl =
-        'https://media.istockphoto.com/id/1271691214/photo/successful-furniture-assembly-worker-reads-instructions-to-assemble-shelf.jpg?s=612x612&w=0&k=20&c=KBMOiPX2o2WeTN6jcdpDVbMlBwizXTM2Sps2Jex2eQ0=';
+    // Default image URL for steps
+    final defaultImageUrl = null;
 
-    // Choose department-specific default image
-    if (department.toLowerCase().contains('finish')) {
-      defaultImageUrl =
-          'https://media.istockphoto.com/id/1303862719/photo/applying-varnish-to-a-wooden-surface-with-a-brush.jpg?s=612x612&w=0&k=20&c=F5VFRuPmX_yreFirNlBBX98lPg_l2CqCDnG6I2WyFSY=';
-    } else if (department.toLowerCase().contains('upholstery')) {
-      defaultImageUrl =
-          'https://media.istockphoto.com/id/1440598592/photo/close-up-hands-of-professional-upholsterer-stapling-fabric-to-a-furniture-upholstery-of-a.jpg?s=612x612&w=0&k=20&c=N1T8eAe1vP38ek4DxSXBt5rJ6p0ZfOiX62QkTIyUn10=';
-    } else if (department.toLowerCase().contains('machine') ||
-        department.toLowerCase().contains('cnc')) {
-      defaultImageUrl =
-          'https://media.istockphoto.com/id/1132841403/photo/a-cnc-wood-router-cutting-out-a-pattern-for-furniture.jpg?s=612x612&w=0&k=20&c=Bh-G3D0Fdo5RZtZdvnJxm-J1-qdmKI7hGU_WcGx29so=';
-    }
-
-    // Default first step for a new SOP
+    // Create a default first step
     final defaultFirstStep = SOPStep(
       id: "${sopId}_1",
       title: "",
@@ -345,7 +323,7 @@ class SOPService extends ChangeNotifier {
 
     if (!_usingLocalData) {
       try {
-        // Create the main SOP document
+        // Create the SOP document with embedded steps
         final sopData = {
           'title': title,
           'description': description,
@@ -357,33 +335,28 @@ class SOPService extends ChangeNotifier {
           'tools': [],
           'safetyRequirements': [],
           'cautions': [],
+          'steps': [
+            {
+              'id': defaultFirstStep.id,
+              'title': defaultFirstStep.title,
+              'instruction': defaultFirstStep.instruction,
+              'imageUrl': defaultFirstStep.imageUrl,
+              'helpNote': defaultFirstStep.helpNote,
+              'assignedTo': defaultFirstStep.assignedTo,
+              'estimatedTime': defaultFirstStep.estimatedTime,
+              'stepTools': defaultFirstStep.stepTools,
+              'stepHazards': defaultFirstStep.stepHazards,
+              'createdAt': Timestamp.fromDate(now),
+            }
+          ]
         };
 
         if (kDebugMode) {
           print('Creating SOP in Firestore with data: $sopData');
         }
 
-        // Create the SOP in Firestore
+        // Create the SOP with steps embedded in Firestore
         await _firestore!.collection('sops').doc(sopId).set(sopData);
-
-        // Create the default step in the steps subcollection
-        await _firestore!
-            .collection('sops')
-            .doc(sopId)
-            .collection('steps')
-            .doc(defaultFirstStep.id)
-            .set({
-          'id': defaultFirstStep.id,
-          'title': defaultFirstStep.title,
-          'instruction': defaultFirstStep.instruction,
-          'imageUrl': defaultFirstStep.imageUrl,
-          'helpNote': defaultFirstStep.helpNote,
-          'assignedTo': defaultFirstStep.assignedTo,
-          'estimatedTime': defaultFirstStep.estimatedTime,
-          'stepTools': defaultFirstStep.stepTools,
-          'stepHazards': defaultFirstStep.stepHazards,
-          'createdAt': Timestamp.fromDate(now),
-        });
 
         if (kDebugMode) {
           print('Created new SOP in Firestore with ID: $sopId');
@@ -431,7 +404,23 @@ class SOPService extends ChangeNotifier {
   Future<void> updateSop(SOP sop) async {
     try {
       if (!_usingLocalData) {
-        // Update main SOP document
+        // Convert steps to a format suitable for Firestore
+        List<Map<String, dynamic>> stepsData = sop.steps
+            .map((step) => {
+                  'id': step.id,
+                  'title': step.title,
+                  'instruction': step.instruction,
+                  'imageUrl': step.imageUrl,
+                  'helpNote': step.helpNote,
+                  'assignedTo': step.assignedTo,
+                  'estimatedTime': step.estimatedTime,
+                  'stepTools': step.stepTools,
+                  'stepHazards': step.stepHazards,
+                  'updatedAt': Timestamp.fromDate(DateTime.now()),
+                })
+            .toList();
+
+        // Update the SOP document with embedded steps
         final sopData = {
           'title': sop.title,
           'description': sop.description,
@@ -441,51 +430,10 @@ class SOPService extends ChangeNotifier {
           'tools': sop.tools,
           'safetyRequirements': sop.safetyRequirements,
           'cautions': sop.cautions,
+          'steps': stepsData, // Store steps directly in the document
         };
 
         await _firestore!.collection('sops').doc(sop.id).update(sopData);
-
-        // Get reference to steps subcollection
-        final stepsCollection =
-            _firestore!.collection('sops').doc(sop.id).collection('steps');
-
-        // Get existing steps
-        final existingStepsSnapshot = await stepsCollection.get();
-        final existingStepsIds =
-            existingStepsSnapshot.docs.map((doc) => doc.id).toSet();
-        final updatedStepsIds = sop.steps.map((step) => step.id).toSet();
-
-        // Create batch for efficient operations
-        final batch = _firestore!.batch();
-
-        // Remove steps that no longer exist
-        for (final docId in existingStepsIds) {
-          if (!updatedStepsIds.contains(docId)) {
-            batch.delete(stepsCollection.doc(docId));
-          }
-        }
-
-        // Update or add steps
-        for (final step in sop.steps) {
-          final stepData = {
-            'id': step.id,
-            'title': step.title,
-            'instruction': step.instruction,
-            'imageUrl': step.imageUrl,
-            'helpNote': step.helpNote,
-            'assignedTo': step.assignedTo,
-            'estimatedTime': step.estimatedTime,
-            'stepTools': step.stepTools,
-            'stepHazards': step.stepHazards,
-            'updatedAt': Timestamp.fromDate(DateTime.now()),
-          };
-
-          batch.set(
-              stepsCollection.doc(step.id), stepData, SetOptions(merge: true));
-        }
-
-        // Commit the batch
-        await batch.commit();
 
         if (kDebugMode) {
           print('Updated SOP in Firestore with ID: ${sop.id}');
@@ -522,26 +470,8 @@ class SOPService extends ChangeNotifier {
   Future<void> deleteSop(String id) async {
     try {
       if (!_usingLocalData) {
-        // First delete all steps in the subcollection
-        final stepsSnapshot = await _firestore!
-            .collection('sops')
-            .doc(id)
-            .collection('steps')
-            .get();
-
-        // Create a batch for efficient deletion
-        final batch = _firestore!.batch();
-
-        // Add all steps to the deletion batch
-        for (var stepDoc in stepsSnapshot.docs) {
-          batch.delete(stepDoc.reference);
-        }
-
-        // Add the main SOP document to the deletion batch
-        batch.delete(_firestore!.collection('sops').doc(id));
-
-        // Commit the batch operation
-        await batch.commit();
+        // Delete the SOP document (steps are now embedded)
+        await _firestore!.collection('sops').doc(id).delete();
 
         // Delete any associated images from storage
         final sop = getSopById(id);
