@@ -78,12 +78,13 @@ class _LoginScreenState extends State<LoginScreen> {
         final analyticsService =
             Provider.of<AnalyticsService>(context, listen: false);
 
-        final success = await authService.login(
+        await authService.login(
           _emailController.text.trim(),
           _passwordController.text,
         );
 
-        if (success) {
+        // Check if login was successful
+        if (authService.isLoggedIn) {
           // Save credentials if remember me is checked
           await _saveCredentials();
 
@@ -460,8 +461,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   children: [
                                     const Text("Don't have an account?"),
                                     TextButton(
-                                      onPressed: () =>
-                                          context.go('/create-profile'),
+                                      onPressed: () => context.go('/register'),
                                       style: TextButton.styleFrom(
                                         foregroundColor: Colors.red[800],
                                       ),

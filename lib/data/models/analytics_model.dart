@@ -49,6 +49,7 @@ enum ActivityType {
   templateCreated,
   templateUsed,
   userLoggedIn,
+  userSignedUp,
 }
 
 class ChartData {
@@ -56,4 +57,4 @@ class ChartData {
   final int value;
 
   ChartData({required this.date, required this.value});
-} 
+}

@@ -8,6 +8,8 @@ import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_scaffold.dart';
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../utils/populate_firebase.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -123,6 +125,49 @@ class DashboardScreen extends StatelessWidget {
                             'Admin',
                             'Role',
                             AppColors.greenAccent,
+                          ),
+                        if (kDebugMode) const SizedBox(height: 12),
+                        if (kDebugMode)
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              try {
+                                final populator = FirebasePopulator(
+                                    FirebaseFirestore.instance);
+                                await populator.populateChairSOPs();
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Successfully added 5 chair SOPs to Firebase!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+
+                                  // Refresh SOP list
+                                  final sopService = Provider.of<SOPService>(
+                                      context,
+                                      listen: false);
+                                  // Force refresh by re-initializing data
+                                  await sopService.refreshSOPs();
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error adding SOPs: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.add_circle_outline),
+                            label: const Text('Add Chair SOPs'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryRed,
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                       ],
                     ),

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "891377129781",
-    "project_id": "elmo-s-sample-d7e63",
-    "storage_bucket": "elmo-s-sample-d7e63.firebasestorage.app"
+    "project_number": "1003855542467",
+    "project_id": "elmos-furniture",
+    "storage_bucket": "elmos-furniture.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:891377129781:android:6e1c7486a8ab30747e147c",
+        "mobilesdk_app_id": "1:1003855542467:android:6cc838db42d3d8aa39ca76",
         "android_client_info": {
           "package_name": "com.example.elmos_app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyC9M_TQ2vAEE80OxI3h9Eyz-TLS9DejIc0"
+          "current_key": "AIzaSyAOca-_DutliL7rCakkSEkRlrVuhZcnh0o"
         }
       ],
       "services": {

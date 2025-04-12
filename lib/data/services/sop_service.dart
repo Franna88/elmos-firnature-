@@ -304,7 +304,15 @@ class SOPService extends ChangeNotifier {
     try {
       userIdentifier =
           _auth?.currentUser?.email ?? 'anonymous@elmosfurniture.com';
+      if (kDebugMode) {
+        print('Current user email: ${_auth?.currentUser?.email}');
+        print('Using user identifier: $userIdentifier');
+        print('Using local data: $_usingLocalData');
+      }
     } catch (e) {
+      if (kDebugMode) {
+        print('Error getting user identifier: $e');
+      }
       userIdentifier = 'anonymous@elmosfurniture.com';
     }
 
@@ -350,6 +358,10 @@ class SOPService extends ChangeNotifier {
           'safetyRequirements': [],
           'cautions': [],
         };
+
+        if (kDebugMode) {
+          print('Creating SOP in Firestore with data: $sopData');
+        }
 
         // Create the SOP in Firestore
         await _firestore!.collection('sops').doc(sopId).set(sopData);
@@ -637,6 +649,11 @@ class SOPService extends ChangeNotifier {
           template.description.toLowerCase().contains(lowercaseQuery) ||
           template.category.toLowerCase().contains(lowercaseQuery);
     }).toList();
+  }
+
+  // Public method to refresh SOPs
+  Future<void> refreshSOPs() async {
+    await _loadSOPs();
   }
 
   // Sample SOPs for local development and testing

@@ -12,7 +12,8 @@ class AnalyticsScreen extends StatefulWidget {
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProviderStateMixin {
+class _AnalyticsScreenState extends State<AnalyticsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isLoading = false;
 
@@ -34,7 +35,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     });
 
     try {
-      final analyticsService = Provider.of<AnalyticsService>(context, listen: false);
+      final analyticsService =
+          Provider.of<AnalyticsService>(context, listen: false);
       await analyticsService.refreshAnalytics();
     } finally {
       if (mounted) {
@@ -204,10 +206,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(entry.key),
-                                    Text('${entry.value} (${percentage.toStringAsFixed(1)}%)'),
+                                    Text(
+                                        '${entry.value} (${percentage.toStringAsFixed(1)}%)'),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
@@ -288,7 +292,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Text(
@@ -302,8 +307,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                                 const SizedBox(height: 4),
                                 LinearProgressIndicator(
                                   value: analytics.templateUsageCount.values
-                                          .fold(0, (a, b) => a + b) >
-                                      0
+                                              .fold(0, (a, b) => a + b) >
+                                          0
                                       ? entry.value /
                                           analytics.templateUsageCount.values
                                               .reduce((a, b) => a > b ? a : b)
@@ -332,7 +337,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: _buildActivityDistributionChart(analytics.recentActivity),
+                    child: _buildActivityDistributionChart(
+                        analytics.recentActivity),
                   ),
                 ),
               ],
@@ -354,7 +360,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
             padding: const EdgeInsets.all(8),
             itemCount: activities.length,
             itemBuilder: (context, index) {
-              if (index == 0 || !_isSameDay(activities[index].timestamp, activities[index - 1].timestamp)) {
+              if (index == 0 ||
+                  !_isSameDay(activities[index].timestamp,
+                      activities[index - 1].timestamp)) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -362,9 +370,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                       padding: const EdgeInsets.all(8.0),
                       child: Text(
                         _formatDateHeader(activities[index].timestamp),
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ),
                     _buildActivityItem(activities[index]),
@@ -583,6 +592,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         return const Icon(Icons.content_copy, color: Colors.purple);
       case ActivityType.userLoggedIn:
         return const Icon(Icons.login, color: Colors.teal);
+      case ActivityType.userSignedUp:
+        return const Icon(Icons.person_add, color: Colors.indigo);
     }
   }
 
@@ -600,6 +611,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         return Colors.purple;
       case ActivityType.userLoggedIn:
         return Colors.teal;
+      case ActivityType.userSignedUp:
+        return Colors.indigo;
     }
   }
 
@@ -617,6 +630,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         return 'Template Used';
       case ActivityType.userLoggedIn:
         return 'User Login';
+      case ActivityType.userSignedUp:
+        return 'User Signup';
     }
   }
 
@@ -648,7 +663,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
     if (dateOnly.isAtSameMomentAs(DateTime(now.year, now.month, now.day))) {
       return 'Today';
-    } else if (dateOnly.isAtSameMomentAs(DateTime(yesterday.year, yesterday.month, yesterday.day))) {
+    } else if (dateOnly.isAtSameMomentAs(
+        DateTime(yesterday.year, yesterday.month, yesterday.day))) {
       return 'Yesterday';
     } else {
       return DateFormat('MMMM d, yyyy').format(dateTime);
@@ -670,4 +686,4 @@ extension ListExtension<T> on List<T> {
     result.sort(compare);
     return result;
   }
-} 
+}

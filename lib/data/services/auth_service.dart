@@ -84,35 +84,61 @@ class AuthService extends ChangeNotifier {
       await _loadFromStorage();
 
       // Then attempt to initialize Firebase (if available)
-      _auth = FirebaseAuth.instance;
-      _firestore = FirebaseFirestore.instance;
-      _googleSignIn = GoogleSignIn();
+      try {
+        _auth = FirebaseAuth.instance;
+        _firestore = FirebaseFirestore.instance;
+        _googleSignIn = GoogleSignIn();
 
-      // Test if Firebase is working
-      await _auth!.authStateChanges().first;
+        // Test if Firebase is working
+        await _auth!.authStateChanges().first;
 
-      if (kDebugMode) {
-        print('Using Firebase authentication');
-      }
-
-      // If using Firebase, listen for authentication state changes
-      _auth!.authStateChanges().listen((User? user) {
-        if (user != null && !_usingLocalAuth) {
-          _setUserData(user);
-        } else if (!_usingLocalAuth && _isLoggedIn) {
-          // Only clear user data if we're not using local auth
-          // and no Firebase user exists but we think we're logged in
-          _clearUserData();
+        if (kDebugMode) {
+          print(
+              'Using Firebase authentication with project: ${_auth!.app.options.projectId}');
         }
-      });
+
+        // Check if there's already a current user
+        final currentUser = _auth!.currentUser;
+        if (currentUser != null) {
+          if (kDebugMode) {
+            print('Found existing Firebase user: ${currentUser.email}');
+          }
+          await _setUserData(currentUser);
+        }
+
+        // If using Firebase, listen for authentication state changes
+        _auth!.authStateChanges().listen((User? user) {
+          if (user != null && !_usingLocalAuth) {
+            _setUserData(user);
+          } else if (!_usingLocalAuth && _isLoggedIn) {
+            // Only clear user data if we're not using local auth
+            // and no Firebase user exists but we think we're logged in
+            _clearUserData();
+          }
+        });
+
+        // If we're in development mode and auto-login is enabled, try to auto-login
+        if (_enableDevAutoLogin && kDebugMode && _auth!.currentUser == null) {
+          await autoLogin();
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Firebase initialization error: $e');
+          print('Falling back to local authentication');
+        }
+        _usingLocalAuth = true;
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Firebase initialization error: $e');
+        print('Service initialization error: $e');
         print('Falling back to local authentication');
       }
       _usingLocalAuth = true;
-      // If we've already loaded a valid local user session, maintain it
-      if (!_isLoggedIn) {
+
+      // If we're in development mode and auto-login is enabled, try local auto-login
+      if (_enableDevAutoLogin && kDebugMode) {
+        await _localLogin('admin@example.com', 'password123');
+      } else if (!_isLoggedIn) {
         await _loadFromStorage();
       }
     }
@@ -220,27 +246,52 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login(String email, String password) async {
-    if (_usingLocalAuth) {
-      return _localLogin(email, password);
-    }
-
+  Future<void> login(String email, String password) async {
     try {
-      final UserCredential userCredential =
-          await _auth!.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      // First try Firebase authentication
+      if (!_usingLocalAuth) {
+        try {
+          if (kDebugMode) {
+            print('Attempting Firebase login with email: $email');
+          }
 
-      return userCredential.user != null;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Firebase login error: $e');
-        print('Falling back to local authentication');
+          final userCredential = await _auth!.signInWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
+
+          if (kDebugMode) {
+            print(
+                'Firebase login successful for user: ${userCredential.user?.email}');
+          }
+
+          // Make sure user data is set
+          if (userCredential.user != null) {
+            await _setUserData(userCredential.user!);
+          }
+
+          return;
+        } catch (e) {
+          if (kDebugMode) {
+            print('Firebase login failed: $e');
+            print('Falling back to local authentication');
+          }
+          _usingLocalAuth = true;
+        }
       }
 
-      _usingLocalAuth = true;
-      return _localLogin(email, password);
+      // If Firebase failed or we're using local auth, try local authentication
+      final localLoginSuccess = await _localLogin(email, password);
+
+      if (!localLoginSuccess) {
+        // If both Firebase and local auth failed, throw an exception
+        throw Exception('Authentication failed');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Login failed: $e');
+      }
+      rethrow;
     }
   }
 
@@ -765,22 +816,78 @@ class AuthService extends ChangeNotifier {
   }
 
   // Auto-login with default credentials (for development/testing)
-  Future<bool> autoLogin({String? email, String? password}) async {
-    // If already logged in, do nothing
-    if (_isLoggedIn) return true;
+  Future<bool> autoLogin() async {
+    try {
+      if (_usingLocalAuth) {
+        return _localAutoLogin();
+      }
 
-    // Skip if dev auto-login is disabled
-    if (!_enableDevAutoLogin) return false;
+      // Try Firebase auto-login first with current user
+      try {
+        final user = _auth!.currentUser;
+        if (user != null) {
+          if (kDebugMode) {
+            print(
+                'Firebase auto-login successful with existing user: ${user.email}');
+          }
+          await _setUserData(user);
+          return true;
+        }
 
-    // Use default testing credentials if none provided
-    final loginEmail = email ?? 'admin@example.com';
-    final loginPassword = password ?? 'password123';
+        // If no current user, try to sign in with development credentials
+        if (kDebugMode) {
+          try {
+            // Use the correct email for the elmos-furniture Firebase project
+            final userCredential = await _auth!.signInWithEmailAndPassword(
+              email:
+                  'admin@elmosfurniture.com', // Updated to match your Firebase account
+              password: 'password123',
+            );
+            if (userCredential.user != null) {
+              if (kDebugMode) {
+                print(
+                    'Firebase development login successful with: ${userCredential.user!.email}');
+              }
+              await _setUserData(userCredential.user!);
+              return true;
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Firebase development login failed: $e');
+            }
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Firebase auto-login failed: $e');
+          print('Falling back to local authentication');
+        }
+        _usingLocalAuth = true;
+      }
 
-    if (kDebugMode) {
-      print('Auto-logging in with $loginEmail for development');
+      // If Firebase failed or we're using local auth, try local auto-login
+      return _localAutoLogin();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Auto-login failed: $e');
+      }
+      return false;
     }
+  }
 
-    return login(loginEmail, loginPassword);
+  Future<bool> _localAutoLogin() async {
+    if (_localUsers.containsKey('admin@example.com')) {
+      _isLoggedIn = true;
+      _userId = 'admin@example.com';
+      _userEmail = 'admin@example.com';
+      _userName = 'Admin User';
+      _userRole = 'admin';
+
+      await _saveToStorage();
+      notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   // Enable or disable development auto-login

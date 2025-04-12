@@ -1,0 +1,52 @@
+{
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "elmos-furniture",
+                    "appId": "1:1003855542467:android:6cc838db42d3d8aa39ca76",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "ios": {
+                "default": {
+                    "projectId": "elmos-furniture",
+                    "appId": "1:1003855542467:ios:b0dc8779da60051839ca76",
+                    "uploadDebugSymbols": false,
+                    "fileOutput": "ios/Runner/GoogleService-Info.plist"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "elmos-furniture",
+                    "configurations": {
+                        "android": "1:1003855542467:android:6cc838db42d3d8aa39ca76",
+                        "ios": "1:1003855542467:ios:b0dc8779da60051839ca76",
+                        "web": "1:1003855542467:web:9455385bfe618ce039ca76"
+                    }
+                }
+            }
+        }
+    },
+    "firestore": {
+        "rules": "firestore.rules",
+        "indexes": "firestore.indexes.json"
+    },
+    "hosting": {
+        "public": "build/web",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ]
+    },
+    "storage": {
+        "rules": "storage.rules"
+    }
+}

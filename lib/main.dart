@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'utils/deep_link_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'utils/populate_firebase.dart';
 
 // Screens
 // import 'presentation/screens/home_screen.dart';
@@ -193,6 +194,11 @@ class _MyAppState extends State<MyApp> {
             isGoingToCreateProfile ||
             isGoingToRegisterCompany;
 
+        // If going to register, don't redirect regardless of login state
+        if (isGoingToRegister) {
+          return null; // Allow access to register page
+        }
+
         // Important: Always return null for login page when not logged in
         // to prevent redirect loops
         if (isGoingToLogin && !isLoggedIn) {
@@ -214,7 +220,8 @@ class _MyAppState extends State<MyApp> {
         }
 
         // If logged in and going to auth routes, redirect to dashboard
-        if (isLoggedIn && isAuthRelatedRoute) {
+        // But don't redirect from register page
+        if (isLoggedIn && isAuthRelatedRoute && !isGoingToRegister) {
           return '/';
         }
 
