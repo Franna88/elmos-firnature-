@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
+import 'package:alphabet_scroll_view/alphabet_scroll_view.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/category_service.dart';
@@ -62,11 +63,18 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
           .toList();
     }
 
+    // Sort SOPs alphabetically by title for the alphabet index
+    filteredSOPs.sort((a, b) => a.title.compareTo(b.title));
+
     // Get unique categories for filter dropdown
     final categories = [
       'All',
       ...categoryService.categories.map((cat) => cat.name).toSet().toList()
     ];
+
+    // Create AlphaModel list from SOPs for the alphabet scroller
+    final List<AlphaModel> alphabetList =
+        filteredSOPs.map((sop) => AlphaModel(sop.title)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -203,18 +211,33 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
             ),
           ),
 
-          // SOPs list
+          // SOPs list with alphabet scroll
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredSOPs.isEmpty
                     ? const Center(child: Text('No SOPs found'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16.0),
-                        itemCount: filteredSOPs.length,
-                        itemBuilder: (context, index) {
+                    : AlphabetScrollView(
+                        list: alphabetList,
+                        alignment: LetterAlignment.right,
+                        itemExtent: 220, // Height of each SOP card with padding
+                        unselectedTextStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.black54,
+                        ),
+                        selectedTextStyle: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        itemBuilder: (context, index, title) {
                           final sop = filteredSOPs[index];
-                          return _buildSOPCard(context, sop);
+                          return Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(16.0, 8.0, 40.0, 8.0),
+                            child: _buildSOPCard(context, sop),
+                          );
                         },
                       ),
           ),
