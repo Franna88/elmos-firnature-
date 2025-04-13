@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import '../../data/models/sop_model.dart';
 import 'dart:convert';
+import '../../data/services/qr_code_service.dart';
+import 'package:provider/provider.dart';
+import '../../data/services/sop_service.dart';
 
 class SOPViewer extends StatefulWidget {
   final SOP sop;
   final bool showFullDetails;
   final VoidCallback? onPrint;
+  final VoidCallback? onDownloadQRCode;
 
   const SOPViewer({
     super.key,
     required this.sop,
     this.showFullDetails = true,
     this.onPrint,
+    this.onDownloadQRCode,
   });
 
   @override
@@ -81,6 +86,11 @@ class _SOPViewerState extends State<SOPViewer> {
                         // Cautions section
                         if (widget.sop.cautions.isNotEmpty)
                           _buildCautionsSection(context),
+
+                        const SizedBox(height: 24),
+
+                        // QR Code section
+                        _buildQRCodeSection(context),
                       ],
                     ],
                   ),
@@ -695,6 +705,81 @@ class _SOPViewerState extends State<SOPViewer> {
               'Image could not be loaded',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Build QR code section
+  Widget _buildQRCodeSection(BuildContext context) {
+    final sopService = Provider.of<SOPService>(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('QR Code', style: Theme.of(context).textTheme.titleMedium),
+                IconButton(
+                  icon: const Icon(Icons.help_outline),
+                  tooltip:
+                      'Scan this QR code with the mobile app to view this SOP on a mobile device',
+                  onPressed: () {
+                    // Show help information
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('QR Code Information'),
+                        content: const Text(
+                          'This QR code can be scanned with the Elmo\'s Furniture mobile app to quickly access this SOP on a mobile device.\n\n'
+                          'Print this QR code and attach it to equipment or materials to allow team members to quickly access the relevant SOP.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Column(
+                children: [
+                  // Display QR code
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: sopService.qrCodeService
+                        .generateQRWidget(widget.sop.id, size: 200),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('SOP ID: ${widget.sop.id}',
+                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                  // Button to download QR code
+                  if (widget.onDownloadQRCode != null)
+                    ElevatedButton.icon(
+                      onPressed: widget.onDownloadQRCode,
+                      icon: const Icon(Icons.download),
+                      label: const Text('Download QR Code'),
+                    ),
+                ],
+              ),
             ),
           ],
         ),

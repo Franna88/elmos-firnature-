@@ -12,6 +12,7 @@ import '../../../data/models/sop_model.dart';
 import '../../widgets/sop_viewer.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import '../../../data/services/category_service.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -195,6 +196,97 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     _printService.printSOP(context, _sop);
   }
 
+  // Method to download QR code
+  Future<void> _downloadQRCode() async {
+    if (kIsWeb) {
+      // For web, we create and download a PNG file
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      final qrBytes =
+          await sopService.qrCodeService.generateQRImageBytes(_sop.id, 400);
+
+      if (qrBytes != null) {
+        final base64 = base64Encode(qrBytes);
+        final dataUrl = 'data:image/png;base64,$base64';
+
+        // Create a link and trigger download
+        final anchor = html.AnchorElement(href: dataUrl)
+          ..setAttribute(
+              'download', '${_sop.title.replaceAll(' ', '_')}_QR_Code.png')
+          ..style.display = 'none';
+
+        html.document.body?.children.add(anchor);
+        anchor.click();
+        html.document.body?.children.remove(anchor);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QR Code downloaded')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to generate QR code'),
+              backgroundColor: Colors.red),
+        );
+      }
+    } else {
+      // For mobile platforms, we would handle it differently
+      // This requires a path_provider package to save to device storage
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('QR Code download only available on web platform')),
+      );
+    }
+  }
+
+  // Method to show QR code in a dialog
+  void _showQRCodeDialog(BuildContext context) {
+    final sopService = Provider.of<SOPService>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('SOP QR Code'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Scan this QR code with the mobile app to view this SOP on a mobile device.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child:
+                  sopService.qrCodeService.generateQRWidget(_sop.id, size: 200),
+            ),
+            const SizedBox(height: 8),
+            Text('SOP ID: ${_sop.id}',
+                style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Download QR code
+              Navigator.pop(context);
+              _downloadQRCode();
+            },
+            child: const Text('Download'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -296,7 +388,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _isEditing
               ? _buildSOPEditor()
-              : SOPViewer(sop: _sop, onPrint: _printSOP),
+              : SOPViewer(
+                  sop: _sop,
+                  onPrint: _printSOP,
+                  onDownloadQRCode: _downloadQRCode),
     );
   }
 
@@ -2134,44 +2229,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
               }
             },
             child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showQRCodeDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('SOP QR Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 200,
-              height: 200,
-              child: Placeholder(), // Replace with actual QR code
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _sop.title,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Download QR code
-              Navigator.pop(context);
-            },
-            child: const Text('Download'),
           ),
         ],
       ),

@@ -8,8 +8,11 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../models/sop_model.dart';
+import 'qr_code_service.dart';
 
 class PrintService {
+  final QRCodeService _qrCodeService = QRCodeService();
+
   // Function to generate a print-friendly PDF for an SOP
   Future<void> printSOP(BuildContext context, SOP sop) async {
     debugPrint('Starting PDF generation for SOP #${sop.id} - ${sop.title}');
@@ -46,6 +49,26 @@ class PrintService {
         }
       }
 
+      // Generate QR code for the SOP
+      Uint8List? qrCodeBytes;
+      if (sop.qrCodeUrl != null) {
+        debugPrint('Using existing QR code URL: ${sop.qrCodeUrl}');
+        // Already has QR code URL, use it to generate image
+        qrCodeBytes = await _qrCodeService.generateQRImageBytes(sop.id, 200);
+      } else {
+        debugPrint('Generating new QR code for SOP');
+        // Generate new QR code
+        qrCodeBytes = await _qrCodeService.generateQRImageBytes(sop.id, 200);
+      }
+
+      pw.MemoryImage? qrCodeImage;
+      if (qrCodeBytes != null) {
+        qrCodeImage = pw.MemoryImage(qrCodeBytes);
+        debugPrint('QR code generated successfully');
+      } else {
+        debugPrint('Failed to generate QR code');
+      }
+
       debugPrint('Building PDF document...');
       // Create a PDF document in landscape orientation
       pdf.addPage(
@@ -55,14 +78,14 @@ class PrintService {
           build: (pw.Context context) {
             // Build all the widgets for the page
             return [
-              _buildPDFHeader(sop, logoImage),
+              _buildPDFHeader(sop, logoImage, qrCodeImage),
               pw.SizedBox(height: 10), // Reduced spacing
               _buildSummarySection(sop),
               pw.SizedBox(height: 10), // Reduced spacing
               _buildStepsGrid(sop, stepImages),
             ];
           },
-          footer: (context) => _buildFooter(context, sop),
+          footer: (context) => _buildFooter(context, sop, qrCodeImage),
         ),
       );
 
@@ -193,7 +216,8 @@ class PrintService {
   }
 
   // Build the PDF header with company logo and SOP information - more compact
-  pw.Widget _buildPDFHeader(SOP sop, pw.MemoryImage? logoImage) {
+  pw.Widget _buildPDFHeader(
+      SOP sop, pw.MemoryImage? logoImage, pw.MemoryImage? qrCodeImage) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -216,92 +240,69 @@ class PrintService {
 
         pw.SizedBox(width: 15), // Reduced spacing
 
-        // SOP info on the right - more compact
+        // SOP info in the middle
         pw.Expanded(
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                "Elmo's Furniture",
-                style: pw.TextStyle(
-                  fontSize: 20, // Smaller font
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Text(
-                "Standard Operating Procedure",
-                style: pw.TextStyle(
-                  fontSize: 14, // Smaller font
-                ),
-              ),
-              pw.SizedBox(height: 5), // Reduced spacing
-              pw.Text(
                 sop.title,
                 style: pw.TextStyle(
-                  fontSize: 16, // Smaller font
+                  fontSize: 18,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 2), // Reduced spacing
+              pw.SizedBox(height: 5),
               pw.Text(
-                sop.description,
-                style: pw.TextStyle(
-                  fontSize: 12, // Smaller font
-                  fontStyle: pw.FontStyle.italic,
+                'SOP ID: ${sop.id}',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Revision: ${sop.revisionNumber}',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Category: ${sop.categoryName ?? 'Uncategorized'}',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Last Updated: ${_formatDate(sop.updatedAt)}',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
                 ),
               ),
             ],
           ),
         ),
 
-        // Document info on the far right - more compact
+        // QR Code on the right
         pw.Container(
-          width: 140, // Smaller width
-          padding: const pw.EdgeInsets.all(8), // Reduced padding
-          decoration: pw.BoxDecoration(
-            color: PdfColors.grey100,
-            border: pw.Border.all(color: PdfColors.grey300),
-            borderRadius: pw.BorderRadius.circular(4),
-          ),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                "SOP ID: ${sop.id}",
-                style: pw.TextStyle(
-                  fontSize: 9, // Smaller font
+          width: 80,
+          height: 80,
+          child: qrCodeImage != null
+              ? pw.Image(qrCodeImage)
+              : pw.Container(
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text("QR Code",
+                      style: pw.TextStyle(color: PdfColors.grey)),
                 ),
-              ),
-              pw.SizedBox(height: 2), // Reduced spacing
-              pw.Text(
-                "Category: ${sop.categoryName ?? 'Unknown'}",
-                style: pw.TextStyle(
-                  fontSize: 9, // Smaller font
-                ),
-              ),
-              pw.SizedBox(height: 2), // Reduced spacing
-              pw.Text(
-                "Revision: ${sop.revisionNumber}",
-                style: pw.TextStyle(
-                  fontSize: 9, // Smaller font
-                ),
-              ),
-              pw.SizedBox(height: 2), // Reduced spacing
-              pw.Text(
-                "Created: ${_formatDate(sop.createdAt)}",
-                style: pw.TextStyle(
-                  fontSize: 9, // Smaller font
-                ),
-              ),
-              pw.SizedBox(height: 2), // Reduced spacing
-              pw.Text(
-                "Updated: ${_formatDate(sop.updatedAt)}",
-                style: pw.TextStyle(
-                  fontSize: 9, // Smaller font
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -701,7 +702,8 @@ class PrintService {
   }
 
   // Build the footer for each page
-  pw.Widget _buildFooter(pw.Context context, SOP sop) {
+  pw.Widget _buildFooter(
+      pw.Context context, SOP sop, pw.MemoryImage? qrCodeImage) {
     return pw.Container(
       padding: const pw.EdgeInsets.only(top: 5),
       decoration: const pw.BoxDecoration(
@@ -709,14 +711,46 @@ class PrintService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(
-            "Created by: ${sop.createdBy}",
-            style: const pw.TextStyle(fontSize: 8),
+          pw.Expanded(
+            child: pw.Row(
+              children: [
+                pw.Text(
+                  "Created by: ${sop.createdBy}",
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                pw.SizedBox(width: 10),
+                pw.Text(
+                  "Page ${context.pageNumber} of ${context.pagesCount}",
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ],
+            ),
           ),
-          pw.Text(
-            "Page ${context.pageNumber} of ${context.pagesCount}",
-            style: const pw.TextStyle(fontSize: 8),
+
+          // Show smaller QR code in footer
+          pw.Container(
+            width: 40,
+            height: 40,
+            child: qrCodeImage != null
+                ? pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Container(
+                        width: 40,
+                        height: 40,
+                        child: pw.Image(qrCodeImage),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        "Scan to view on mobile",
+                        style: const pw.TextStyle(fontSize: 6),
+                      ),
+                    ],
+                  )
+                : pw.Container(),
           ),
+
+          pw.SizedBox(width: 10),
           pw.Text(
             "Printed on: ${_formatDate(DateTime.now())}",
             style: const pw.TextStyle(fontSize: 8),

@@ -1,37 +1,65 @@
 import 'package:flutter/material.dart';
 import '../data/services/auth_service.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import '../data/services/sop_service.dart';
 
 class DeepLinkHandler {
-  static Future<void> handleInitialLink(BuildContext context, String? initialLink) async {
+  static Future<void> handleInitialLink(
+      BuildContext context, String? initialLink) async {
     if (initialLink != null) {
       await _handleLink(context, initialLink);
     }
   }
-  
+
   static Future<void> handleLink(BuildContext context, String link) async {
     await _handleLink(context, link);
   }
-  
+
   static Future<void> _handleLink(BuildContext context, String link) async {
     final authService = Provider.of<AuthService>(context, listen: false);
-    
+
     // Check if this is a sign-in link
     if (authService.isSignInWithEmailLink(link)) {
       await _handleSignInLink(context, authService, link);
+      return;
     }
-    
+
+    // Check if this is a SOP QR code link
+    if (link.startsWith('elmos-furniture://sop/')) {
+      await _handleSOPLink(context, link);
+      return;
+    }
+
     // Add other deep link handling as needed
   }
-  
+
+  // Handle links to specific SOPs (from QR codes)
+  static Future<void> _handleSOPLink(BuildContext context, String link) async {
+    try {
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      final sopId = sopService.qrCodeService.parseSOPIdFromLink(link);
+
+      if (sopId != null) {
+        // Navigate to the SOP - use GoRouter to navigate
+        GoRouter.of(context).go('/mobile/sop/$sopId');
+      }
+    } catch (e) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error handling SOP link: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   static Future<void> _handleSignInLink(
-    BuildContext context, 
-    AuthService authService, 
-    String link
-  ) async {
+      BuildContext context, AuthService authService, String link) async {
     // Get the email from cache
     String? email = await authService.getCachedEmailForSignIn();
-    
+
     // If no email found, we need to ask the user for it
     if (email == null) {
       email = await _promptForEmail(context);
@@ -40,7 +68,7 @@ class DeepLinkHandler {
         return;
       }
     }
-    
+
     try {
       // Show loading indicator
       final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -50,17 +78,17 @@ class DeepLinkHandler {
           duration: Duration(seconds: 10),
         ),
       );
-      
+
       // Sign in
       final success = await authService.signInWithEmailLink(email, link);
-      
+
       // Dismiss loading indicator
       scaffoldMessenger.hideCurrentSnackBar();
-      
+
       if (success) {
         // Clear the cached email
         await authService.clearCachedEmailForSignIn();
-        
+
         // Show success message
         scaffoldMessenger.showSnackBar(
           const SnackBar(content: Text('Successfully signed in!')),
@@ -84,10 +112,10 @@ class DeepLinkHandler {
       );
     }
   }
-  
+
   static Future<String?> _promptForEmail(BuildContext context) async {
     String? email;
-    
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -98,8 +126,7 @@ class DeepLinkHandler {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'To complete sign-in, please enter the email address you used to request the sign-in link.'
-              ),
+                  'To complete sign-in, please enter the email address you used to request the sign-in link.'),
               const SizedBox(height: 16),
               TextField(
                 keyboardType: TextInputType.emailAddress,
@@ -132,7 +159,7 @@ class DeepLinkHandler {
         );
       },
     );
-    
+
     return email;
   }
-} 
+}

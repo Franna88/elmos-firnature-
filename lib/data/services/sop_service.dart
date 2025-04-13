@@ -5,8 +5,12 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/sop_model.dart';
+import 'qr_code_service.dart';
 
 class SOPService extends ChangeNotifier {
+  // QR Code Service
+  final QRCodeService _qrCodeService = QRCodeService();
+
   // Nullable Firebase services
   FirebaseFirestore? _firestore;
   FirebaseStorage? _storage;
@@ -382,8 +386,9 @@ class SOPService extends ChangeNotifier {
 
   Future<SOP> createSop(
       String title, String description, String categoryId) async {
-    final now = DateTime.now();
-    final sopId = const Uuid().v4();
+    final String sopId = const Uuid().v4();
+    final DateTime now = DateTime.now();
+    String? categoryName;
 
     if (kDebugMode) {
       print('Starting SOP creation process for "$title"');
@@ -401,7 +406,6 @@ class SOPService extends ChangeNotifier {
     }
 
     // Get category name if categoryId is provided
-    String? categoryName;
     if (categoryId.isNotEmpty && !_usingLocalData) {
       try {
         final categoryDoc =
@@ -422,6 +426,9 @@ class SOPService extends ChangeNotifier {
           print('_firestore instance exists: ${_firestore != null}');
         }
 
+        // Create a QR code URL for the SOP
+        final qrCodeUrl = _qrCodeService.generateQRDataForSOP(sopId);
+
         // Create the SOP document without any steps
         final sopData = {
           'title': title,
@@ -435,7 +442,8 @@ class SOPService extends ChangeNotifier {
           'tools': [],
           'safetyRequirements': [],
           'cautions': [],
-          'steps': [] // Empty steps array - no default step
+          'steps': [], // Empty steps array - no default step
+          'qrCodeUrl': qrCodeUrl, // Add QR code URL
         };
 
         if (kDebugMode) {
@@ -492,6 +500,7 @@ class SOPService extends ChangeNotifier {
       tools: [],
       safetyRequirements: [],
       cautions: [],
+      qrCodeUrl: _qrCodeService.generateQRDataForSOP(sopId), // Add QR code URL
     );
 
     // Add to the local list
@@ -541,10 +550,17 @@ class SOPService extends ChangeNotifier {
 
   // Modified updateSop method to save to Firebase
   Future<void> updateSop(SOP sop) async {
+    final DateTime now = DateTime.now();
+
+    // Ensure the SOP has a QR code URL
+    String qrCodeUrl =
+        sop.qrCodeUrl ?? _qrCodeService.generateQRDataForSOP(sop.id);
+    final updatedSop = sop.copyWith(updatedAt: now, qrCodeUrl: qrCodeUrl);
+
     try {
       if (!_usingLocalData) {
         // Convert steps to a format suitable for Firestore
-        List<Map<String, dynamic>> stepsData = sop.steps
+        List<Map<String, dynamic>> stepsData = updatedSop.steps
             .map((step) => {
                   'id': step.id,
                   'title': step.title,
@@ -555,38 +571,39 @@ class SOPService extends ChangeNotifier {
                   'estimatedTime': step.estimatedTime,
                   'stepTools': step.stepTools,
                   'stepHazards': step.stepHazards,
-                  'updatedAt': Timestamp.fromDate(DateTime.now()),
+                  'updatedAt': Timestamp.fromDate(now),
                 })
             .toList();
 
         // Update the SOP document with embedded steps
         final sopData = {
-          'title': sop.title,
-          'description': sop.description,
-          'categoryId': sop.categoryId,
-          'categoryName': sop.categoryName,
-          'revisionNumber': sop.revisionNumber,
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-          'tools': sop.tools,
-          'safetyRequirements': sop.safetyRequirements,
-          'cautions': sop.cautions,
+          'title': updatedSop.title,
+          'description': updatedSop.description,
+          'categoryId': updatedSop.categoryId,
+          'categoryName': updatedSop.categoryName,
+          'revisionNumber': updatedSop.revisionNumber,
+          'updatedAt': Timestamp.fromDate(now),
+          'tools': updatedSop.tools,
+          'safetyRequirements': updatedSop.safetyRequirements,
+          'cautions': updatedSop.cautions,
+          'qrCodeUrl': qrCodeUrl, // Add QR code URL
           'steps': stepsData, // Store steps directly in the document
         };
 
-        await _firestore!.collection('sops').doc(sop.id).update(sopData);
+        await _firestore!.collection('sops').doc(updatedSop.id).update(sopData);
 
         if (kDebugMode) {
-          print('Updated SOP in Firestore with ID: ${sop.id}');
+          print('Updated SOP in Firestore with ID: ${updatedSop.id}');
         }
 
         // Clear from local changes map since it's now saved to Firebase
-        _localChanges.remove(sop.id);
+        _localChanges.remove(updatedSop.id);
       }
 
       // Update the local list
-      final index = _sops.indexWhere((s) => s.id == sop.id);
+      final index = _sops.indexWhere((s) => s.id == updatedSop.id);
       if (index >= 0) {
-        _sops[index] = sop.copyWith(updatedAt: DateTime.now());
+        _sops[index] = updatedSop;
         notifyListeners();
       }
     } catch (e) {
@@ -599,9 +616,9 @@ class SOPService extends ChangeNotifier {
         _usingLocalData = true;
 
         // Update local list
-        final index = _sops.indexWhere((s) => s.id == sop.id);
+        final index = _sops.indexWhere((s) => s.id == updatedSop.id);
         if (index >= 0) {
-          _sops[index] = sop.copyWith(updatedAt: DateTime.now());
+          _sops[index] = updatedSop;
           notifyListeners();
         }
       } else {
@@ -860,4 +877,7 @@ class SOPService extends ChangeNotifier {
     ];
     notifyListeners();
   }
+
+  // Get QR code service
+  QRCodeService get qrCodeService => _qrCodeService;
 }

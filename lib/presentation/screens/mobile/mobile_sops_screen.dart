@@ -8,6 +8,8 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../../data/services/qr_code_service.dart';
 
 class MobileSOPsScreen extends StatefulWidget {
   const MobileSOPsScreen({super.key});
@@ -417,6 +419,11 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showQRScanner(context),
+        backgroundColor: Colors.redAccent,
+        child: const Icon(Icons.qr_code_scanner, color: Colors.white),
+      ),
     );
   }
 
@@ -653,5 +660,94 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
 
   String _formatDate(DateTime date) {
     return "${date.day}/${date.month}/${date.year}";
+  }
+
+  void _showQRScanner(BuildContext context) {
+    final sopService = Provider.of<SOPService>(context, listen: false);
+    final qrService = sopService.qrCodeService;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Scan SOP QR Code',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Point the camera at a SOP QR code to scan it',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: MobileScanner(
+                controller: MobileScannerController(
+                  detectionSpeed: DetectionSpeed.normal,
+                  formats: [BarcodeFormat.qrCode],
+                ),
+                onDetect: (capture) {
+                  final List<Barcode> barcodes = capture.barcodes;
+                  for (final barcode in barcodes) {
+                    final String? code = barcode.rawValue;
+                    if (code != null) {
+                      // Extract SOP ID from QR code
+                      final String? sopId =
+                          qrService.extractSOPIdFromQRData(code);
+                      if (sopId != null) {
+                        // Close the scanner and navigate to the SOP
+                        Navigator.pop(context);
+                        context.go('/mobile/sop/$sopId');
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Invalid QR code. This QR code is not for a SOP.',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Scan a QR code printed from the SOP manager to quickly access a specific SOP.',
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
