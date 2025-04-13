@@ -89,26 +89,38 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   }
 
   void _scrollToLetter(String letter, List<SOP> sops) {
-    final int sopIndex =
-        sops.indexWhere((sop) => sop.title.toUpperCase().startsWith(letter));
+    // Get indices of SOPs that start with this letter
+    final List<int> matchingIndices = [];
+    for (int i = 0; i < sops.length; i++) {
+      if (sops[i].title.toUpperCase().startsWith(letter)) {
+        matchingIndices.add(i);
+      }
+    }
 
-    if (sopIndex >= 0) {
+    if (matchingIndices.isNotEmpty) {
       setState(() {
         _selectedLetter = letter;
       });
 
-      // Calculate the approximate scroll position (height of card * index)
-      final double scrollPosition = sopIndex * 180.0;
+      // Use first matching index
+      final int sopIndex = matchingIndices.first;
+
+      // Calculate the approximate scroll position based on card height and padding
+      final double itemHeight = 180.0; // Average height of a card
+      final double scrollPosition = sopIndex * itemHeight;
 
       _scrollController.animateTo(scrollPosition,
           duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
 
-      // Show a visual indicator
+      // Show a visual indicator of how many SOPs start with this letter
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Scrolled to $letter'),
+          content: Text(matchingIndices.length > 1
+              ? 'Found ${matchingIndices.length} SOPs starting with $letter'
+              : 'Scrolled to $letter'),
           duration: const Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red[700],
         ),
       );
     }
@@ -299,7 +311,8 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
 
                           // Alphabet sidebar
                           Container(
-                            width: 30,
+                            width: 40,
+                            margin: const EdgeInsets.only(left: 4.0),
                             decoration: BoxDecoration(
                               color: Colors.grey[100],
                               borderRadius: const BorderRadius.only(
@@ -307,45 +320,96 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                                 bottomLeft: Radius.circular(15),
                               ),
                             ),
-                            child: ListView.builder(
-                              itemCount: _alphabet.length,
-                              itemBuilder: (context, index) {
-                                final letter = _alphabet[index];
-                                final bool isSelected =
-                                    letter == _selectedLetter;
-
-                                return GestureDetector(
-                                  onTap: () =>
-                                      _scrollToLetter(letter, filteredSOPs),
-                                  child: Container(
-                                    height: 20,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(0.2)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(10),
+                            // Ensure the alphabet list fills the available height
+                            child: Column(
+                              children: [
+                                // Index title
+                                Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8.0),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[800],
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(15),
                                     ),
+                                  ),
+                                  child: const Center(
                                     child: Text(
-                                      letter,
+                                      'A-Z',
                                       style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
                                         fontSize: 12,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        color: isSelected
-                                            ? Theme.of(context)
-                                                .colorScheme
-                                                .primary
-                                            : Colors.grey[700],
                                       ),
                                     ),
                                   ),
-                                );
-                              },
+                                ),
+
+                                // Alphabet list
+                                Expanded(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      // Calculate the height for each letter based on available space
+                                      final double itemHeight =
+                                          constraints.maxHeight /
+                                              _alphabet.length;
+
+                                      return ListView.builder(
+                                        // Make the alphabet list static by disabling scrolling
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        // Ensure it always fits the available space
+                                        shrinkWrap: true,
+                                        itemCount: _alphabet.length,
+                                        itemBuilder: (context, index) {
+                                          final letter = _alphabet[index];
+                                          final bool isSelected =
+                                              letter == _selectedLetter;
+
+                                          // Check if any SOPs start with this letter
+                                          final bool hasMatch = filteredSOPs
+                                              .any((sop) => sop.title
+                                                  .toUpperCase()
+                                                  .startsWith(letter));
+
+                                          return GestureDetector(
+                                            onTap: hasMatch
+                                                ? () => _scrollToLetter(
+                                                    letter, filteredSOPs)
+                                                : null,
+                                            child: Container(
+                                              height: itemHeight,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                color: isSelected
+                                                    ? Colors.red
+                                                        .withOpacity(0.2)
+                                                    : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: Text(
+                                                letter,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                  color: hasMatch
+                                                      ? (isSelected
+                                                          ? Colors.red
+                                                          : Colors.red[700])
+                                                      : Colors.grey[400],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
