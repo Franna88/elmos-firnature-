@@ -3,13 +3,14 @@ import 'package:elmos_app/data/services/sop_service.dart';
 import 'package:elmos_app/data/services/analytics_service.dart';
 import 'package:elmos_app/data/services/category_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'utils/deep_link_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'utils/populate_firebase.dart';
+import 'util/setup_services.dart';
 
 // Screens
 // import 'presentation/screens/home_screen.dart';
@@ -23,6 +24,10 @@ import 'presentation/screens/sop_editor/sop_editor_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/screens/analytics/analytics_screen.dart';
 import 'presentation/screens/sops/sops_screen.dart';
+import 'presentation/screens/mobile/mobile_redirect_screen.dart';
+import 'presentation/screens/mobile/mobile_sop_viewer_screen.dart';
+import 'presentation/screens/mobile/mobile_categories_screen.dart';
+import 'presentation/screens/mobile/mobile_sops_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -34,35 +39,30 @@ import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  debugPrint('Starting Firebase initialization...');
 
-  try {
-    if (kDebugMode) {
-      print('Starting Firebase initialization...');
-    }
+  // Initialize services
+  setupServices();
 
-    // Initialize Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  runApp(const MyApp());
+  debugPrint('✅ Firebase initialized successfully');
+  debugPrint(
+      'Firebase project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
+}
 
-    if (kDebugMode) {
-      print('✅ Firebase initialized successfully');
-      print(
-          'Firebase project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      print('❌ Error initializing Firebase: $e');
-      print('The app will run in local data mode');
-    }
-  }
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
-  runApp(
-    MultiProvider(
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => SOPService()),
-        ChangeNotifierProvider(create: (_) => CategoryService()),
+        ChangeNotifierProvider(create: (context) => AuthService()),
+        ChangeNotifierProvider(create: (context) => SOPService()),
+        ChangeNotifierProvider(create: (context) => CategoryService()),
         ChangeNotifierProxyProvider2<AuthService, SOPService, AnalyticsService>(
           create: (context) => AnalyticsService(
             sopService: Provider.of<SOPService>(context, listen: false),
@@ -76,78 +76,44 @@ void main() async {
               ),
         ),
       ],
-      child: const MyApp(),
-    ),
-  );
-}
+      child: Consumer<AuthService>(
+        builder: (context, authService, child) {
+          return MaterialApp.router(
+            title: "Elmo's Furniture SOP Manager",
+            theme: AppTheme.lightTheme,
+            themeMode: ThemeMode.light,
+            debugShowCheckedModeBanner: false,
+            routerConfig: _createRouter(authService),
+          );
+        },
+      ),
+    );
+  }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  GoRouter _createRouter(AuthService authService) {
+    return GoRouter(
+      initialLocation: '/dashboard',
+      redirect: (context, state) {
+        final bool isLoggedIn = authService.isLoggedIn;
+        final bool isLoginRoute = state.matchedLocation == '/login';
+        final bool isRegisterRoute = state.matchedLocation == '/register';
 
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
+        // Check if the user is on a mobile device
+        final bool isMobileDevice = _isMobileDevice(context);
 
-class _MyAppState extends State<MyApp> {
-  final _navigatorKey = GlobalKey<NavigatorState>();
-  bool _initialLoginAttempted = false;
-
-  // For demo purposes: Test email link handling
-  void _testEmailLinkHandling() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Wait until the app is fully loaded, then test the handler
-      Future.delayed(const Duration(seconds: 2), () {
-        if (context.mounted) {
-          // Simulate an email link coming in
-          const testLink =
-              'https://www.example.com/finishSignUp?cartId=1234&signIn=true';
-          DeepLinkHandler.handleLink(context, testLink);
+        // If logged in, redirect to appropriate dashboard based on device
+        if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
+          return isMobileDevice ? '/mobile/sops' : '/dashboard';
         }
-      });
-    });
-  }
 
-  // Auto login for development convenience
-  void _attemptAutoLogin() {
-    if (_initialLoginAttempted) return;
+        // If not logged in, redirect to login page, except for register page
+        if (!isLoggedIn && !isLoginRoute && !isRegisterRoute) {
+          return '/login';
+        }
 
-    _initialLoginAttempted = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Delay slightly to allow the app to initialize
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      if (!context.mounted) return;
-
-      final authService = Provider.of<AuthService>(context, listen: false);
-
-      // If user is not logged in, attempt auto-login with default credentials
-      if (!authService.isLoggedIn) {
-        // Use the default admin credentials
-        await authService.autoLogin();
-      }
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // Uncomment the line below to test email link handling
-    // _testEmailLinkHandling();
-
-    // Auto login for development
-    _attemptAutoLogin();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final router = GoRouter(
-      navigatorKey: _navigatorKey,
-      initialLocation: '/',
+        return null;
+      },
       routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const DashboardScreen(),
-        ),
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
@@ -156,6 +122,28 @@ class _MyAppState extends State<MyApp> {
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
         ),
+        GoRoute(
+          path: '/dashboard',
+          builder: (context, state) => _isMobileDevice(context)
+              ? const MobileRedirectScreen()
+              : const DashboardScreen(),
+        ),
+        // Mobile-specific routes
+        GoRoute(
+          path: '/mobile/sops',
+          builder: (context, state) => const MobileSOPsScreen(),
+        ),
+        GoRoute(
+          path: '/mobile/sop/:sopId',
+          builder: (context, state) => MobileSOPViewerScreen(
+            sopId: state.pathParameters['sopId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/mobile/categories',
+          builder: (context, state) => const MobileCategoriesScreen(),
+        ),
+        // Existing routes
         GoRoute(
           path: '/create-profile',
           builder: (context, state) => const CreateProfileScreen(),
@@ -188,67 +176,31 @@ class _MyAppState extends State<MyApp> {
           builder: (context, state) => const SOPsScreen(),
         ),
       ],
-      redirect: (context, state) async {
-        final authService = Provider.of<AuthService>(context, listen: false);
-        final bool isLoggedIn = authService.isLoggedIn;
-
-        final isGoingToLogin = state.matchedLocation == '/login';
-        final isGoingToRegister = state.matchedLocation == '/register';
-        final isGoingToCreateProfile =
-            state.matchedLocation == '/create-profile';
-        final isGoingToRegisterCompany =
-            state.matchedLocation == '/register-company';
-        final isAuthRelatedRoute = isGoingToLogin ||
-            isGoingToRegister ||
-            isGoingToCreateProfile ||
-            isGoingToRegisterCompany;
-
-        // If going to register, don't redirect regardless of login state
-        if (isGoingToRegister) {
-          return null; // Allow access to register page
-        }
-
-        // Important: Always return null for login page when not logged in
-        // to prevent redirect loops
-        if (isGoingToLogin && !isLoggedIn) {
-          return null; // Stay on login page if not logged in
-        }
-
-        // In debug mode, try auto-login when heading to login page
-        if (kDebugMode && isGoingToLogin && !isLoggedIn) {
-          // Auto-login with development credentials
-          final success = await authService.autoLogin();
-          if (success) {
-            return '/'; // Go to dashboard if auto-login succeeded
-          }
-        }
-
-        // If not logged in and not going to auth routes, redirect to login
-        if (!isLoggedIn && !isAuthRelatedRoute) {
-          return '/login';
-        }
-
-        // If logged in and going to auth routes, redirect to dashboard
-        // But don't redirect from register page
-        if (isLoggedIn && isAuthRelatedRoute && !isGoingToRegister) {
-          return '/';
-        }
-
-        // If we find any templates redirects or fallbacks, update them to categories
-        if (state.matchedLocation == '/templates') {
-          return '/categories';
-        }
-
-        return null;
-      },
     );
+  }
 
-    return MaterialApp.router(
-      title: 'SOP Management System',
-      theme: AppTheme.lightTheme,
-      themeMode: ThemeMode.light,
-      routerConfig: router,
-      debugShowCheckedModeBanner: false,
+  // Helper method to detect if the current device is mobile
+  bool _isMobileDevice(BuildContext context) {
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
+    return mediaQuery.size.width < 600; // Common breakpoint for mobile devices
+  }
+}
+
+// Helper widget to redirect mobile users to mobile-specific interface
+class MobileRedirectScreen extends StatelessWidget {
+  const MobileRedirectScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Automatically redirect to mobile SOPs screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.go('/mobile/sops');
+    });
+
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }
