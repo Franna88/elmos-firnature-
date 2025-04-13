@@ -139,6 +139,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
           updatedAt: DateTime.now(),
         );
 
+        // Save to Firebase
         await sopService.updateSop(updatedSop);
 
         // Explicitly refresh SOPs to ensure data consistency
@@ -165,6 +166,26 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
             SnackBar(content: Text('Error saving SOP: $e')),
           );
         }
+      }
+    }
+  }
+
+  // Add a new method to update SOP locally without saving to Firebase
+  Future<void> _updateSOPLocally(SOP updatedSop) async {
+    try {
+      final sopService = Provider.of<SOPService>(context, listen: false);
+
+      // Update the SOP locally only
+      await sopService.updateSopLocally(updatedSop);
+
+      setState(() {
+        _sop = updatedSop;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating SOP: $e')),
+        );
       }
     }
   }
@@ -2021,16 +2042,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                               stepHazards: stepHazards,
                             );
 
-                            this.setState(() {
-                              final updatedSteps =
-                                  List<SOPStep>.from(_sop.steps)..add(newStep);
-                              _sop = _sop.copyWith(steps: updatedSteps);
-                            });
+                            final updatedSteps = List<SOPStep>.from(_sop.steps)
+                              ..add(newStep);
+                            final updatedSop =
+                                _sop.copyWith(steps: updatedSteps);
+
+                            // Update locally without saving to Firebase
+                            _updateSOPLocally(updatedSop);
 
                             Navigator.pop(context);
-
-                            // Immediately save the SOP with the new step
-                            _saveSOP();
                           }
                         },
                         style: FilledButton.styleFrom(
@@ -3071,17 +3091,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                               stepHazards: stepHazards,
                             );
 
-                            this.setState(() {
-                              final updatedSteps =
-                                  List<SOPStep>.from(_sop.steps);
-                              updatedSteps[index] = updatedStep;
-                              _sop = _sop.copyWith(steps: updatedSteps);
-                            });
+                            final updatedSteps = List<SOPStep>.from(_sop.steps);
+                            updatedSteps[index] = updatedStep;
+                            final updatedSop =
+                                _sop.copyWith(steps: updatedSteps);
+
+                            // Update locally without saving to Firebase
+                            _updateSOPLocally(updatedSop);
 
                             Navigator.pop(context);
-
-                            // Immediately save the SOP with the updated step
-                            _saveSOP();
                           }
                         },
                         style: FilledButton.styleFrom(

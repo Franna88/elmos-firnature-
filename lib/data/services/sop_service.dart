@@ -18,6 +18,9 @@ class SOPService extends ChangeNotifier {
   // Flag to track if we're using local data
   bool _usingLocalData = false;
 
+  // Map to track SOPs with unsaved changes
+  final Map<String, SOP> _localChanges = {};
+
   List<SOP> get sops => List.unmodifiable(_sops);
   List<SOPTemplate> get templates => List.unmodifiable(_templates);
   bool get usingLocalData => _usingLocalData;
@@ -523,6 +526,20 @@ class SOPService extends ChangeNotifier {
     return createSop(title, template.description, template.category);
   }
 
+  // Method to update a SOP locally without saving to Firebase
+  Future<void> updateSopLocally(SOP sop) async {
+    // Store the updated SOP in the local changes map
+    _localChanges[sop.id] = sop;
+
+    // Update the local list for UI updates
+    final index = _sops.indexWhere((s) => s.id == sop.id);
+    if (index >= 0) {
+      _sops[index] = sop.copyWith(updatedAt: DateTime.now());
+      notifyListeners();
+    }
+  }
+
+  // Modified updateSop method to save to Firebase
   Future<void> updateSop(SOP sop) async {
     try {
       if (!_usingLocalData) {
@@ -561,6 +578,9 @@ class SOPService extends ChangeNotifier {
         if (kDebugMode) {
           print('Updated SOP in Firestore with ID: ${sop.id}');
         }
+
+        // Clear from local changes map since it's now saved to Firebase
+        _localChanges.remove(sop.id);
       }
 
       // Update the local list
