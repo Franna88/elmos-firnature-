@@ -11,8 +11,37 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../utils/populate_firebase.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh SOPs when the screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshSOPs();
+    });
+  }
+
+  Future<void> _refreshSOPs() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final sopService = Provider.of<SOPService>(context, listen: false);
+    await sopService.refreshSOPs();
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,206 +50,221 @@ class DashboardScreen extends StatelessWidget {
 
     return AppScaffold(
       title: "Dashboard",
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome header with stats
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Welcome message
-                Expanded(
-                  flex: 3,
-                  child: Column(
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Refresh SOPs',
+          onPressed: _refreshSOPs,
+        ),
+      ],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding:
+                  const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Welcome header with stats
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Welcome back, ${authService.userName ?? 'User'}',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Manage your furniture manufacturing procedures efficiently.',
-                        style: TextStyle(
-                          color: AppColors.textMedium,
-                          fontSize: 15,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                context.go('/editor/new');
-                              },
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Create SOP'),
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                      // Welcome message
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome back, ${authService.userName ?? 'User'}',
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Manage your furniture manufacturing procedures efficiently.',
+                              style: TextStyle(
+                                color: AppColors.textMedium,
+                                fontSize: 15,
+                                height: 1.5,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              context.go('/analytics');
-                            },
-                            icon: const Icon(Icons.insights_outlined, size: 18),
-                            label: const Text('Analytics'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
+                            const SizedBox(height: 24),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      context.go('/editor/new');
+                                    },
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: const Text('Create SOP'),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    context.go('/analytics');
+                                  },
+                                  icon: const Icon(Icons.insights_outlined,
+                                      size: 18),
+                                  label: const Text('Analytics'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 16),
+                                  ),
+                                ),
+                              ],
                             ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                      // Quick stats
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.cardBorder),
                           ),
-                        ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Your Activity',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildStatRow(
+                                Icons.description_outlined,
+                                '${sopService.sops.length} SOPs',
+                                'Created',
+                                AppColors.primaryRed,
+                              ),
+                              const SizedBox(height: 12),
+                              _buildStatRow(
+                                Icons.category_outlined,
+                                '${sopService.templates.length} Templates',
+                                'Available',
+                                AppColors.blueAccent,
+                              ),
+                              if (kDebugMode) const SizedBox(height: 12),
+                              if (kDebugMode)
+                                _buildStatRow(
+                                  Icons.person_outline,
+                                  'Admin',
+                                  'Role',
+                                  AppColors.greenAccent,
+                                ),
+                              if (kDebugMode) const SizedBox(height: 12),
+                              if (kDebugMode)
+                                ElevatedButton.icon(
+                                  onPressed: () async {
+                                    try {
+                                      final populator = FirebasePopulator(
+                                          FirebaseFirestore.instance);
+                                      await populator.populateChairSOPs();
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Successfully added 5 chair SOPs to Firebase!'),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+
+                                        // Refresh SOP list
+                                        final sopService =
+                                            Provider.of<SOPService>(context,
+                                                listen: false);
+                                        // Force refresh by re-initializing data
+                                        await sopService.refreshSOPs();
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content:
+                                                Text('Error adding SOPs: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(Icons.add_circle_outline),
+                                  label: const Text('Add Chair SOPs'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryRed,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 48),
-                // Quick stats
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.cardBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Your Activity',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatRow(
-                          Icons.description_outlined,
-                          '${sopService.sops.length} SOPs',
-                          'Created',
-                          AppColors.primaryRed,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildStatRow(
-                          Icons.category_outlined,
-                          '${sopService.templates.length} Templates',
-                          'Available',
-                          AppColors.blueAccent,
-                        ),
-                        if (kDebugMode) const SizedBox(height: 12),
-                        if (kDebugMode)
-                          _buildStatRow(
-                            Icons.person_outline,
-                            'Admin',
-                            'Role',
-                            AppColors.greenAccent,
-                          ),
-                        if (kDebugMode) const SizedBox(height: 12),
-                        if (kDebugMode)
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              try {
-                                final populator = FirebasePopulator(
-                                    FirebaseFirestore.instance);
-                                await populator.populateChairSOPs();
 
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Successfully added 5 chair SOPs to Firebase!'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
+                  const SizedBox(height: 32),
 
-                                  // Refresh SOP list
-                                  final sopService = Provider.of<SOPService>(
-                                      context,
-                                      listen: false);
-                                  // Force refresh by re-initializing data
-                                  await sopService.refreshSOPs();
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Error adding SOPs: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.add_circle_outline),
-                            label: const Text('Add Chair SOPs'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryRed,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                      ],
-                    ),
+                  // Section title with action
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Recent SOPs',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      if (sopService.sops.length > 6)
+                        TextButton.icon(
+                          onPressed: () {
+                            context.go('/sops');
+                          },
+                          icon: const Icon(Icons.arrow_forward, size: 18),
+                          label: const Text('View All'),
+                        ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+
+                  // SOP cards grid
+                  sopService.sops.isEmpty
+                      ? _buildEmptyState(context)
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 3.0,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                          itemCount: sopService.sops.length > 6
+                              ? 6
+                              : sopService.sops.length,
+                          itemBuilder: (context, index) {
+                            final sop = sopService.sops[index];
+                            return _buildSOPCard(context, sop);
+                          },
+                        ),
+                ],
+              ),
             ),
-
-            const SizedBox(height: 32),
-
-            // Section title with action
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Recent SOPs',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                if (sopService.sops.length > 6)
-                  TextButton.icon(
-                    onPressed: () {
-                      context.go('/sops');
-                    },
-                    icon: const Icon(Icons.arrow_forward, size: 18),
-                    label: const Text('View All'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // SOP cards grid
-            sopService.sops.isEmpty
-                ? _buildEmptyState(context)
-                : GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 3.0,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount:
-                        sopService.sops.length > 6 ? 6 : sopService.sops.length,
-                    itemBuilder: (context, index) {
-                      final sop = sopService.sops[index];
-                      return _buildSOPCard(context, sop);
-                    },
-                  ),
-          ],
-        ),
-      ),
     );
   }
 

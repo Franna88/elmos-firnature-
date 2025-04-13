@@ -131,6 +131,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
 
         await sopService.updateSop(updatedSop);
 
+        // Explicitly refresh SOPs to ensure data consistency
+        await sopService.refreshSOPs();
+
         setState(() {
           _sop = updatedSop;
           _isLoading = false;
@@ -165,6 +168,17 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Check if there are any unsaved changes before navigating back
+            if (_isEditing && _hasUnsavedChanges()) {
+              _showUnsavedChangesDialog(context);
+            } else {
+              context.go('/sops');
+            }
+          },
+        ),
         title: _isLoading
             ? const Text('Loading...')
             : Text(_isEditing ? 'Edit SOP' : _sop.title),
@@ -2065,6 +2079,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                     Provider.of<SOPService>(context, listen: false);
                 await sopService.deleteSop(_sop.id);
 
+                // Explicitly refresh the SOP list
+                await sopService.refreshSOPs();
+
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('SOP deleted successfully')),
@@ -3182,5 +3199,50 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       );
       return null;
     }
+  }
+
+  void _showUnsavedChangesDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text(
+            'You have unsaved changes. Do you want to save before leaving?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Discard changes and navigate back
+              Navigator.pop(context);
+              context.go('/sops');
+            },
+            child: const Text('Discard'),
+          ),
+          TextButton(
+            onPressed: () {
+              // Close dialog and stay on the editor page
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Save changes and navigate back
+              Navigator.pop(context);
+              await _saveSOP();
+              if (mounted) {
+                context.go('/sops');
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _hasUnsavedChanges() {
+    return _titleController.text != _sop.title ||
+        _descriptionController.text != _sop.description ||
+        _departmentController.text != _sop.department;
   }
 }

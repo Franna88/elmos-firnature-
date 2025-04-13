@@ -33,11 +33,18 @@ class SOPService extends ChangeNotifier {
       _storage = FirebaseStorage.instance;
       _auth = FirebaseAuth.instance;
 
+      if (kDebugMode) {
+        print('Firebase initialization status:');
+        print('- Firestore: ${_firestore != null ? "initialized" : "failed"}');
+        print('- Storage: ${_storage != null ? "initialized" : "failed"}');
+        print('- Auth: ${_auth != null ? "initialized" : "failed"}');
+      }
+
       // Test if Firestore is working by creating test collections if needed
       await _ensureCollectionsExist();
 
       if (kDebugMode) {
-        print('Using Firebase Firestore for SOP data');
+        print('✅ Using Firebase Firestore for SOP data');
       }
 
       await _loadTemplates();
@@ -47,8 +54,12 @@ class SOPService extends ChangeNotifier {
       _listenForSOPChanges();
     } catch (e) {
       if (kDebugMode) {
-        print('Firebase initialization error in SOPService: $e');
+        print('❌ Firebase initialization error in SOPService: $e');
         print('Using local SOP data instead');
+        if (e is FirebaseException) {
+          print('Firebase error code: ${e.code}');
+          print('Firebase error message: ${e.message}');
+        }
       }
       _usingLocalData = true;
       _loadSampleTemplates();
@@ -58,8 +69,17 @@ class SOPService extends ChangeNotifier {
 
   Future<void> _ensureCollectionsExist() async {
     try {
+      if (kDebugMode) {
+        print('Checking Firestore collections...');
+      }
+
       // Check if 'sops' collection exists by trying to get a document
       final sopsSnapshot = await _firestore!.collection('sops').limit(1).get();
+
+      if (kDebugMode) {
+        print(
+            '- "sops" collection check: ${sopsSnapshot.size} documents found');
+      }
 
       // If collection is empty, create a test document that we'll delete right away
       // This ensures the collection exists in Firestore
@@ -83,13 +103,27 @@ class SOPService extends ChangeNotifier {
           ]
         });
 
+        if (kDebugMode) {
+          print('- Created test document with ID: ${docRef.id}');
+        }
+
         // Delete the test document
         await docRef.delete();
+
+        if (kDebugMode) {
+          print('- Test document successfully deleted');
+        }
       }
 
       // Check if 'templates' collection exists
       final templatesSnapshot =
           await _firestore!.collection('templates').limit(1).get();
+
+      if (kDebugMode) {
+        print(
+            '- "templates" collection check: ${templatesSnapshot.size} documents found');
+      }
+
       if (templatesSnapshot.docs.isEmpty) {
         // Create a temporary document in templates collection
         final templateRef = await _firestore!.collection('templates').add({
@@ -98,12 +132,28 @@ class SOPService extends ChangeNotifier {
           'isTestDocument': true,
         });
 
+        if (kDebugMode) {
+          print('- Created test template with ID: ${templateRef.id}');
+        }
+
         // Delete the test document
         await templateRef.delete();
+
+        if (kDebugMode) {
+          print('- Test template successfully deleted');
+        }
+      }
+
+      if (kDebugMode) {
+        print('✅ Firestore collection checks complete');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error ensuring collections exist: $e');
+        print('❌ Error ensuring collections exist: $e');
+        if (e is FirebaseException) {
+          print('Firebase error code: ${e.code}');
+          print('Firebase error message: ${e.message}');
+        }
       }
       throw e; // Re-throw to be caught by the caller
     }
@@ -209,18 +259,34 @@ class SOPService extends ChangeNotifier {
 
   Future<void> _loadSOPs() async {
     if (_usingLocalData) {
+      if (kDebugMode) {
+        print('Using local data: Loading sample SOPs');
+      }
       _loadSampleSOPs();
       return;
     }
 
     try {
+      if (kDebugMode) {
+        print('Attempting to load SOPs from Firestore...');
+      }
+
       // Get all SOPs from Firestore
       final snapshot = await _firestore!.collection('sops').get();
+
+      if (kDebugMode) {
+        print('Retrieved ${snapshot.docs.length} SOPs from Firestore');
+      }
 
       final List<SOP> loadedSOPs = [];
 
       for (var doc in snapshot.docs) {
         final sopData = doc.data();
+
+        if (kDebugMode) {
+          print(
+              'Processing SOP document ID: ${doc.id}, title: ${sopData['title']}');
+        }
 
         // Extract steps directly from the SOP document
         final List<SOPStep> steps = [];
@@ -228,6 +294,10 @@ class SOPService extends ChangeNotifier {
         if (sopData['steps'] != null) {
           // Process each step from the steps array in the document
           final stepsList = sopData['steps'] as List<dynamic>;
+
+          if (kDebugMode) {
+            print('- Found ${stepsList.length} steps in SOP document');
+          }
 
           for (var stepData in stepsList) {
             steps.add(SOPStep(
@@ -245,6 +315,10 @@ class SOPService extends ChangeNotifier {
                   ? List<String>.from(stepData['stepHazards'])
                   : [],
             ));
+          }
+        } else {
+          if (kDebugMode) {
+            print('❌ Warning: No steps array found in SOP document ${doc.id}');
           }
         }
 
@@ -271,13 +345,18 @@ class SOPService extends ChangeNotifier {
       notifyListeners();
 
       if (kDebugMode) {
-        print('Loaded ${loadedSOPs.length} SOPs from Firestore');
+        print('✅ Successfully loaded ${loadedSOPs.length} SOPs from Firestore');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error loading SOPs: $e');
-        _loadSampleSOPs();
+        print('❌ Error loading SOPs from Firestore: $e');
+        if (e is FirebaseException) {
+          print('Firebase error code: ${e.code}');
+          print('Firebase error message: ${e.message}');
+        }
+        print('Using sample SOPs instead');
       }
+      _loadSampleSOPs();
     }
   }
 
@@ -302,10 +381,19 @@ class SOPService extends ChangeNotifier {
     final now = DateTime.now();
     final sopId = const Uuid().v4();
 
+    if (kDebugMode) {
+      print('Starting SOP creation process for "$title"');
+      print(
+          'Firebase connection status: ${!_usingLocalData ? "Connected" : "Not connected (local mode)"}');
+    }
+
     // Get user info
     String userIdentifier = 'anonymous';
     if (!_usingLocalData && _auth!.currentUser != null) {
       userIdentifier = _auth!.currentUser!.email ?? _auth!.currentUser!.uid;
+      if (kDebugMode) {
+        print('User creating SOP: $userIdentifier');
+      }
     }
 
     // Default image URL for steps
@@ -323,6 +411,10 @@ class SOPService extends ChangeNotifier {
 
     if (!_usingLocalData) {
       try {
+        if (kDebugMode) {
+          print('_firestore instance exists: ${_firestore != null}');
+        }
+
         // Create the SOP document with embedded steps
         final sopData = {
           'title': title,
@@ -353,17 +445,37 @@ class SOPService extends ChangeNotifier {
 
         if (kDebugMode) {
           print('Creating SOP in Firestore with data: $sopData');
+          print('Target Firestore path: sops/$sopId');
         }
 
         // Create the SOP with steps embedded in Firestore
-        await _firestore!.collection('sops').doc(sopId).set(sopData);
+        await _firestore!.collection('sops').doc(sopId).set(sopData).then((_) {
+          if (kDebugMode) {
+            print(
+                '✅ Successfully wrote SOP data to Firestore path: sops/$sopId');
+          }
+        }).catchError((error) {
+          if (kDebugMode) {
+            print('❌ Failed to write to Firestore: $error');
+          }
+          throw error;
+        });
 
         if (kDebugMode) {
           print('Created new SOP in Firestore with ID: $sopId');
+          // Verify the document exists
+          _firestore!.collection('sops').doc(sopId).get().then((doc) {
+            if (doc.exists) {
+              print('✅ Confirmed SOP document exists in Firestore');
+            } else {
+              print(
+                  '❌ SOP document does not exist in Firestore after creation');
+            }
+          });
         }
       } catch (e) {
         if (kDebugMode) {
-          print('Error creating SOP in Firestore: $e');
+          print('❌ Error creating SOP in Firestore: $e');
           print('Using local SOP data instead');
         }
         _usingLocalData = true;
@@ -386,8 +498,25 @@ class SOPService extends ChangeNotifier {
       cautions: [],
     );
 
+    // Add to the local list
     _sops.add(sop);
     notifyListeners();
+
+    if (kDebugMode) {
+      print('SOP created and added to local list. Total SOPs: ${_sops.length}');
+    }
+
+    // Explicitly reload SOPs from Firestore to ensure UI is updated with the latest data
+    if (!_usingLocalData) {
+      // Use a slight delay to allow Firestore to complete the write
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (kDebugMode) {
+          print('Explicitly refreshing SOPs from Firestore after creation');
+        }
+        _loadSOPs();
+      });
+    }
+
     return sop;
   }
 

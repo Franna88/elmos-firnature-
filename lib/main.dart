@@ -35,16 +35,23 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    if (kDebugMode) {
+      print('Starting Firebase initialization...');
+    }
+
     // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
     if (kDebugMode) {
-      print('Firebase initialized successfully');
+      print('✅ Firebase initialized successfully');
+      print(
+          'Firebase project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
     }
   } catch (e) {
     if (kDebugMode) {
-      print('Error initializing Firebase: $e');
+      print('❌ Error initializing Firebase: $e');
       print('The app will run in local data mode');
     }
   }

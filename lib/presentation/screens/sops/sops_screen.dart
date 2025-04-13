@@ -19,6 +19,29 @@ class _SOPsScreenState extends State<SOPsScreen> {
   String _searchQuery = '';
   String _selectedDepartment = 'All';
   final _printService = PrintService();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh SOPs when the screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshSOPs();
+    });
+  }
+
+  Future<void> _refreshSOPs() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final sopService = Provider.of<SOPService>(context, listen: false);
+    await sopService.refreshSOPs();
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   // Method to handle printing an SOP
   void _printSOP(SOP sop) {
@@ -46,6 +69,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
     return AppScaffold(
       title: 'My SOPs',
       actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Refresh SOPs',
+          onPressed: _refreshSOPs,
+        ),
         IconButton(
           icon: const Icon(Icons.help_outline),
           onPressed: () {
@@ -123,27 +151,31 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
           // SOPs grid view (matching dashboard style)
           Expanded(
-            child: filteredSOPs.isEmpty
+            child: _isLoading
                 ? const Center(
-                    child: Text('No SOPs found.'),
+                    child: CircularProgressIndicator(),
                   )
-                : Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 3.0,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
+                : filteredSOPs.isEmpty
+                    ? const Center(
+                        child: Text('No SOPs found.'),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: GridView.builder(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 3.0,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                          itemCount: filteredSOPs.length,
+                          itemBuilder: (context, index) {
+                            final sop = filteredSOPs[index];
+                            return _buildSOPCard(context, sop);
+                          },
+                        ),
                       ),
-                      itemCount: filteredSOPs.length,
-                      itemBuilder: (context, index) {
-                        final sop = filteredSOPs[index];
-                        return _buildSOPCard(context, sop);
-                      },
-                    ),
-                  ),
           ),
         ],
       ),
