@@ -8,9 +8,13 @@ import '../models/sop_model.dart';
 
 /// Service to handle QR code generation and scanning for SOPs
 class QRCodeService {
-  /// Base URL for the mobile app - Change this to your app's deep link URL
-  /// For development, we'll use a constant pattern that will be handled by the app
-  static const String baseUrl = 'elmos-furniture://sop/';
+  /// Base URL for accessing SOPs via QR code
+  /// This URL needs to point to your deployed web app on Firebase Hosting
+  static const String baseUrl = 'https://elmos-furniture.web.app/mobile/sop/';
+
+  /// Legacy URL scheme for deep linking in mobile apps
+  /// Keep this for backward compatibility
+  static const String legacyScheme = 'elmos-furniture://sop/';
 
   /// Generate a QR code data URL for a specific SOP
   /// This returns the data needed to create a QR code that points to this SOP
@@ -94,9 +98,16 @@ class QRCodeService {
   /// Extract the SOP ID from a QR code data string
   /// This is useful when scanning a QR code
   String? extractSOPIdFromQRData(String qrData) {
+    // Check for web URL format first
     if (qrData.startsWith(baseUrl)) {
       return qrData.substring(baseUrl.length);
     }
+
+    // Check for legacy deep link format as backup
+    if (qrData.startsWith(legacyScheme)) {
+      return qrData.substring(legacyScheme.length);
+    }
+
     return null;
   }
 
@@ -105,9 +116,16 @@ class QRCodeService {
   String? parseSOPIdFromLink(String? link) {
     if (link == null) return null;
 
+    // Check for web URL format first
     if (link.startsWith(baseUrl)) {
       return link.substring(baseUrl.length);
     }
+
+    // Check for legacy deep link format as backup
+    if (link.startsWith(legacyScheme)) {
+      return link.substring(legacyScheme.length);
+    }
+
     return null;
   }
 

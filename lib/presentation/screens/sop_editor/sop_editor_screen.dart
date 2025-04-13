@@ -245,44 +245,117 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('SOP QR Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        title: Row(
           children: [
-            const Text(
-              'Scan this QR code with the mobile app to view this SOP on a mobile device.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child:
-                  sopService.qrCodeService.generateQRWidget(_sop.id, size: 200),
-            ),
-            const SizedBox(height: 8),
-            Text('SOP ID: ${_sop.id}',
-                style: Theme.of(context).textTheme.bodySmall),
+            const Icon(Icons.qr_code, color: Color(0xFFBB2222)),
+            const SizedBox(width: 8),
+            const Text('SOP QR Code'),
           ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'This QR code provides direct access to this SOP when scanned.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'When team members scan this with the mobile app, they will immediately access this exact SOP, allowing them to follow steps and procedures on-site.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: sopService.qrCodeService
+                    .generateQRWidget(_sop.id, size: 200),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'SOP ID: ${_sop.id}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Recommended Uses:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Row(
+                children: [
+                  Icon(Icons.print, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        'Print and attach to relevant equipment or workstations'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Row(
+                children: [
+                  Icon(Icons.book, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Add to procedure manuals and documentation'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Row(
+                children: [
+                  Icon(Icons.folder, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        'Include in training materials for quick reference'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
+            icon: const Icon(Icons.download),
+            label: const Text('Download for Printing'),
             onPressed: () {
               // Download QR code
               Navigator.pop(context);
               _downloadQRCode();
             },
-            child: const Text('Download'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFBB2222),
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       ),
     );
   }

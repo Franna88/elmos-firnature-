@@ -717,6 +717,10 @@ class _SOPViewerState extends State<SOPViewer> {
     final sopService = Provider.of<SOPService>(context);
 
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -725,25 +729,125 @@ class _SOPViewerState extends State<SOPViewer> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('QR Code', style: Theme.of(context).textTheme.titleMedium),
+                Row(
+                  children: [
+                    const Icon(Icons.qr_code, color: Color(0xFFBB2222)),
+                    const SizedBox(width: 8),
+                    Text('SOP QR Code',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
                 IconButton(
                   icon: const Icon(Icons.help_outline),
-                  tooltip:
-                      'Scan this QR code with the mobile app to view this SOP on a mobile device',
+                  tooltip: 'Learn how to use this QR code',
                   onPressed: () {
                     // Show help information
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('QR Code Information'),
-                        content: const Text(
-                          'This QR code can be scanned with the Elmo\'s Furniture mobile app to quickly access this SOP on a mobile device.\n\n'
-                          'Print this QR code and attach it to equipment or materials to allow team members to quickly access the relevant SOP.',
+                        title: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Color(0xFFBB2222)),
+                            SizedBox(width: 8),
+                            Text('Using SOP QR Codes'),
+                          ],
+                        ),
+                        content: const SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'QR codes enable quick access to SOPs on mobile devices:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 12),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('1.'),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Print this QR code and attach it to relevant equipment, workstations, or materials.',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('2.'),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Team members can scan it with the Elmo\'s Furniture mobile app.',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('3.'),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'The app immediately opens this specific SOP, showing all steps and details.',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Benefits:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.access_time, size: 16),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                        'Instant access to procedures without searching'),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.check_circle, size: 16),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                        'Ensures team members follow correct procedures'),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.update, size: 16),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                        'Always shows the latest version of the SOP'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
+                            child: const Text('Got it'),
                           ),
                         ],
                       ),
@@ -751,6 +855,11 @@ class _SOPViewerState extends State<SOPViewer> {
                   },
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Scan this QR code with the Elmo\'s Furniture mobile app to instantly access this SOP on a mobile device.',
+              style: TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 16),
             Center(
@@ -763,20 +872,47 @@ class _SOPViewerState extends State<SOPViewer> {
                       color: Colors.white,
                       border: Border.all(color: Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: sopService.qrCodeService
                         .generateQRWidget(widget.sop.id, size: 200),
                   ),
-                  const SizedBox(height: 16),
-                  Text('SOP ID: ${widget.sop.id}',
-                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'SOP ID: ${widget.sop.id}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   // Button to download QR code
                   if (widget.onDownloadQRCode != null)
                     ElevatedButton.icon(
                       onPressed: widget.onDownloadQRCode,
                       icon: const Icon(Icons.download),
-                      label: const Text('Download QR Code'),
+                      label: const Text('Download QR Code for Printing'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFBB2222),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
                     ),
                 ],
               ),

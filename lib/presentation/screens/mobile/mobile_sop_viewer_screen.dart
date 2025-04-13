@@ -14,22 +14,38 @@ class MobileSOPViewerScreen extends StatefulWidget {
   State<MobileSOPViewerScreen> createState() => _MobileSOPViewerScreenState();
 }
 
-class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen> {
+class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
+    with SingleTickerProviderStateMixin {
   late SOP _sop;
   bool _isLoading = true;
   int _currentStepIndex = 0;
   late PageController _pageController;
+  late AnimationController _animationController;
+  bool _isFromQRScan = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+
+    // Initialize animation controller for QR scan effect
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    // Check if this SOP was accessed via QR code scan
+    // This is a simple heuristic - for a real app, you'd pass this info through the route
+    final route = ModalRoute.of(context)?.settings.name ?? '';
+    _isFromQRScan = route.contains('/sop/') && !route.contains('/editor/');
+
     _loadSOP();
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -47,10 +63,18 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen> {
           _sop = sop;
           _isLoading = false;
         });
+
+        // Play animation effect if this was from a QR scan
+        if (_isFromQRScan) {
+          _animationController.forward();
+        }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('SOP not found')),
+            const SnackBar(
+              content: Text('SOP not found'),
+              backgroundColor: Colors.red,
+            ),
           );
           context.go('/mobile/sops');
         }
@@ -58,7 +82,10 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading SOP: $e')),
+          SnackBar(
+            content: Text('Error loading SOP: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
         context.go('/mobile/sops');
       }
@@ -77,7 +104,14 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen> {
           ),
         ),
         body: const Center(
-          child: CircularProgressIndicator(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading SOP details...'),
+            ],
+          ),
         ),
       );
     }
@@ -91,121 +125,191 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen> {
           onPressed: () => context.go('/mobile/sops'),
         ),
         actions: [
+          if (_isFromQRScan)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Chip(
+                backgroundColor: Colors.green,
+                label: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.qr_code_scanner, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'QR',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                padding: EdgeInsets.zero,
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showSOPInfoDialog(context),
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Progress indicator
-          LinearProgressIndicator(
-            value: (_currentStepIndex + 1) / _sop.steps.length,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).colorScheme.primary),
-          ),
+          Column(
+            children: [
+              // Progress indicator
+              LinearProgressIndicator(
+                value: (_currentStepIndex + 1) / _sop.steps.length,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary),
+              ),
 
-          // Step counter
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Step ${_currentStepIndex + 1} of ${_sop.steps.length}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.0,
-                  ),
+              // Step counter
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Step ${_currentStepIndex + 1} of ${_sop.steps.length}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16.0,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          // Main content
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: _sop.steps.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentStepIndex = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                final step = _sop.steps[index];
-                return _buildStepCard(step, index + 1);
-              },
-            ),
-          ),
-
-          // Navigation buttons
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _currentStepIndex > 0
-                      ? () {
-                          _pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      : null,
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Previous'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[300],
-                    foregroundColor: Colors.black87,
-                    disabledBackgroundColor: Colors.grey[200],
-                    disabledForegroundColor: Colors.grey[400],
-                  ),
+              // Main content
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: _sop.steps.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentStepIndex = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final step = _sop.steps[index];
+                    return _buildStepCard(step, index + 1);
+                  },
                 ),
-                _currentStepIndex == _sop.steps.length - 1
-                    ? ElevatedButton.icon(
-                        onPressed: () {
-                          // Show completion message and return to SOPs screen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('SOP completed successfully!'),
+              ),
+
+              // Navigation buttons
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _currentStepIndex > 0
+                          ? () {
+                              _pageController.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          : null,
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Previous'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[300],
+                        foregroundColor: Colors.black87,
+                        disabledBackgroundColor: Colors.grey[200],
+                        disabledForegroundColor: Colors.grey[400],
+                      ),
+                    ),
+                    _currentStepIndex == _sop.steps.length - 1
+                        ? ElevatedButton.icon(
+                            onPressed: () {
+                              // Show completion message and return to SOPs screen
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('SOP completed successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              context.go('/mobile/sops');
+                            },
+                            icon: const Icon(Icons.check_circle),
+                            label: const Text('Complete'),
+                            style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
                             ),
-                          );
-                          context.go('/mobile/sops');
-                        },
-                        icon: const Icon(Icons.check_circle),
-                        label: const Text('Complete'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
+                          )
+                        : ElevatedButton.icon(
+                            onPressed: _currentStepIndex < _sop.steps.length - 1
+                                ? () {
+                                    _pageController.nextPage(
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  }
+                                : null,
+                            icon: const Icon(Icons.arrow_forward),
+                            label: const Text('Next'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: Colors.grey[200],
+                              disabledForegroundColor: Colors.grey[400],
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // QR code scan animation overlay
+          if (_isFromQRScan)
+            AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                // Show a fading overlay when the SOP is first loaded from QR
+                return _animationController.value < 1.0
+                    ? Positioned.fill(
+                        child: Container(
+                          color: Colors.green.withOpacity(
+                              0.3 * (1 - _animationController.value)),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.qr_code_scanner,
+                                  size: 100 *
+                                      (1 - _animationController.value * 0.8),
+                                  color: Colors.white,
+                                ),
+                                SizedBox(
+                                    height: 16 *
+                                        (1 - _animationController.value * 0.5)),
+                                Text(
+                                  'SOP Loaded Successfully',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20 *
+                                        (1 - _animationController.value * 0.5),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       )
-                    : ElevatedButton.icon(
-                        onPressed: _currentStepIndex < _sop.steps.length - 1
-                            ? () {
-                                _pageController.nextPage(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            : null,
-                        icon: const Icon(Icons.arrow_forward),
-                        label: const Text('Next'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.grey[200],
-                          disabledForegroundColor: Colors.grey[400],
-                        ),
-                      ),
-              ],
+                    : const SizedBox.shrink();
+              },
             ),
-          ),
         ],
       ),
     );
