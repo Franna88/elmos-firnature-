@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
 import '../../../data/services/sop_service.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../data/models/sop_model.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   late PageController _pageController;
   late AnimationController _animationController;
   bool _isFromQRScan = false;
+  bool _isAnonymousAccess = false;
 
   @override
   void initState() {
@@ -35,9 +37,12 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     );
 
     // Check if this SOP was accessed via QR code scan
-    // This is a simple heuristic - for a real app, you'd pass this info through the route
     final route = ModalRoute.of(context)?.settings.name ?? '';
     _isFromQRScan = route.contains('/sop/') && !route.contains('/editor/');
+
+    // Check if this is anonymous access
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _isAnonymousAccess = !authService.isLoggedIn;
 
     _loadSOP();
   }
@@ -76,7 +81,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
               backgroundColor: Colors.red,
             ),
           );
-          context.go('/mobile/sops');
+          _navigateBack();
         }
       }
     } catch (e) {
@@ -87,8 +92,19 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             backgroundColor: Colors.red,
           ),
         );
-        context.go('/mobile/sops');
+        _navigateBack();
       }
+    }
+  }
+
+  // Helper method to navigate back based on authentication state
+  void _navigateBack() {
+    if (_isAnonymousAccess) {
+      // If accessed anonymously, go to login
+      context.go('/login');
+    } else {
+      // If logged in, go to mobile SOPs list
+      context.go('/mobile/sops');
     }
   }
 
@@ -100,7 +116,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           title: const Text('Loading...'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go('/mobile/sops'),
+            onPressed: _navigateBack,
           ),
         ),
         body: const Center(
@@ -122,9 +138,32 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             style: const TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/mobile/sops'),
+          onPressed: _navigateBack,
         ),
         actions: [
+          if (_isAnonymousAccess)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Chip(
+                backgroundColor: Colors.blue,
+                label: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.public, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Public View',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                padding: EdgeInsets.zero,
+              ),
+            ),
           if (_isFromQRScan)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
@@ -158,6 +197,39 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
         children: [
           Column(
             children: [
+              // Display login banner for anonymous users
+              if (_isAnonymousAccess)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  color: Colors.blue.shade50,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline,
+                          color: Colors.blue, size: 20),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'You\'re viewing this SOP in public mode. Sign in to access all features.',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go('/login'),
+                        child: const Text('LOGIN'),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          textStyle: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // Progress indicator
               LinearProgressIndicator(
                 value: (_currentStepIndex + 1) / _sop.steps.length,
@@ -227,14 +299,14 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                     _currentStepIndex == _sop.steps.length - 1
                         ? ElevatedButton.icon(
                             onPressed: () {
-                              // Show completion message and return to SOPs screen
+                              // Show completion message and return to SOPs screen or login
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('SOP completed successfully!'),
                                   backgroundColor: Colors.green,
                                 ),
                               );
-                              context.go('/mobile/sops');
+                              _navigateBack();
                             },
                             icon: const Icon(Icons.check_circle),
                             label: const Text('Complete'),

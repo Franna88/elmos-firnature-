@@ -28,6 +28,7 @@ import 'presentation/screens/mobile/mobile_redirect_screen.dart';
 import 'presentation/screens/mobile/mobile_sop_viewer_screen.dart';
 import 'presentation/screens/mobile/mobile_categories_screen.dart';
 import 'presentation/screens/mobile/mobile_sops_screen.dart';
+import 'presentation/screens/mobile/mobile_login_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -95,28 +96,51 @@ class MyApp extends StatelessWidget {
       initialLocation: '/dashboard',
       redirect: (context, state) {
         final bool isLoggedIn = authService.isLoggedIn;
-        final bool isLoginRoute = state.matchedLocation == '/login';
+        final bool isLoginRoute = state.matchedLocation == '/login' ||
+            state.matchedLocation == '/mobile/login';
         final bool isRegisterRoute = state.matchedLocation == '/register';
 
         // Check if the user is on a mobile device
         final bool isMobileDevice = _isMobileDevice(context);
+
+        // Special case: Allow direct access to specific SOPs via mobile web (for QR code scanning)
+        // This bypasses authentication for mobile SOP viewer when accessed directly
+        if (state.matchedLocation.startsWith('/mobile/sop/')) {
+          // No redirect needed - allow direct access to the SOP without login
+          return null;
+        }
 
         // If logged in, redirect to appropriate dashboard based on device
         if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
           return isMobileDevice ? '/mobile/sops' : '/dashboard';
         }
 
-        // If not logged in, redirect to login page, except for register page
+        // If not logged in, redirect to appropriate login page based on device
         if (!isLoggedIn && !isLoginRoute && !isRegisterRoute) {
-          return '/login';
+          return isMobileDevice ? '/mobile/login' : '/login';
         }
 
         return null;
       },
       routes: [
         GoRoute(
+          path: '/',
+          redirect: (context, state) {
+            if (authService.isLoggedIn) {
+              return _isMobileDevice(context) ? '/mobile/sops' : '/dashboard';
+            }
+            return _isMobileDevice(context) ? '/mobile/login' : '/login';
+          },
+        ),
+        GoRoute(
           path: '/login',
-          builder: (context, state) => const LoginScreen(),
+          builder: (context, state) => _isMobileDevice(context)
+              ? const MobileLoginScreen()
+              : const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/mobile/login',
+          builder: (context, state) => const MobileLoginScreen(),
         ),
         GoRoute(
           path: '/register',
