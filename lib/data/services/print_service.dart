@@ -6,113 +6,301 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../models/sop_model.dart';
 
 class PrintService {
   // Function to generate a print-friendly PDF for an SOP
   Future<void> printSOP(BuildContext context, SOP sop) async {
-    final pdf = pw.Document();
+    debugPrint('Starting PDF generation for SOP #${sop.id} - ${sop.title}');
+    try {
+      final pdf = pw.Document();
 
-    // Get printer information
-    final printerList = await Printing.listPrinters();
-    debugPrint(
-        'Available printers: ${printerList.map((p) => p.name).join(', ')}');
+      // Get printer information - skip on web platform which doesn't support it
+      if (!kIsWeb) {
+        try {
+          final printerList = await Printing.listPrinters();
+          debugPrint(
+              'Available printers: ${printerList.map((p) => p.name).join(', ')}');
+        } catch (e) {
+          debugPrint('Error listing printers (non-critical): $e');
+          // Continue with PDF generation even if printer listing fails
+        }
+      } else {
+        debugPrint('Running on web platform - printer listing skipped');
+      }
 
-    // Create a PDF document in landscape orientation
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.landscape,
-        build: (pw.Context context) => [
-          _buildPDFHeader(sop),
-          pw.SizedBox(height: 20),
-          _buildSummarySection(sop),
-          pw.SizedBox(height: 20),
-          _buildStepsGrid(sop),
-        ],
-        footer: (context) => _buildFooter(context, sop),
-      ),
-    );
+      // Load the company logo
+      debugPrint('Loading company logo...');
+      final logoImage = await _loadAssetImage('assets/images/logo.png');
+      debugPrint('Logo loaded: ${logoImage != null ? 'success' : 'failed'}');
 
-    // Print the document
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: '${sop.title} - SOP #${sop.id}',
-      format: PdfPageFormat.a4.landscape,
-    );
+      // Pre-load all step images
+      debugPrint('Loading step images for ${sop.steps.length} steps...');
+      final Map<String, pw.MemoryImage?> stepImages = {};
+      for (final step in sop.steps) {
+        if (step.imageUrl != null && step.imageUrl!.isNotEmpty) {
+          stepImages[step.id] = await _loadNetworkImage(step.imageUrl);
+          debugPrint(
+              'Loaded image for step ${step.id}: ${step.imageUrl != null ? 'success' : 'failed'}');
+        }
+      }
+
+      debugPrint('Building PDF document...');
+      // Create a PDF document in landscape orientation
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(20),
+          build: (pw.Context context) {
+            // Build all the widgets for the page
+            return [
+              _buildPDFHeader(sop, logoImage),
+              pw.SizedBox(height: 10), // Reduced spacing
+              _buildSummarySection(sop),
+              pw.SizedBox(height: 10), // Reduced spacing
+              _buildStepsGrid(sop, stepImages),
+            ];
+          },
+          footer: (context) => _buildFooter(context, sop),
+        ),
+      );
+
+      debugPrint('Showing print dialog...');
+      // Print the document using appropriate method based on platform
+      final result = await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async {
+          debugPrint(
+              'Generating PDF with format: ${format.width}x${format.height}');
+          return pdf.save();
+        },
+        name: '${sop.title} - SOP #${sop.id}',
+        format: PdfPageFormat.a4.landscape,
+      );
+
+      debugPrint('Print result: $result');
+
+      if (!result) {
+        // If printing failed, show a message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to print or save the document'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('PDF generated successfully'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error generating PDF: $e');
+      debugPrint('Stack trace: $stackTrace');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating PDF: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
-  // Build the PDF header with company and SOP information
-  pw.Widget _buildPDFHeader(SOP sop) {
-    return pw.Column(
+  // Load an image from assets
+  Future<pw.MemoryImage?> _loadAssetImage(String assetPath) async {
+    debugPrint('Attempting to load asset image from: $assetPath');
+    try {
+      final ByteData data = await rootBundle.load(assetPath);
+      final Uint8List bytes = data.buffer.asUint8List();
+      debugPrint(
+          'Successfully loaded asset image: $assetPath (${bytes.length} bytes)');
+      return pw.MemoryImage(bytes);
+    } catch (e) {
+      debugPrint('Error loading asset image from $assetPath: $e');
+      // Try to load a fallback image or continue without an image
+      try {
+        // Try to load the logo from a simpler path if the main path failed
+        final fallbackPath = 'assets/images/logo.png';
+        if (fallbackPath != assetPath) {
+          debugPrint('Trying fallback path: $fallbackPath');
+          final ByteData fallbackData = await rootBundle.load(fallbackPath);
+          final Uint8List fallbackBytes = fallbackData.buffer.asUint8List();
+          debugPrint('Successfully loaded fallback image: $fallbackPath');
+          return pw.MemoryImage(fallbackBytes);
+        }
+      } catch (fallbackError) {
+        debugPrint('Fallback image also failed: $fallbackError');
+      }
+      return null;
+    }
+  }
+
+  // Try to load an image from a URL
+  Future<pw.MemoryImage?> _loadNetworkImage(String? url) async {
+    if (url == null || url.isEmpty) {
+      debugPrint('Empty image URL provided');
+      return null;
+    }
+
+    debugPrint('Attempting to load image from: $url');
+
+    // If it's a data URL, decode it directly
+    if (url.startsWith('data:image/')) {
+      try {
+        final data = url.split(',')[1];
+        final bytes = base64Decode(data);
+        debugPrint(
+            'Successfully decoded data URL image (${bytes.length} bytes)');
+        return pw.MemoryImage(bytes);
+      } catch (e) {
+        debugPrint('Error decoding data URL image: $e');
+        return null;
+      }
+    }
+
+    // Handle network images
+    try {
+      debugPrint('Fetching network image from: $url');
+      final response = await http.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('Network image request timed out: $url');
+          throw Exception('Network request timed out');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint(
+            'Successfully loaded network image: $url (${response.bodyBytes.length} bytes)');
+        return pw.MemoryImage(response.bodyBytes);
+      } else {
+        debugPrint(
+            'Failed to load network image. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error loading network image from $url: $e');
+    }
+    return null;
+  }
+
+  // Build the PDF header with company logo and SOP information - more compact
+  pw.Widget _buildPDFHeader(SOP sop, pw.MemoryImage? logoImage) {
+    return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  "Elmo's Furniture",
-                  style: pw.TextStyle(
-                    fontSize: 24,
-                    fontWeight: pw.FontWeight.bold,
+        // Logo on the left - smaller
+        pw.Container(
+          width: 90, // Reduced width
+          child: logoImage != null
+              ? pw.Image(logoImage)
+              : pw.Container(
+                  height: 50, // Reduced height
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: pw.BorderRadius.circular(4),
                   ),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text("Logo",
+                      style: pw.TextStyle(color: PdfColors.grey)),
                 ),
-                pw.Text(
-                  "Standard Operating Procedure",
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
-              children: [
-                pw.Text(
-                  "SOP ID: ${sop.id}",
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
-                pw.Text(
-                  "Category: ${sop.categoryName ?? 'Unknown'}",
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
-                pw.Text(
-                  "Revision: ${sop.revisionNumber}",
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
-                pw.Text(
-                  "Date: ${_formatDate(sop.updatedAt)}",
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
-        pw.Divider(),
-        pw.SizedBox(height: 10),
-        pw.Text(
-          sop.title,
-          style: pw.TextStyle(
-            fontSize: 20,
-            fontWeight: pw.FontWeight.bold,
+
+        pw.SizedBox(width: 15), // Reduced spacing
+
+        // SOP info on the right - more compact
+        pw.Expanded(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                "Elmo's Furniture",
+                style: pw.TextStyle(
+                  fontSize: 20, // Smaller font
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.Text(
+                "Standard Operating Procedure",
+                style: pw.TextStyle(
+                  fontSize: 14, // Smaller font
+                ),
+              ),
+              pw.SizedBox(height: 5), // Reduced spacing
+              pw.Text(
+                sop.title,
+                style: pw.TextStyle(
+                  fontSize: 16, // Smaller font
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 2), // Reduced spacing
+              pw.Text(
+                sop.description,
+                style: pw.TextStyle(
+                  fontSize: 12, // Smaller font
+                  fontStyle: pw.FontStyle.italic,
+                ),
+              ),
+            ],
           ),
         ),
-        pw.SizedBox(height: 5),
-        pw.Text(
-          sop.description,
-          style: pw.TextStyle(
-            fontSize: 14,
-            fontStyle: pw.FontStyle.italic,
+
+        // Document info on the far right - more compact
+        pw.Container(
+          width: 140, // Smaller width
+          padding: const pw.EdgeInsets.all(8), // Reduced padding
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey100,
+            border: pw.Border.all(color: PdfColors.grey300),
+            borderRadius: pw.BorderRadius.circular(4),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                "SOP ID: ${sop.id}",
+                style: pw.TextStyle(
+                  fontSize: 9, // Smaller font
+                ),
+              ),
+              pw.SizedBox(height: 2), // Reduced spacing
+              pw.Text(
+                "Category: ${sop.categoryName ?? 'Unknown'}",
+                style: pw.TextStyle(
+                  fontSize: 9, // Smaller font
+                ),
+              ),
+              pw.SizedBox(height: 2), // Reduced spacing
+              pw.Text(
+                "Revision: ${sop.revisionNumber}",
+                style: pw.TextStyle(
+                  fontSize: 9, // Smaller font
+                ),
+              ),
+              pw.SizedBox(height: 2), // Reduced spacing
+              pw.Text(
+                "Created: ${_formatDate(sop.createdAt)}",
+                style: pw.TextStyle(
+                  fontSize: 9, // Smaller font
+                ),
+              ),
+              pw.SizedBox(height: 2), // Reduced spacing
+              pw.Text(
+                "Updated: ${_formatDate(sop.updatedAt)}",
+                style: pw.TextStyle(
+                  fontSize: 9, // Smaller font
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -229,13 +417,14 @@ class PrintService {
     );
   }
 
-  // Build a grid of steps with 4 steps per row
-  pw.Widget _buildStepsGrid(SOP sop) {
+  // Build a grid of steps with 5 steps per row
+  pw.Widget _buildStepsGrid(SOP sop, Map<String, pw.MemoryImage?> stepImages) {
     final steps = sop.steps;
     final List<pw.Widget> rows = [];
 
-    for (int i = 0; i < steps.length; i += 4) {
-      final rowSteps = steps.skip(i).take(4).toList();
+    // Create rows with 5 steps per row
+    for (int i = 0; i < steps.length; i += 5) {
+      final rowSteps = steps.skip(i).take(5).toList();
       rows.add(
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -243,14 +432,14 @@ class PrintService {
               .map((step) => pw.Expanded(
                     child: pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child:
-                          _buildStepCard(step, i + rowSteps.indexOf(step) + 1),
+                      child: _buildStepCard(step,
+                          i + rowSteps.indexOf(step) + 1, stepImages[step.id]),
                     ),
                   ))
               .toList(),
         ),
       );
-      rows.add(pw.SizedBox(height: 15));
+      rows.add(pw.SizedBox(height: 10)); // Reduced spacing
     }
 
     return pw.Column(
@@ -259,19 +448,20 @@ class PrintService {
         pw.Text(
           "Step-by-Step Procedure",
           style: pw.TextStyle(
-            fontSize: 16,
+            fontSize: 14, // Smaller font
             fontWeight: pw.FontWeight.bold,
           ),
         ),
         pw.Divider(),
-        pw.SizedBox(height: 10),
+        pw.SizedBox(height: 8), // Reduced spacing
         ...rows,
       ],
     );
   }
 
-  // Build an individual step card
-  pw.Widget _buildStepCard(SOPStep step, int stepNumber) {
+  // Build an individual step card with image at the top
+  pw.Widget _buildStepCard(
+      SOPStep step, int stepNumber, pw.MemoryImage? stepImage) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),
@@ -282,7 +472,7 @@ class PrintService {
         children: [
           // Step header with step number
           pw.Container(
-            padding: const pw.EdgeInsets.all(8),
+            padding: const pw.EdgeInsets.all(6), // Reduced padding
             decoration: const pw.BoxDecoration(
               color: PdfColors.grey200,
               borderRadius: pw.BorderRadius.only(
@@ -293,8 +483,8 @@ class PrintService {
             child: pw.Row(
               children: [
                 pw.Container(
-                  width: 24,
-                  height: 24,
+                  width: 20, // Smaller size
+                  height: 20, // Smaller size
                   decoration: pw.BoxDecoration(
                     color: PdfColors.blue700,
                     shape: pw.BoxShape.circle,
@@ -305,15 +495,17 @@ class PrintService {
                     style: pw.TextStyle(
                       color: PdfColors.white,
                       fontWeight: pw.FontWeight.bold,
+                      fontSize: 10, // Smaller font
                     ),
                   ),
                 ),
-                pw.SizedBox(width: 8),
+                pw.SizedBox(width: 6), // Reduced spacing
                 pw.Expanded(
                   child: pw.Text(
                     step.title,
                     style: pw.TextStyle(
                       fontWeight: pw.FontWeight.bold,
+                      fontSize: 10, // Smaller font
                     ),
                   ),
                 ),
@@ -321,18 +513,29 @@ class PrintService {
             ),
           ),
 
+          // Step image (if available) - display in proper aspect ratio
+          if (stepImage != null)
+            pw.Container(
+              width: double.infinity,
+              height: 100, // Increased height for better image display
+              child: pw.Center(
+                child: pw.Image(stepImage,
+                    fit: pw.BoxFit.contain), // Use contain instead of cover
+              ),
+            ),
+
           // Step content
           pw.Padding(
-            padding: const pw.EdgeInsets.all(8),
+            padding: const pw.EdgeInsets.all(6), // Reduced padding
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(step.instruction,
-                    style: const pw.TextStyle(fontSize: 10)),
+                    style: const pw.TextStyle(fontSize: 9)), // Smaller font
                 if (step.helpNote != null && step.helpNote!.isNotEmpty) ...[
-                  pw.SizedBox(height: 5),
+                  pw.SizedBox(height: 4), // Reduced spacing
                   pw.Container(
-                    padding: const pw.EdgeInsets.all(5),
+                    padding: const pw.EdgeInsets.all(4), // Reduced padding
                     decoration: pw.BoxDecoration(
                       color: PdfColors.amber50,
                       borderRadius: pw.BorderRadius.circular(4),
@@ -345,13 +548,14 @@ class PrintService {
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColors.amber800,
+                            fontSize: 8, // Smaller font
                           ),
                         ),
                         pw.Expanded(
                           child: pw.Text(
                             step.helpNote!,
                             style: pw.TextStyle(
-                              fontSize: 9,
+                              fontSize: 8, // Smaller font
                               fontStyle: pw.FontStyle.italic,
                               color: PdfColors.grey800,
                             ),
@@ -361,95 +565,130 @@ class PrintService {
                     ),
                   ),
                 ],
-                if (step.stepTools.isNotEmpty) ...[
-                  pw.SizedBox(height: 5),
-                  pw.Text(
-                    "Tools Needed:",
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 9,
-                    ),
-                  ),
-                  pw.SizedBox(height: 2),
-                  pw.Wrap(
-                    spacing: 3,
-                    runSpacing: 3,
-                    children: step.stepTools.map((tool) {
-                      return pw.Container(
-                        padding: const pw.EdgeInsets.fromLTRB(4, 2, 4, 2),
-                        decoration: pw.BoxDecoration(
-                          color: PdfColors.blue50,
-                          borderRadius: pw.BorderRadius.circular(3),
+
+                // Tools and hazards in a more compact format
+                pw.SizedBox(height: 4), // Reduced spacing
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    if (step.stepTools.isNotEmpty)
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              "Tools:",
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
+                                fontSize: 8, // Smaller font
+                              ),
+                            ),
+                            pw.SizedBox(height: 2), // Reduced spacing
+                            pw.Wrap(
+                              spacing: 2,
+                              runSpacing: 2,
+                              children: step.stepTools.map((tool) {
+                                return pw.Container(
+                                  padding:
+                                      const pw.EdgeInsets.fromLTRB(3, 1, 3, 1),
+                                  decoration: pw.BoxDecoration(
+                                    color: PdfColors.blue50,
+                                    borderRadius: pw.BorderRadius.circular(2),
+                                  ),
+                                  child: pw.Text(
+                                    tool,
+                                    style: const pw.TextStyle(
+                                        fontSize: 6), // Smaller font
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
                         ),
-                        child: pw.Text(
-                          tool,
-                          style: const pw.TextStyle(fontSize: 8),
+                      ),
+                    if (step.stepTools.isNotEmpty &&
+                        step.stepHazards.isNotEmpty)
+                      pw.SizedBox(width: 4), // Reduced spacing
+                    if (step.stepHazards.isNotEmpty)
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              "Hazards:",
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
+                                fontSize: 8, // Smaller font
+                              ),
+                            ),
+                            pw.SizedBox(height: 2), // Reduced spacing
+                            pw.Wrap(
+                              spacing: 2,
+                              runSpacing: 2,
+                              children: step.stepHazards.map((hazard) {
+                                return pw.Container(
+                                  padding:
+                                      const pw.EdgeInsets.fromLTRB(3, 1, 3, 1),
+                                  decoration: pw.BoxDecoration(
+                                    color: PdfColors.orange50,
+                                    borderRadius: pw.BorderRadius.circular(2),
+                                  ),
+                                  child: pw.Text(
+                                    hazard,
+                                    style: const pw.TextStyle(
+                                        fontSize: 6), // Smaller font
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
                         ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-                if (step.stepHazards.isNotEmpty) ...[
-                  pw.SizedBox(height: 5),
-                  pw.Text(
-                    "Hazards:",
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 9,
-                    ),
-                  ),
-                  pw.SizedBox(height: 2),
-                  pw.Wrap(
-                    spacing: 3,
-                    runSpacing: 3,
-                    children: step.stepHazards.map((hazard) {
-                      return pw.Container(
-                        padding: const pw.EdgeInsets.fromLTRB(4, 2, 4, 2),
-                        decoration: pw.BoxDecoration(
-                          color: PdfColors.orange50,
-                          borderRadius: pw.BorderRadius.circular(3),
-                        ),
-                        child: pw.Text(
-                          hazard,
-                          style: const pw.TextStyle(fontSize: 8),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-                if (step.assignedTo != null && step.assignedTo!.isNotEmpty) ...[
-                  pw.SizedBox(height: 5),
+                      ),
+                  ],
+                ),
+
+                // Assigned to and estimated time in a single row
+                if ((step.assignedTo != null && step.assignedTo!.isNotEmpty) ||
+                    step.estimatedTime != null) ...[
+                  pw.SizedBox(height: 3), // Reduced spacing
                   pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text(
-                        "Assigned to: ",
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          fontSize: 8,
+                      if (step.assignedTo != null &&
+                          step.assignedTo!.isNotEmpty)
+                        pw.Row(
+                          children: [
+                            pw.Text(
+                              "Assigned: ",
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
+                                fontSize: 6, // Smaller font
+                              ),
+                            ),
+                            pw.Text(
+                              step.assignedTo!,
+                              style: const pw.TextStyle(
+                                  fontSize: 6), // Smaller font
+                            ),
+                          ],
                         ),
-                      ),
-                      pw.Text(
-                        step.assignedTo!,
-                        style: const pw.TextStyle(fontSize: 8),
-                      ),
-                    ],
-                  ),
-                ],
-                if (step.estimatedTime != null) ...[
-                  pw.SizedBox(height: 2),
-                  pw.Row(
-                    children: [
-                      pw.Text(
-                        "Est. time: ",
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          fontSize: 8,
+                      if (step.estimatedTime != null)
+                        pw.Row(
+                          children: [
+                            pw.Text(
+                              "Time: ",
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
+                                fontSize: 6, // Smaller font
+                              ),
+                            ),
+                            pw.Text(
+                              "${step.estimatedTime} min",
+                              style: const pw.TextStyle(
+                                  fontSize: 6), // Smaller font
+                            ),
+                          ],
                         ),
-                      ),
-                      pw.Text(
-                        "${step.estimatedTime} min",
-                        style: const pw.TextStyle(fontSize: 8),
-                      ),
                     ],
                   ),
                 ],
@@ -465,6 +704,8 @@ class PrintService {
   pw.Widget _buildFooter(pw.Context context, SOP sop) {
     return pw.Container(
       padding: const pw.EdgeInsets.only(top: 5),
+      decoration: const pw.BoxDecoration(
+          border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300))),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
