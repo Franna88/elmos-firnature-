@@ -20,11 +20,50 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'All';
   bool _isLoading = true;
+  String? _selectedLetter;
+  final ScrollController _scrollController = ScrollController();
+
+  // Define a custom alphabet list
+  final List<String> _alphabet = const [
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'F',
+    'G',
+    'H',
+    'I',
+    'J',
+    'K',
+    'L',
+    'M',
+    'N',
+    'O',
+    'P',
+    'Q',
+    'R',
+    'S',
+    'T',
+    'U',
+    'V',
+    'W',
+    'X',
+    'Y',
+    'Z',
+    '#'
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -46,6 +85,32 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  void _scrollToLetter(String letter, List<SOP> sops) {
+    final int sopIndex =
+        sops.indexWhere((sop) => sop.title.toUpperCase().startsWith(letter));
+
+    if (sopIndex >= 0) {
+      setState(() {
+        _selectedLetter = letter;
+      });
+
+      // Calculate the approximate scroll position (height of card * index)
+      final double scrollPosition = sopIndex * 180.0;
+
+      _scrollController.animateTo(scrollPosition,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+
+      // Show a visual indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Scrolled to $letter'),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -217,28 +282,73 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : filteredSOPs.isEmpty
                     ? const Center(child: Text('No SOPs found'))
-                    : AlphabetScrollView(
-                        list: alphabetList,
-                        alignment: LetterAlignment.right,
-                        itemExtent: 220, // Height of each SOP card with padding
-                        unselectedTextStyle: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.black54,
-                        ),
-                        selectedTextStyle: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        itemBuilder: (context, index, title) {
-                          final sop = filteredSOPs[index];
-                          return Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(16.0, 8.0, 40.0, 8.0),
-                            child: _buildSOPCard(context, sop),
-                          );
-                        },
+                    : Row(
+                        children: [
+                          // Main SOP list
+                          Expanded(
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.all(16.0),
+                              itemCount: filteredSOPs.length,
+                              itemBuilder: (context, index) {
+                                final sop = filteredSOPs[index];
+                                return _buildSOPCard(context, sop);
+                              },
+                            ),
+                          ),
+
+                          // Alphabet sidebar
+                          Container(
+                            width: 30,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(15),
+                                bottomLeft: Radius.circular(15),
+                              ),
+                            ),
+                            child: ListView.builder(
+                              itemCount: _alphabet.length,
+                              itemBuilder: (context, index) {
+                                final letter = _alphabet[index];
+                                final bool isSelected =
+                                    letter == _selectedLetter;
+
+                                return GestureDetector(
+                                  onTap: () =>
+                                      _scrollToLetter(letter, filteredSOPs),
+                                  child: Container(
+                                    height: 20,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                              .withOpacity(0.2)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      letter,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                            : Colors.grey[700],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
           ),
         ],
@@ -258,7 +368,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
         _getCategoryColor(sop.categoryName ?? 'Unknown');
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 16.0),
+      margin: const EdgeInsets.only(bottom: 8.0), // Reduced margin
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12.0),
@@ -283,7 +393,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                       ? _buildImageFromUrl(imageUrl)
                       : Container(
                           width: double.infinity,
-                          height: 120,
+                          height: 100, // Reduced height
                           color: Colors.grey[200],
                           child: Icon(
                             Icons.image_not_supported,
@@ -319,7 +429,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
 
             // Content
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(8.0), // Reduced padding
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -330,7 +440,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                           sop.title,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18.0,
+                            fontSize: 16.0, // Smaller font
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -338,7 +448,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8.0,
+                          horizontal: 6.0,
                           vertical: 2.0,
                         ),
                         decoration: BoxDecoration(
@@ -348,29 +458,29 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                         child: Text(
                           'Rev ${sop.revisionNumber}',
                           style: TextStyle(
-                            fontSize: 12.0,
+                            fontSize: 10.0, // Smaller font
                             color: Colors.grey[800],
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8.0),
+                  const SizedBox(height: 4.0), // Reduced spacing
                   Text(
                     sop.description,
                     style: TextStyle(
                       color: Colors.grey[600],
-                      fontSize: 14.0,
+                      fontSize: 12.0, // Smaller font
                     ),
-                    maxLines: 2,
+                    maxLines: 1, // Reduced to one line
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12.0),
+                  const SizedBox(height: 8.0), // Reduced spacing
                   Row(
                     children: [
                       Icon(
                         Icons.checklist,
-                        size: 16.0,
+                        size: 14.0, // Smaller icon
                         color: Colors.grey[600],
                       ),
                       const SizedBox(width: 4.0),
@@ -378,13 +488,13 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                         '${sop.steps.length} steps',
                         style: TextStyle(
                           color: Colors.grey[600],
-                          fontSize: 12.0,
+                          fontSize: 10.0, // Smaller font
                         ),
                       ),
-                      const SizedBox(width: 16.0),
+                      const SizedBox(width: 12.0),
                       Icon(
                         Icons.calendar_today_outlined,
-                        size: 16.0,
+                        size: 14.0, // Smaller icon
                         color: Colors.grey[600],
                       ),
                       const SizedBox(width: 4.0),
@@ -392,7 +502,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                         _formatDate(sop.updatedAt),
                         style: TextStyle(
                           color: Colors.grey[600],
-                          fontSize: 12.0,
+                          fontSize: 10.0, // Smaller font
                         ),
                       ),
                     ],
@@ -414,7 +524,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
         return Image.memory(
           bytes,
           width: double.infinity,
-          height: 120,
+          height: 100, // Reduced height
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
         );
@@ -428,7 +538,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       return Image.asset(
         imageUrl,
         width: double.infinity,
-        height: 120,
+        height: 100, // Reduced height
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
@@ -438,7 +548,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       return Image.network(
         imageUrl,
         width: double.infinity,
-        height: 120,
+        height: 100, // Reduced height
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
@@ -448,7 +558,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   Widget _buildImageError() {
     return Container(
       width: double.infinity,
-      height: 120,
+      height: 100, // Reduced height
       color: Colors.grey[200],
       child: Center(
         child: Icon(
