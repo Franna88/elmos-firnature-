@@ -18,7 +18,7 @@ import 'presentation/screens/auth/register_screen.dart';
 import 'presentation/screens/auth/create_profile_screen.dart';
 import 'presentation/screens/auth/register_company_screen.dart';
 import 'presentation/screens/dashboard/dashboard_screen.dart';
-import 'presentation/screens/templates/templates_screen.dart';
+import 'presentation/screens/categories/categories_screen.dart';
 import 'presentation/screens/sop_editor/sop_editor_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/screens/analytics/analytics_screen.dart';
@@ -165,8 +165,8 @@ class _MyAppState extends State<MyApp> {
           builder: (context, state) => const RegisterCompanyScreen(),
         ),
         GoRoute(
-          path: '/templates',
-          builder: (context, state) => const TemplatesScreen(),
+          path: '/categories',
+          builder: (context, state) => const CategoriesScreen(),
         ),
         GoRoute(
           path: '/editor/:id',
@@ -232,6 +232,11 @@ class _MyAppState extends State<MyApp> {
         // But don't redirect from register page
         if (isLoggedIn && isAuthRelatedRoute && !isGoingToRegister) {
           return '/';
+        }
+
+        // If we find any templates redirects or fallbacks, update them to categories
+        if (state.matchedLocation == '/templates') {
+          return '/categories';
         }
 
         return null;

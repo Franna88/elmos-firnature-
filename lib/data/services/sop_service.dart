@@ -413,26 +413,13 @@ class SOPService extends ChangeNotifier {
       }
     }
 
-    // Default image URL for steps
-    final defaultImageUrl = null;
-
-    // Create a default first step
-    final defaultFirstStep = SOPStep(
-      id: "${sopId}_1",
-      title: "",
-      instruction: "",
-      imageUrl: defaultImageUrl,
-      stepTools: [],
-      stepHazards: [],
-    );
-
     if (!_usingLocalData) {
       try {
         if (kDebugMode) {
           print('_firestore instance exists: ${_firestore != null}');
         }
 
-        // Create the SOP document with embedded steps
+        // Create the SOP document without any steps
         final sopData = {
           'title': title,
           'description': description,
@@ -445,20 +432,7 @@ class SOPService extends ChangeNotifier {
           'tools': [],
           'safetyRequirements': [],
           'cautions': [],
-          'steps': [
-            {
-              'id': defaultFirstStep.id,
-              'title': defaultFirstStep.title,
-              'instruction': defaultFirstStep.instruction,
-              'imageUrl': defaultFirstStep.imageUrl,
-              'helpNote': defaultFirstStep.helpNote,
-              'assignedTo': defaultFirstStep.assignedTo,
-              'estimatedTime': defaultFirstStep.estimatedTime,
-              'stepTools': defaultFirstStep.stepTools,
-              'stepHazards': defaultFirstStep.stepHazards,
-              'createdAt': Timestamp.fromDate(now),
-            }
-          ]
+          'steps': [] // Empty steps array - no default step
         };
 
         if (kDebugMode) {
@@ -500,7 +474,7 @@ class SOPService extends ChangeNotifier {
       }
     }
 
-    // Create and return the local SOP object
+    // Create and return the local SOP object with an empty steps list
     final sop = SOP(
       id: sopId,
       title: title,
@@ -511,7 +485,7 @@ class SOPService extends ChangeNotifier {
       createdBy: userIdentifier,
       createdAt: now,
       updatedAt: now,
-      steps: [defaultFirstStep],
+      steps: [], // Empty steps list - no default step
       tools: [],
       safetyRequirements: [],
       cautions: [],

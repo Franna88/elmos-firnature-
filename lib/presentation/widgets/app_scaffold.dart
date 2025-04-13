@@ -242,9 +242,9 @@ class AppScaffold extends StatelessWidget {
                       _buildNavItem(
                         context,
                         icon: Icons.category_outlined,
-                        label: 'Templates',
-                        route: '/templates',
-                        isSelected: currentLocation == '/templates',
+                        label: 'Categories',
+                        route: '/categories',
+                        isSelected: currentLocation == '/categories',
                       ),
                       const Padding(
                         padding:

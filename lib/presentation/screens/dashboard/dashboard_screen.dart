@@ -154,7 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(height: 12),
                               _buildStatRow(
                                 Icons.category_outlined,
-                                '${sopService.templates.length} Templates',
+                                '${sopService.templates.length} Categories',
                                 'Available',
                                 AppColors.blueAccent,
                               ),
