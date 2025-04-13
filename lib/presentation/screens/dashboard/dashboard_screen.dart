@@ -363,7 +363,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : null;
 
     // Get department color
-    final Color departmentColor = _getDepartmentColor(sop.department);
+    final Color departmentColor =
+        _getDepartmentColor(sop.categoryName ?? 'Unknown');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -400,7 +401,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        sop.department,
+                        sop.categoryName ?? 'Unknown',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 7,

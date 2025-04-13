@@ -150,7 +150,8 @@ class _SOPViewerState extends State<SOPViewer> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoRow('Department', widget.sop.department, Icons.business),
+            _buildInfoRow('Category', widget.sop.categoryName ?? 'Unknown',
+                Icons.business),
             const SizedBox(height: 12),
             _buildInfoRow('Revision', widget.sop.revisionNumber.toString(),
                 Icons.history),

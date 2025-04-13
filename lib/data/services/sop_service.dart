@@ -326,7 +326,8 @@ class SOPService extends ChangeNotifier {
           id: doc.id,
           title: sopData['title'] ?? '',
           description: sopData['description'] ?? '',
-          department: sopData['department'] ?? '',
+          categoryId: sopData['categoryId'] ?? '',
+          categoryName: sopData['categoryName'] ?? '',
           revisionNumber: sopData['revisionNumber'] ?? 1,
           createdBy: sopData['createdBy'] ?? '',
           createdAt:
@@ -377,7 +378,7 @@ class SOPService extends ChangeNotifier {
   }
 
   Future<SOP> createSop(
-      String title, String description, String department) async {
+      String title, String description, String categoryId) async {
     final now = DateTime.now();
     final sopId = const Uuid().v4();
 
@@ -393,6 +394,22 @@ class SOPService extends ChangeNotifier {
       userIdentifier = _auth!.currentUser!.email ?? _auth!.currentUser!.uid;
       if (kDebugMode) {
         print('User creating SOP: $userIdentifier');
+      }
+    }
+
+    // Get category name if categoryId is provided
+    String? categoryName;
+    if (categoryId.isNotEmpty && !_usingLocalData) {
+      try {
+        final categoryDoc =
+            await _firestore!.collection('categories').doc(categoryId).get();
+        if (categoryDoc.exists) {
+          categoryName = categoryDoc.data()?['name'];
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Failed to fetch category name: $e');
+        }
       }
     }
 
@@ -419,7 +436,8 @@ class SOPService extends ChangeNotifier {
         final sopData = {
           'title': title,
           'description': description,
-          'department': department,
+          'categoryId': categoryId,
+          'categoryName': categoryName,
           'revisionNumber': 1,
           'createdBy': userIdentifier,
           'createdAt': Timestamp.fromDate(now),
@@ -487,7 +505,8 @@ class SOPService extends ChangeNotifier {
       id: sopId,
       title: title,
       description: description,
-      department: department,
+      categoryId: categoryId,
+      categoryName: categoryName,
       revisionNumber: 1,
       createdBy: userIdentifier,
       createdAt: now,
@@ -527,7 +546,7 @@ class SOPService extends ChangeNotifier {
       throw Exception('Template not found');
     }
 
-    return createSop(title, template.description, department);
+    return createSop(title, template.description, template.category);
   }
 
   Future<void> updateSop(SOP sop) async {
@@ -553,7 +572,8 @@ class SOPService extends ChangeNotifier {
         final sopData = {
           'title': sop.title,
           'description': sop.description,
-          'department': sop.department,
+          'categoryId': sop.categoryId,
+          'categoryName': sop.categoryName,
           'revisionNumber': sop.revisionNumber,
           'updatedAt': Timestamp.fromDate(DateTime.now()),
           'tools': sop.tools,
@@ -689,15 +709,11 @@ class SOPService extends ChangeNotifier {
 
   // Search SOPs by title, description, or department
   List<SOP> searchSOPs(String query) {
-    if (query.isEmpty) {
-      return _sops;
-    }
-
     query = query.toLowerCase();
     return _sops.where((sop) {
       return sop.title.toLowerCase().contains(query) ||
           sop.description.toLowerCase().contains(query) ||
-          sop.department.toLowerCase().contains(query);
+          (sop.categoryName?.toLowerCase() ?? '').contains(query);
     }).toList();
   }
 
@@ -724,7 +740,8 @@ class SOPService extends ChangeNotifier {
         title: 'Dining Table Assembly',
         description:
             'Procedure for assembling wooden dining tables with four legs',
-        department: 'Assembly',
+        categoryId: 'Assembly',
+        categoryName: 'Assembly',
         revisionNumber: 2,
         createdBy: 'assembly@elmosfurniture.com',
         createdAt: now.subtract(const Duration(days: 45)),
@@ -800,7 +817,8 @@ class SOPService extends ChangeNotifier {
         id: '2',
         title: 'Oak Finishing Process',
         description: 'Standard procedure for applying finish to oak furniture',
-        department: 'Finishing',
+        categoryId: 'Finishing',
+        categoryName: 'Finishing',
         revisionNumber: 3,
         createdBy: 'finishing@elmosfurniture.com',
         createdAt: now.subtract(const Duration(days: 90)),

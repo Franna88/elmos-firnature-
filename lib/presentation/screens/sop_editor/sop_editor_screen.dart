@@ -11,6 +11,7 @@ import '../../../data/services/print_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../widgets/sop_viewer.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import '../../../data/services/category_service.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -31,7 +32,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
   // Form controllers
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
-  late TextEditingController _departmentController;
 
   @override
   void initState() {
@@ -43,7 +43,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _departmentController.dispose();
     super.dispose();
   }
 
@@ -62,7 +61,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
           final newSop = await sopService.createSop(
             '',
             '',
-            '',
+            '', // Empty categoryId - will be selected by user
           );
 
           if (mounted) {
@@ -71,7 +70,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
               // Initialize controllers with empty strings
               _titleController = TextEditingController();
               _descriptionController = TextEditingController();
-              _departmentController = TextEditingController();
+              // No need for department controller as we'll use a dropdown
               _isLoading = false;
               _isEditing = true;
             });
@@ -96,7 +95,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
       // Initialize controllers
       _titleController = TextEditingController(text: _sop.title);
       _descriptionController = TextEditingController(text: _sop.description);
-      _departmentController = TextEditingController(text: _sop.department);
+      // No need for department controller as we'll use a dropdown
 
       setState(() {
         _isLoading = false;
@@ -120,12 +119,23 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
 
       try {
         final sopService = Provider.of<SOPService>(context, listen: false);
+        final categoryService =
+            Provider.of<CategoryService>(context, listen: false);
+
+        // Find the category name for the selected categoryId
+        String? categoryName;
+        if (_sop.categoryId.isNotEmpty) {
+          final category = categoryService.getCategoryById(_sop.categoryId);
+          if (category != null) {
+            categoryName = category.name;
+          }
+        }
 
         // Update SOP with form values
         final updatedSop = _sop.copyWith(
           title: _titleController.text,
           description: _descriptionController.text,
-          department: _departmentController.text,
+          categoryName: categoryName,
           updatedAt: DateTime.now(),
         );
 
@@ -402,17 +412,112 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                               },
                             ),
                             const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _departmentController,
-                              decoration: const InputDecoration(
-                                labelText: 'Department',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a department';
+                            // Replace this TextFormField with a Category dropdown
+                            Consumer<CategoryService>(
+                              builder: (context, categoryService, child) {
+                                final categories = categoryService.categories;
+
+                                // If there are no categories, display a message instead of dropdown
+                                if (categories.isEmpty) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Category',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          border:
+                                              Border.all(color: Colors.grey),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.warning,
+                                                size: 16, color: Colors.orange),
+                                            const SizedBox(width: 8),
+                                            const Expanded(
+                                              child: Text(
+                                                'No categories defined. Please add categories in Settings.',
+                                                style: TextStyle(
+                                                    color: Colors.grey),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                context.go('/settings');
+                                              },
+                                              child:
+                                                  const Text('Go to Settings'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
                                 }
-                                return null;
+
+                                return DropdownButtonFormField<String>(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Category',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  value: _sop.categoryId.isNotEmpty &&
+                                          categories.any(
+                                              (c) => c.id == _sop.categoryId)
+                                      ? _sop.categoryId
+                                      : null,
+                                  items: categories.map((category) {
+                                    return DropdownMenuItem<String>(
+                                      value: category.id,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 12,
+                                            height: 12,
+                                            decoration: BoxDecoration(
+                                              color: _getCategoryColor(
+                                                  category.color),
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(category.name),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please select a category';
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        _sop = _sop.copyWith(categoryId: value);
+
+                                        // Update categoryName as well
+                                        final category = categoryService
+                                            .getCategoryById(value);
+                                        if (category != null) {
+                                          _sop = _sop.copyWith(
+                                              categoryName: category.name);
+                                        }
+                                      });
+                                    }
+                                  },
+                                );
                               },
                             ),
                           ],
@@ -3242,7 +3347,24 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
 
   bool _hasUnsavedChanges() {
     return _titleController.text != _sop.title ||
-        _descriptionController.text != _sop.description ||
-        _departmentController.text != _sop.department;
+        _descriptionController.text != _sop.description;
+  }
+
+  // Color utility method for category colors
+  Color _getCategoryColor(String? colorString) {
+    if (colorString == null || !colorString.startsWith('#')) {
+      return Colors.grey; // Default color
+    }
+
+    try {
+      // Parse hex color string (e.g., "#FF0000" for red)
+      String hex = colorString.replaceFirst('#', '');
+      if (hex.length == 6) {
+        hex = 'FF$hex'; // Add alpha if not present
+      }
+      return Color(int.parse(hex, radix: 16));
+    } catch (e) {
+      return Colors.grey; // Return default if parsing fails
+    }
   }
 }

@@ -2,7 +2,8 @@ class SOP {
   final String id;
   final String title;
   final String description;
-  final String department;
+  final String categoryId;
+  final String? categoryName;
   final int revisionNumber;
   final String createdBy;
   final DateTime createdAt;
@@ -16,7 +17,8 @@ class SOP {
     required this.id,
     required this.title,
     required this.description,
-    required this.department,
+    required this.categoryId,
+    this.categoryName,
     required this.revisionNumber,
     required this.createdBy,
     required this.createdAt,
@@ -31,7 +33,8 @@ class SOP {
     String? id,
     String? title,
     String? description,
-    String? department,
+    String? categoryId,
+    String? categoryName,
     int? revisionNumber,
     String? createdBy,
     DateTime? createdAt,
@@ -45,7 +48,8 @@ class SOP {
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
-      department: department ?? this.department,
+      categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
       revisionNumber: revisionNumber ?? this.revisionNumber,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,

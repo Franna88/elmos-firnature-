@@ -77,7 +77,7 @@ class PrintService {
                   ),
                 ),
                 pw.Text(
-                  "Department: ${sop.department}",
+                  "Category: ${sop.categoryName ?? 'Unknown'}",
                   style: pw.TextStyle(
                     fontSize: 12,
                   ),

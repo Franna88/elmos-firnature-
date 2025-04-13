@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/category_service.dart';
+import '../../../data/models/category_model.dart' as models;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,11 +15,12 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _darkMode = false;
   bool _notificationsEnabled = true;
-  
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    
+    final categoryService = Provider.of<CategoryService>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -50,7 +53,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const Divider(),
-          
+
+          // Category Management Section - NEW
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Category Management',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              children: [
+                const Text('SOP Categories',
+                    style: TextStyle(fontWeight: FontWeight.w500)),
+                const Spacer(),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Category'),
+                  onPressed: () {
+                    _showAddCategoryDialog(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: (categoryService.categories.isEmpty)
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Text('No categories defined yet.'),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 1),
+                      itemCount: categoryService.categories.length,
+                      itemBuilder: (context, index) {
+                        final category = categoryService.categories[index];
+                        return ListTile(
+                          leading: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: _getCategoryColor(category.color),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          title: Text(category.name),
+                          subtitle: category.description != null
+                              ? Text(category.description!,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis)
+                              : null,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 20),
+                                tooltip: 'Edit Category',
+                                onPressed: () {
+                                  _showEditCategoryDialog(context, category);
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete,
+                                    size: 20, color: Colors.red),
+                                tooltip: 'Delete Category',
+                                onPressed: () {
+                                  _showDeleteCategoryDialog(context, category);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),
+          const Divider(),
+
           // Appearance section
           const Padding(
             padding: EdgeInsets.all(16.0),
@@ -74,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
-          
+
           // Notifications section
           const Padding(
             padding: EdgeInsets.all(16.0),
@@ -88,7 +180,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SwitchListTile(
             title: const Text('Enable Notifications'),
-            subtitle: const Text('Receive notifications for updates and changes'),
+            subtitle:
+                const Text('Receive notifications for updates and changes'),
             value: _notificationsEnabled,
             onChanged: (value) {
               setState(() {
@@ -98,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
-          
+
           // About section
           const Padding(
             padding: EdgeInsets.all(16.0),
@@ -141,7 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
-          
+
           // Account section
           const Padding(
             padding: EdgeInsets.all(16.0),
@@ -171,12 +264,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-  
+
   void _showEditProfileDialog() {
     final nameController = TextEditingController(
       text: Provider.of<AuthService>(context, listen: false).userName,
     );
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -213,7 +306,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-  
+
   void _showAboutDialog() {
     showDialog(
       context: context,
@@ -249,7 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-  
+
   void _showHelpDialog() {
     showDialog(
       context: context,
@@ -298,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-  
+
   Future<bool> _showLogoutConfirmationDialog() async {
     return await showDialog<bool>(
           context: context,
@@ -323,4 +416,256 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ) ??
         false;
   }
-} 
+
+  // New method to handle color strings from the database
+  Color _getCategoryColor(String? colorString) {
+    if (colorString == null || !colorString.startsWith('#')) {
+      return Colors.grey; // Default color
+    }
+
+    try {
+      // Parse hex color string (e.g., "#FF0000" for red)
+      String hex = colorString.replaceFirst('#', '');
+      if (hex.length == 6) {
+        hex = 'FF$hex'; // Add alpha if not present
+      }
+      return Color(int.parse(hex, radix: 16));
+    } catch (e) {
+      return Colors.grey; // Return default if parsing fails
+    }
+  }
+
+  void _showAddCategoryDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    Color selectedColor = Colors.blue;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Category'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Category Name',
+                hintText: 'Enter category name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                hintText: 'Enter category description',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text('Color:'),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () {
+                    // Show color picker here if you have a color picker package
+                    // For simplicity, we'll just use a fixed color
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: selectedColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty) {
+                final categoryService =
+                    Provider.of<CategoryService>(context, listen: false);
+
+                // Convert color to hex string
+                final colorHex =
+                    '#${selectedColor.value.toRadixString(16).substring(2)}';
+
+                await categoryService.createCategory(
+                  nameController.text,
+                  description: descriptionController.text.isNotEmpty
+                      ? descriptionController.text
+                      : null,
+                  color: colorHex,
+                );
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Category added successfully')),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Category name is required')),
+                );
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditCategoryDialog(BuildContext context, models.Category category) {
+    final nameController = TextEditingController(text: category.name);
+    final descriptionController =
+        TextEditingController(text: category.description ?? '');
+    Color selectedColor = _getCategoryColor(category.color);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Category'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Category Name',
+                hintText: 'Enter category name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                hintText: 'Enter category description',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text('Color:'),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () {
+                    // Show color picker here if you have a color picker package
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: selectedColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty) {
+                final categoryService =
+                    Provider.of<CategoryService>(context, listen: false);
+
+                // Convert color to hex string
+                final colorHex =
+                    '#${selectedColor.value.toRadixString(16).substring(2)}';
+
+                // Create updated category with same ID
+                final updatedCategory = models.Category(
+                  id: category.id,
+                  name: nameController.text,
+                  description: descriptionController.text.isNotEmpty
+                      ? descriptionController.text
+                      : null,
+                  color: colorHex,
+                  createdAt: category.createdAt,
+                );
+
+                await categoryService.updateCategory(updatedCategory);
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Category updated successfully')),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Category name is required')),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteCategoryDialog(
+      BuildContext context, models.Category category) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Category'),
+        content: Text(
+            'Are you sure you want to delete "${category.name}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () async {
+              final categoryService =
+                  Provider.of<CategoryService>(context, listen: false);
+              await categoryService.deleteCategory(category.id);
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Category deleted successfully')),
+                );
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -56,14 +56,17 @@ class _SOPsScreenState extends State<SOPsScreen> {
     List<SOP> filteredSOPs = sopService.searchSOPs(_searchQuery);
     if (_selectedDepartment != 'All') {
       filteredSOPs = filteredSOPs
-          .where((sop) => sop.department == _selectedDepartment)
+          .where((sop) => sop.categoryName == _selectedDepartment)
           .toList();
     }
 
     // Get unique departments for filter dropdown
     final departments = [
       'All',
-      ...sopService.sops.map((sop) => sop.department).toSet()
+      ...sopService.sops
+          .map((sop) => sop.categoryName ?? 'Unknown')
+          .toSet()
+          .toList()
     ];
 
     return AppScaffold(
@@ -126,7 +129,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                   flex: 2,
                   child: DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
-                      labelText: 'Department',
+                      labelText: 'Category',
                       border: OutlineInputBorder(),
                     ),
                     value: _selectedDepartment,
@@ -198,7 +201,8 @@ class _SOPsScreenState extends State<SOPsScreen> {
             : null;
 
     // Get department color
-    final Color departmentColor = _getDepartmentColor(sop.department);
+    final Color departmentColor =
+        _getDepartmentColor(sop.categoryName ?? 'Unknown');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -235,7 +239,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        sop.department,
+                        sop.categoryName ?? 'Unknown',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 7,

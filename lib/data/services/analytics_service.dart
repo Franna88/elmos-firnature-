@@ -393,7 +393,8 @@ class AnalyticsService extends ChangeNotifier {
     // Generate department distribution
     final Map<String, int> deptsCount = {};
     for (final sop in _sopService.sops) {
-      deptsCount[sop.department] = (deptsCount[sop.department] ?? 0) + 1;
+      deptsCount[sop.categoryName ?? 'Unknown'] =
+          (deptsCount[sop.categoryName ?? 'Unknown'] ?? 0) + 1;
     }
 
     // Generate template usage

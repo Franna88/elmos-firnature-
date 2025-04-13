@@ -1,6 +1,7 @@
 import 'package:elmos_app/data/services/auth_service.dart';
 import 'package:elmos_app/data/services/sop_service.dart';
 import 'package:elmos_app/data/services/analytics_service.dart';
+import 'package:elmos_app/data/services/category_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -61,6 +62,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => SOPService()),
+        ChangeNotifierProvider(create: (_) => CategoryService()),
         ChangeNotifierProxyProvider2<AuthService, SOPService, AnalyticsService>(
           create: (context) => AnalyticsService(
             sopService: Provider.of<SOPService>(context, listen: false),
