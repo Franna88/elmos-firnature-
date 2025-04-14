@@ -795,6 +795,31 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                         trailing: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
+                                            if (step.estimatedTime != null)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.blue
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                      color: Colors.blue
+                                                          .withOpacity(0.5)),
+                                                ),
+                                                child: Text(
+                                                  _formatTime(
+                                                      step.estimatedTime!),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.blue,
+                                                  ),
+                                                ),
+                                              ),
+                                            const SizedBox(width: 8),
                                             IconButton(
                                               icon: const Icon(Icons.edit,
                                                   size: 18),
@@ -1358,7 +1383,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     final instructionController = TextEditingController();
     final helpNoteController = TextEditingController();
     final assignedToController = TextEditingController();
-    final estimatedTimeController = TextEditingController();
+    // Replace single time controller with three separate controllers
+    final estimatedHoursController = TextEditingController(text: '0');
+    final estimatedMinutesController = TextEditingController(text: '0');
+    final estimatedSecondsController = TextEditingController(text: '0');
     String? imageUrl;
     List<String> stepTools = [];
     List<String> stepHazards = [];
@@ -1564,37 +1592,138 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                         ),
                                         const SizedBox(width: 16),
 
-                                        // Estimated time field
+                                        // Estimated time fields (hours, minutes, seconds)
                                         Expanded(
-                                          child: TextField(
-                                            controller: estimatedTimeController,
-                                            decoration: InputDecoration(
-                                              labelText: 'Est. Time (mins)',
-                                              hintText: 'Duration',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                borderSide: BorderSide(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Estimated Time',
+                                                style: TextStyle(
                                                   color: Theme.of(context)
                                                       .colorScheme
-                                                      .outline,
+                                                      .onSurface
+                                                      .withOpacity(0.7),
+                                                  fontSize: 12,
                                                 ),
                                               ),
-                                              prefixIcon: Icon(
-                                                  Icons.timer_outlined,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary),
-                                              filled: true,
-                                              fillColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .surfaceContainerLowest,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                      vertical: 12),
-                                            ),
-                                            keyboardType: TextInputType.number,
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  // Hours
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedHoursController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Hours',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Minutes
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedMinutesController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Mins',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Seconds
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedSecondsController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Secs',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
@@ -2202,10 +2331,11 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                               assignedTo: assignedToController.text.isNotEmpty
                                   ? assignedToController.text
                                   : null,
-                              estimatedTime: estimatedTimeController
-                                      .text.isNotEmpty
-                                  ? int.tryParse(estimatedTimeController.text)
-                                  : null,
+                              estimatedTime: _calculateTotalSeconds(
+                                estimatedHoursController.text,
+                                estimatedMinutesController.text,
+                                estimatedSecondsController.text,
+                              ),
                               stepTools: stepTools,
                               stepHazards: stepHazards,
                             );
@@ -2368,9 +2498,24 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     final helpNoteController = TextEditingController(text: step.helpNote ?? '');
     final assignedToController =
         TextEditingController(text: step.assignedTo ?? '');
-    final estimatedTimeController = TextEditingController(
-      text: step.estimatedTime != null ? step.estimatedTime.toString() : '',
-    );
+
+    // Replace single time controller with three separate controllers & initialize them
+    final estimatedHoursController = TextEditingController(text: '0');
+    final estimatedMinutesController = TextEditingController(text: '0');
+    final estimatedSecondsController = TextEditingController(text: '0');
+
+    // Parse existing time in seconds into hours, minutes, seconds
+    if (step.estimatedTime != null) {
+      int totalSeconds = step.estimatedTime!;
+      int hours = totalSeconds ~/ 3600;
+      int minutes = (totalSeconds % 3600) ~/ 60;
+      int seconds = totalSeconds % 60;
+
+      estimatedHoursController.text = hours.toString();
+      estimatedMinutesController.text = minutes.toString();
+      estimatedSecondsController.text = seconds.toString();
+    }
+
     String? imageUrl = step.imageUrl;
     List<String> stepTools = List<String>.from(step.stepTools);
     List<String> stepHazards = List<String>.from(step.stepHazards);
@@ -2578,37 +2723,138 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                         ),
                                         const SizedBox(width: 16),
 
-                                        // Estimated time field
+                                        // Estimated time fields (hours, minutes, seconds)
                                         Expanded(
-                                          child: TextField(
-                                            controller: estimatedTimeController,
-                                            decoration: InputDecoration(
-                                              labelText: 'Est. Time (mins)',
-                                              hintText: 'Duration',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                borderSide: BorderSide(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Estimated Time',
+                                                style: TextStyle(
                                                   color: Theme.of(context)
                                                       .colorScheme
-                                                      .outline,
+                                                      .onSurface
+                                                      .withOpacity(0.7),
+                                                  fontSize: 12,
                                                 ),
                                               ),
-                                              prefixIcon: Icon(
-                                                  Icons.timer_outlined,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary),
-                                              filled: true,
-                                              fillColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .surfaceContainerLowest,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                      vertical: 12),
-                                            ),
-                                            keyboardType: TextInputType.number,
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  // Hours
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedHoursController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Hours',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Minutes
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedMinutesController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Mins',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Seconds
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedSecondsController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Secs',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
@@ -3213,10 +3459,11 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                               assignedTo: assignedToController.text.isNotEmpty
                                   ? assignedToController.text
                                   : null,
-                              estimatedTime: estimatedTimeController
-                                      .text.isNotEmpty
-                                  ? int.tryParse(estimatedTimeController.text)
-                                  : null,
+                              estimatedTime: _calculateTotalSeconds(
+                                estimatedHoursController.text,
+                                estimatedMinutesController.text,
+                                estimatedSecondsController.text,
+                              ),
                               stepTools: stepTools,
                               stepHazards: stepHazards,
                             );
@@ -3514,5 +3761,45 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
     } catch (e) {
       return Colors.grey; // Return default if parsing fails
     }
+  }
+
+  // Helper method to calculate total seconds from hours, minutes, seconds
+  int? _calculateTotalSeconds(
+      String hoursStr, String minutesStr, String secondsStr) {
+    try {
+      int hours = int.tryParse(hoursStr) ?? 0;
+      int minutes = int.tryParse(minutesStr) ?? 0;
+      int seconds = int.tryParse(secondsStr) ?? 0;
+
+      // Convert to total seconds
+      int totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+
+      // If all values are 0, return null
+      if (totalSeconds == 0) {
+        return null;
+      }
+
+      return totalSeconds;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Helper method to format time in HH:MM:SS format
+  String _formatTime(int totalSeconds) {
+    int hours = totalSeconds ~/ 3600;
+    int minutes = (totalSeconds % 3600) ~/ 60;
+    int seconds = totalSeconds % 60;
+
+    String hourStr = hours > 0 ? '${hours}h ' : '';
+    String minStr = minutes > 0 ? '${minutes}m ' : '';
+    String secStr = seconds > 0 ? '${seconds}s' : '';
+
+    // If all are zero, show 0s
+    if (hours == 0 && minutes == 0 && seconds == 0) {
+      return '0s';
+    }
+
+    return '$hourStr$minStr$secStr'.trim();
   }
 }

@@ -29,6 +29,7 @@ import 'presentation/screens/mobile/mobile_sop_viewer_screen.dart';
 import 'presentation/screens/mobile/mobile_categories_screen.dart';
 import 'presentation/screens/mobile/mobile_sops_screen.dart';
 import 'presentation/screens/mobile/mobile_login_screen.dart';
+import 'presentation/screens/mobile/mobile_sop_editor_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -160,6 +161,12 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/mobile/sop/:sopId',
           builder: (context, state) => MobileSOPViewerScreen(
+            sopId: state.pathParameters['sopId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/mobile/editor/:sopId',
+          builder: (context, state) => MobileSOPEditorScreen(
             sopId: state.pathParameters['sopId'] ?? '',
           ),
         ),

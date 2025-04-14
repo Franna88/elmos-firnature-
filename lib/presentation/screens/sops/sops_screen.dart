@@ -78,6 +78,21 @@ class _SOPsScreenState extends State<SOPsScreen> {
           onPressed: _refreshSOPs,
         ),
         IconButton(
+          icon: const Icon(Icons.add_circle_outline),
+          tooltip: 'Add SOP',
+          onPressed: () {
+            context.go('/editor/new');
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Delete Selected SOPs',
+          onPressed: () {
+            // Show dialog to confirm deletion
+            _showDeleteSOPDialog();
+          },
+        ),
+        IconButton(
           icon: const Icon(Icons.help_outline),
           onPressed: () {
             // Show help dialog
@@ -425,5 +440,128 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
   String _formatDate(DateTime date) {
     return "${date.day}/${date.month}/${date.year}";
+  }
+
+  void _showDeleteSOPDialog() {
+    // State variables for selected SOPs
+    List<SOP> selectedSOPs = [];
+    final sopService = Provider.of<SOPService>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setState) {
+        return AlertDialog(
+          title: const Text('Delete SOPs'),
+          content: SizedBox(
+            width: 500,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Select SOPs to delete:'),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: sopService.sops.length,
+                    itemBuilder: (context, index) {
+                      final sop = sopService.sops[index];
+                      final bool isSelected = selectedSOPs.contains(sop);
+
+                      return CheckboxListTile(
+                        title: Text(sop.title),
+                        subtitle:
+                            Text('Created: ${_formatDate(sop.createdAt)}'),
+                        value: isSelected,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            if (value == true) {
+                              selectedSOPs.add(sop);
+                            } else {
+                              selectedSOPs.remove(sop);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: selectedSOPs.isEmpty
+                  ? null
+                  : () async {
+                      Navigator.pop(context);
+
+                      // Show loading dialog
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const AlertDialog(
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text('Deleting SOPs...'),
+                            ],
+                          ),
+                        ),
+                      );
+
+                      try {
+                        // Delete each selected SOP
+                        for (var sop in selectedSOPs) {
+                          await sopService.deleteSop(sop.id);
+                        }
+
+                        // Refresh SOPs after deletion
+                        await sopService.refreshSOPs();
+
+                        if (context.mounted) {
+                          // Close loading dialog
+                          Navigator.pop(context);
+
+                          // Show success message
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Successfully deleted ${selectedSOPs.length} SOPs'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          // Close loading dialog
+                          Navigator.pop(context);
+
+                          // Show error message
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error deleting SOPs: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('DELETE'),
+            ),
+          ],
+        );
+      }),
+    );
   }
 }

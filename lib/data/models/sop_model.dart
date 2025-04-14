@@ -73,7 +73,8 @@ class SOPStep {
   final String? imageUrl;
   final String? helpNote;
   final String? assignedTo;
-  final int? estimatedTime; // in minutes
+  final int?
+      estimatedTime; // in seconds (calculated from hours, minutes, seconds input)
   final List<String> stepTools; // Tools needed specifically for this step
   final List<String> stepHazards; // Hazards specific to this step
 

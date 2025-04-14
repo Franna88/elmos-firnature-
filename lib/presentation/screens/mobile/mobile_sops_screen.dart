@@ -419,10 +419,28 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showQRScanner(context),
-        backgroundColor: Colors.redAccent,
-        child: const Icon(Icons.qr_code_scanner, color: Colors.white),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Add SOP button
+          FloatingActionButton(
+            onPressed: () {
+              context.go('/mobile/editor/new');
+            },
+            heroTag: 'createSOP',
+            backgroundColor: Colors.green[700],
+            mini: true,
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          // QR Scanner button
+          FloatingActionButton(
+            onPressed: () => _showQRScanner(context),
+            heroTag: 'scanQR',
+            backgroundColor: Colors.red[700],
+            child: const Icon(Icons.qr_code_scanner, color: Colors.white),
+          ),
+        ],
       ),
     );
   }
@@ -533,6 +551,14 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                             color: Colors.grey[800],
                           ),
                         ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 16),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          context.go('/mobile/editor/${sop.id}');
+                        },
                       ),
                     ],
                   ),
@@ -675,7 +701,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Container(
+        builder: (context, setState) => SizedBox(
           height: MediaQuery.of(context).size.height * 0.9,
           child: Stack(
             children: [
@@ -730,9 +756,9 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                           });
 
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
+                            const SnackBar(
                               content: Row(
-                                children: const [
+                                children: [
                                   Icon(Icons.error, color: Colors.white),
                                   SizedBox(width: 8),
                                   Expanded(
@@ -743,7 +769,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                                 ],
                               ),
                               backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 3),
+                              duration: Duration(seconds: 3),
                             ),
                           );
                         }
