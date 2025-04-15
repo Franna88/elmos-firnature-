@@ -69,23 +69,36 @@ class PrintService {
         debugPrint('Failed to generate QR code');
       }
 
+      // Get category color for consistent styling
+      final categoryColor = _getCategoryColor(sop.categoryId);
+      final PdfColor pdfCategoryColor = PdfColor(categoryColor.red / 255,
+          categoryColor.green / 255, categoryColor.blue / 255);
+
       debugPrint('Building PDF document...');
       // Create a PDF document in landscape orientation
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (pw.Context context) {
-            // Build all the widgets for the page
-            return [
-              _buildPDFHeader(sop, logoImage, qrCodeImage),
-              pw.SizedBox(height: 10), // Reduced spacing
-              _buildSummarySection(sop),
-              pw.SizedBox(height: 10), // Reduced spacing
-              _buildStepsGrid(sop, stepImages),
-            ];
+          header: (pw.Context context) {
+            // Create a header that repeats on every page
+            return _buildPDFHeader(
+                sop, logoImage, qrCodeImage, pdfCategoryColor);
           },
           footer: (context) => _buildFooter(context, sop, qrCodeImage),
+          maxPages: 20, // Set reasonable limit for very large SOPs
+          build: (pw.Context context) {
+            // Store steps and global info separately
+            final stepsWidget =
+                _buildStepsGrid(sop, stepImages, pdfCategoryColor);
+
+            // Collect all widgets
+            return [
+              _buildSummarySection(sop, pdfCategoryColor),
+              pw.SizedBox(height: 10),
+              stepsWidget,
+            ];
+          },
         ),
       );
 
@@ -215,114 +228,115 @@ class PrintService {
     return null;
   }
 
-  // Build the PDF header with company logo, SOP information, and total time
-  pw.Widget _buildPDFHeader(
-      SOP sop, pw.MemoryImage? logoImage, pw.MemoryImage? qrCodeImage) {
+  // Get a consistent color based on the category ID
+  Color _getCategoryColor(String categoryId) {
+    // Default to a shade of blue if category is empty
+    if (categoryId.isEmpty) {
+      return Colors.blue.shade700;
+    }
+
+    // Generate a consistent color based on the categoryId
+    final int hash = categoryId.hashCode;
+
+    // Use a predefined set of professional colors
+    final List<Color> colors = [
+      Colors.blue.shade700,
+      Colors.green.shade700,
+      Colors.purple.shade700,
+      Colors.orange.shade800,
+      Colors.teal.shade700,
+      Colors.indigo.shade700,
+      Colors.red.shade700,
+      Colors.amber.shade800,
+    ];
+
+    return colors[hash.abs() % colors.length];
+  }
+
+  // Build the PDF header with company logo, SOP information, and total time (more compact)
+  pw.Widget _buildPDFHeader(SOP sop, pw.MemoryImage? logoImage,
+      pw.MemoryImage? qrCodeImage, PdfColor categoryColor) {
     // Calculate total SOP time
     final totalTime = _calculateTotalSOPTime(sop);
 
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // Logo on the left
-        pw.Container(
-          width: 90,
-          child: logoImage != null
-              ? pw.Image(logoImage)
-              : pw.Container(
-                  height: 50,
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: pw.BorderRadius.circular(4),
-                  ),
-                  alignment: pw.Alignment.center,
-                  child: pw.Text("Logo",
-                      style: pw.TextStyle(color: PdfColors.grey)),
-                ),
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(color: PdfColors.grey300, width: 1),
         ),
-
-        pw.SizedBox(width: 15),
-
-        // SOP info in the middle
-        pw.Expanded(
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                sop.title,
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 5),
-              pw.Text(
-                'SOP ID: ${sop.id}',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey700,
-                ),
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Revision: ${sop.revisionNumber}',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey700,
-                ),
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Category: ${sop.categoryName ?? 'Uncategorized'}',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey700,
-                ),
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Last Updated: ${_formatDate(sop.updatedAt)}',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey700,
-                ),
-              ),
-              // Add total SOP time
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Total Estimated Time: ${_formatTime(totalTime)}',
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue700,
-                ),
-              ),
-            ],
+      ),
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          // Logo on the left
+          pw.Container(
+            width: 60,
+            height: 60,
+            child: logoImage != null
+                ? pw.Image(logoImage)
+                : pw.Container(
+                    height: 40,
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey300),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    alignment: pw.Alignment.center,
+                    child: pw.Text("Logo",
+                        style: pw.TextStyle(color: PdfColors.grey)),
+                  ),
           ),
-        ),
 
-        // QR Code on the right
-        pw.Container(
-          width: 80,
-          height: 80,
-          child: qrCodeImage != null
-              ? pw.Image(qrCodeImage)
-              : pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: pw.BorderRadius.circular(4),
+          pw.SizedBox(width: 10),
+
+          // SOP info - compact single line
+          pw.Expanded(
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  sop.title,
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    color: categoryColor,
                   ),
-                  alignment: pw.Alignment.center,
-                  child: pw.Text("QR Code",
-                      style: pw.TextStyle(color: PdfColors.grey)),
                 ),
-        ),
-      ],
+                pw.SizedBox(width: 15),
+                pw.Text(
+                  '| ID: ${sop.id} | Rev: ${sop.revisionNumber} | Cat: ${sop.categoryName ?? 'Uncategorized'} | Updated: ${_formatDate(sop.updatedAt)} | Est. Time: ${_formatTime(totalTime)}',
+                  style: const pw.TextStyle(
+                    fontSize: 9,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // QR Code on the right
+          pw.Container(
+            width: 60,
+            height: 60,
+            child: qrCodeImage != null
+                ? pw.Image(qrCodeImage)
+                : pw.Container(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey300),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    alignment: pw.Alignment.center,
+                    child: pw.Text("QR Code",
+                        style: pw.TextStyle(color: PdfColors.grey)),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
   // Build the summary section with just the SOP description
-  pw.Widget _buildSummarySection(SOP sop) {
+  pw.Widget _buildSummarySection(SOP sop, PdfColor categoryColor) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(10),
       decoration: pw.BoxDecoration(
@@ -337,6 +351,7 @@ class PrintService {
             style: pw.TextStyle(
               fontWeight: pw.FontWeight.bold,
               fontSize: 14,
+              color: categoryColor,
             ),
           ),
           pw.SizedBox(height: 5),
@@ -349,14 +364,23 @@ class PrintService {
     );
   }
 
-  // Build a grid of steps with 3 steps per row instead of 5
-  pw.Widget _buildStepsGrid(SOP sop, Map<String, pw.MemoryImage?> stepImages) {
+  // Build a grid of steps with 3 steps per row and limited to 6 steps per page
+  pw.Widget _buildStepsGrid(SOP sop, Map<String, pw.MemoryImage?> stepImages,
+      PdfColor categoryColor) {
     final steps = sop.steps;
     final List<pw.Widget> rows = [];
 
     // Create rows with 3 steps per row (changed from 5)
-    for (int i = 0; i < steps.length; i += 3) {
-      final rowSteps = steps.skip(i).take(3).toList();
+    // Calculate how many rows we need
+    final int stepsCount = steps.length;
+    final int maxStepsPerPage = 6; // Maximum 6 steps per page
+
+    // Create rows for current page (limited to 6 steps)
+    for (int i = 0; i < stepsCount && i < maxStepsPerPage; i += 3) {
+      final int endIndex = i + 3 > stepsCount ? stepsCount : i + 3;
+      final rowSteps = steps.sublist(i, endIndex);
+
+      // Create a row with up to 3 steps
       rows.add(
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -364,8 +388,11 @@ class PrintService {
               .map((step) => pw.Expanded(
                     child: pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: _buildStepCard(step,
-                          i + rowSteps.indexOf(step) + 1, stepImages[step.id]),
+                      child: _buildStepCard(
+                          step,
+                          i + rowSteps.indexOf(step) + 1,
+                          stepImages[step.id],
+                          categoryColor),
                     ),
                   ))
               .toList(),
@@ -388,9 +415,10 @@ class PrintService {
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
+                  color: categoryColor,
                 ),
               ),
-              pw.Divider(),
+              pw.Divider(color: categoryColor),
               pw.SizedBox(height: 8),
               ...rows,
             ],
@@ -409,16 +437,21 @@ class PrintService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text(
-                "GLOBAL SOP INFORMATION",
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.grey800,
+              pw.Container(
+                width: double.infinity,
+                color: PdfColors.grey200,
+                padding:
+                    const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: pw.Text(
+                  "GLOBAL SOP INFORMATION",
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                    color: categoryColor,
+                  ),
+                  textAlign: pw.TextAlign.center,
                 ),
-                textAlign: pw.TextAlign.center,
               ),
-              pw.Divider(),
 
               // GLOBAL TOOLS SECTION
               pw.Container(
@@ -535,8 +568,8 @@ class PrintService {
   }
 
   // Build an individual step card with consistent image size and text limited to 4 lines
-  pw.Widget _buildStepCard(
-      SOPStep step, int stepNumber, pw.MemoryImage? stepImage) {
+  pw.Widget _buildStepCard(SOPStep step, int stepNumber,
+      pw.MemoryImage? stepImage, PdfColor categoryColor) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),
@@ -548,9 +581,9 @@ class PrintService {
           // Step header with step number
           pw.Container(
             padding: const pw.EdgeInsets.all(6),
-            decoration: const pw.BoxDecoration(
+            decoration: pw.BoxDecoration(
               color: PdfColors.grey200,
-              borderRadius: pw.BorderRadius.only(
+              borderRadius: const pw.BorderRadius.only(
                 topLeft: pw.Radius.circular(4),
                 topRight: pw.Radius.circular(4),
               ),
@@ -561,7 +594,7 @@ class PrintService {
                   width: 20,
                   height: 20,
                   decoration: pw.BoxDecoration(
-                    color: PdfColors.blue700,
+                    color: categoryColor,
                     shape: pw.BoxShape.circle,
                   ),
                   alignment: pw.Alignment.center,
@@ -581,6 +614,7 @@ class PrintService {
                     style: pw.TextStyle(
                       fontWeight: pw.FontWeight.bold,
                       fontSize: 10,
+                      color: categoryColor,
                     ),
                   ),
                 ),
