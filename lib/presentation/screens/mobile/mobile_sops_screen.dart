@@ -160,6 +160,14 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
         title:
             const Text("SOPs", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        automaticallyImplyLeading: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Back',
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -435,19 +443,19 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   }
 
   Widget _buildSOPCard(BuildContext context, SOP sop) {
-    // Get primary image for the card if available
-    final String? imageUrl =
-        sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
+    // Use the SOP thumbnail if available, otherwise fallback to the first step image
+    final String? imageUrl = sop.thumbnailUrl ??
+        (sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
             ? sop.steps.first.imageUrl
-            : null;
+            : null);
 
     // Get category color
     final Color categoryColor =
         _getCategoryColor(sop.categoryName ?? 'Unknown');
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8.0), // Reduced margin
-      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12.0), // Slightly increased margin
+      elevation: 3, // Increased elevation for more prominence
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12.0),
       ),
@@ -471,12 +479,25 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                       ? _buildImageFromUrl(imageUrl)
                       : Container(
                           width: double.infinity,
-                          height: 100, // Reduced height
+                          height: 140, // Increased height for better visibility
                           color: Colors.grey[200],
-                          child: Icon(
-                            Icons.image_not_supported,
-                            size: 48,
-                            color: Colors.grey[400],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_not_supported,
+                                size: 56, // Larger icon
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "No Thumbnail",
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              )
+                            ],
                           ),
                         ),
                 ),
@@ -485,8 +506,8 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                   right: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 4.0,
+                      horizontal: 10.0, // Increased padding
+                      vertical: 6.0, // Increased padding
                     ),
                     decoration: BoxDecoration(
                       color: categoryColor.withOpacity(0.9),
@@ -496,8 +517,8 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                       sop.categoryName ?? 'Unknown',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14.0, // Increased font size
+                        fontWeight: FontWeight.bold, // Made bold for emphasis
                       ),
                     ),
                   ),
@@ -505,91 +526,65 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
               ],
             ),
 
-            // Content
+            // Title and details
             Padding(
-              padding: const EdgeInsets.all(8.0), // Reduced padding
+              padding: const EdgeInsets.all(12.0), // Increased padding
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          sop.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16.0, // Smaller font
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6.0,
-                          vertical: 2.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(4.0),
-                        ),
-                        child: Text(
-                          'Rev ${sop.revisionNumber}',
-                          style: TextStyle(
-                            fontSize: 10.0, // Smaller font
-                            color: Colors.grey[800],
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 16),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () {
-                          context.go('/mobile/editor/${sop.id}');
-                        },
-                      ),
-                    ],
+                  Text(
+                    sop.title,
+                    style: TextStyle(
+                      fontSize: 18.0, // Increased from smaller size
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4.0), // Reduced spacing
+                  const SizedBox(height: 8.0), // Increased spacing
                   Text(
                     sop.description,
                     style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12.0, // Smaller font
+                      fontSize: 14.0, // Increased from smaller size
+                      color: Colors.black54,
                     ),
-                    maxLines: 1, // Reduced to one line
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8.0), // Reduced spacing
+                  const SizedBox(height: 12.0), // Increased spacing
+
+                  // Meta info at the bottom of the card
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(
-                        Icons.checklist,
-                        size: 14.0, // Smaller icon
-                        color: Colors.grey[600],
+                      Row(
+                        children: [
+                          Icon(Icons.history,
+                              size: 16.0, color: Colors.grey[600]),
+                          const SizedBox(width: 4.0),
+                          Text(
+                            _formatDate(sop.updatedAt),
+                            style: TextStyle(
+                              fontSize: 13.0, // Increased from smaller size
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4.0),
-                      Text(
-                        '${sop.steps.length} steps',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 10.0, // Smaller font
-                        ),
-                      ),
-                      const SizedBox(width: 12.0),
-                      Icon(
-                        Icons.calendar_today_outlined,
-                        size: 14.0, // Smaller icon
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4.0),
-                      Text(
-                        _formatDate(sop.updatedAt),
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 10.0, // Smaller font
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.format_list_numbered,
+                              size: 16.0, color: Colors.grey[600]),
+                          const SizedBox(width: 4.0),
+                          Text(
+                            '${sop.steps.length} steps',
+                            style: TextStyle(
+                              fontSize: 13.0, // Increased from smaller size
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -602,57 +597,51 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     );
   }
 
-  Widget _buildImageFromUrl(String imageUrl) {
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final bytes = base64Decode(imageUrl.split(',')[1]);
-        return Image.memory(
-          bytes,
-          width: double.infinity,
-          height: 100, // Reduced height
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        );
-      } catch (e) {
-        debugPrint('Error displaying data URL image: $e');
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        width: double.infinity,
-        height: 100, // Reduced height
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      return Image.network(
-        imageUrl,
-        width: double.infinity,
-        height: 100, // Reduced height
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
-  }
-
-  Widget _buildImageError() {
-    return Container(
+  Widget _buildImageFromUrl(String url) {
+    return Image.network(
+      url,
       width: double.infinity,
-      height: 100, // Reduced height
-      color: Colors.grey[200],
-      child: Center(
-        child: Icon(
-          Icons.broken_image,
-          size: 48,
-          color: Colors.grey[400],
-        ),
-      ),
+      height: 140, // Increased height to match the placeholder
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          width: double.infinity,
+          height: 140, // Increased height
+          color: Colors.grey[200],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, size: 56, color: Colors.grey[400]),
+              const SizedBox(height: 8),
+              Text(
+                "Image Error",
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              )
+            ],
+          ),
+        );
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          width: double.infinity,
+          height: 140, // Increased height
+          color: Colors.grey[200],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 3.0, // Thicker progress indicator
+              color: Colors.red[700],
+            ),
+          ),
+        );
+      },
     );
   }
 

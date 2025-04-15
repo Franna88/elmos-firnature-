@@ -11,7 +11,19 @@ class MobileRedirectScreen extends StatelessWidget {
       context.go('/mobile/sops');
     });
 
-    return const Scaffold(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Redirecting...',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

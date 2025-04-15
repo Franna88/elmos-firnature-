@@ -24,7 +24,15 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    final String currentLocation = GoRouterState.of(context).uri.path;
+    final GoRouterState routerState = GoRouterState.of(context);
+    final String currentLocation = routerState.uri.path;
+
+    // Check if this is a primary screen that should never have a back button
+    final bool isDashboard =
+        currentLocation == '/' || currentLocation == '/dashboard';
+    final bool isSOPs = currentLocation == '/sops';
+    final bool shouldShowBackButton =
+        showBackButton || (!isDashboard && !isSOPs);
 
     return Scaffold(
       appBar: AppBar(
@@ -47,10 +55,11 @@ class AppScaffold extends StatelessWidget {
               )
             : Text(title),
         automaticallyImplyLeading: false,
-        leading: showBackButton
+        leading: shouldShowBackButton
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => context.pop(),
+                tooltip: 'Back',
               )
             : null,
         actions: actions ??

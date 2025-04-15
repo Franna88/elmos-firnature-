@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'dart:html' as html;
-import 'dart:typed_data';
-import 'dart:convert';
-import '../../../data/services/sop_service.dart';
-import '../../../data/services/print_service.dart';
-import '../../../data/models/sop_model.dart';
-import '../../widgets/sop_viewer.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
-import '../../../data/services/category_service.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:html' as html;
+import '../../../data/services/print_service.dart';
+import '../../../data/services/sop_service.dart';
+import '../../../data/services/category_service.dart';
+import '../../../data/models/sop_model.dart';
+import '../../../data/models/category_model.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/sop_viewer.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -25,22 +27,49 @@ class SOPEditorScreen extends StatefulWidget {
   State<SOPEditorScreen> createState() => _SOPEditorScreenState();
 }
 
-class _SOPEditorScreenState extends State<SOPEditorScreen> {
+class _SOPEditorScreenState extends State<SOPEditorScreen>
+    with SingleTickerProviderStateMixin {
   late SOP _sop;
   bool _isLoading = true;
   bool _isEditing = false;
   final _formKey = GlobalKey<FormState>();
   final _printService = PrintService();
   final uuid = Uuid(); // Initialize Uuid instance here
+  final _storage = FirebaseStorage.instance;
 
   // Form controllers
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
 
+  late TabController _tabController;
+  List<Widget> _tabs = [
+    const Tab(text: 'Basic Info'),
+    const Tab(text: 'Description'),
+    const Tab(text: 'Tools'),
+    const Tab(text: 'Safety'),
+    const Tab(text: 'Cautions'),
+    const Tab(text: 'Steps'),
+  ];
+
   @override
   void initState() {
     super.initState();
-    _loadSOP();
+    _loadSOP().then((_) {
+      _tabController = TabController(
+        length: _tabs.length,
+        vsync: this,
+      );
+
+      // If we have a category, update the tabs accordingly
+      if (_sop.categoryId.isNotEmpty) {
+        final categoryService =
+            Provider.of<CategoryService>(context, listen: false);
+        final category = categoryService.getCategoryById(_sop.categoryId);
+        if (category != null) {
+          _updateVisibleTabsForCategory(category);
+        }
+      }
+    });
   }
 
   @override
@@ -141,6 +170,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
           description: _descriptionController.text,
           categoryName: categoryName,
           updatedAt: DateTime.now(),
+          thumbnailUrl: _sop.thumbnailUrl, // Preserve the thumbnail URL
         );
 
         // Save to Firebase
@@ -705,6 +735,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                                         if (category != null) {
                                           _sop = _sop.copyWith(
                                               categoryName: category.name);
+
+                                          // Update tab controller to match required sections
+                                          _updateVisibleTabsForCategory(
+                                              category);
                                         }
                                       });
                                     }
@@ -871,6 +905,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                       children: [
                         TabBar(
                           tabs: const [
+                            Tab(text: 'Thumbnail'),
                             Tab(text: 'Description'),
                             Tab(text: 'Tools'),
                             Tab(text: 'Safety'),
@@ -882,6 +917,121 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
                         Expanded(
                           child: TabBarView(
                             children: [
+                              // Thumbnail Tab
+                              SingleChildScrollView(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'SOP Thumbnail',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Add an image that represents the end product or result of this SOP',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Center(
+                                      child: Column(
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () =>
+                                                _uploadSOPThumbnail(_sop.id),
+                                            child: Container(
+                                              width: 300,
+                                              height: 200,
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .outline,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .surfaceContainerLowest,
+                                              ),
+                                              child: _sop.thumbnailUrl != null
+                                                  ? ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              7),
+                                                      child: Image.network(
+                                                        _sop.thumbnailUrl!,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (context,
+                                                                error,
+                                                                stackTrace) =>
+                                                            const Center(
+                                                          child: Icon(
+                                                              Icons
+                                                                  .broken_image,
+                                                              size: 64,
+                                                              color:
+                                                                  Colors.grey),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : _isLoading
+                                                      ? const Center(
+                                                          child:
+                                                              CircularProgressIndicator(),
+                                                        )
+                                                      : Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .add_photo_alternate,
+                                                              size: 64,
+                                                              color: Theme.of(
+                                                                      context)
+                                                                  .colorScheme
+                                                                  .outline,
+                                                            ),
+                                                            const SizedBox(
+                                                                height: 8),
+                                                            Text(
+                                                              'Click to add thumbnail',
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                        context)
+                                                                    .colorScheme
+                                                                    .outline,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton.icon(
+                                            icon: const Icon(Icons.upload_file),
+                                            label: Text(
+                                                _sop.thumbnailUrl != null
+                                                    ? 'Change Thumbnail'
+                                                    : 'Upload Thumbnail'),
+                                            onPressed: _isLoading
+                                                ? null
+                                                : () => _uploadSOPThumbnail(
+                                                    _sop.id),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
                               // Description Tab
                               SingleChildScrollView(
                                 padding: const EdgeInsets.all(16),
@@ -3496,5 +3646,130 @@ class _SOPEditorScreenState extends State<SOPEditorScreen> {
         ],
       ),
     );
+  }
+
+  // Upload thumbnail image for the SOP
+  Future<void> _uploadSOPThumbnail(String sopId) async {
+    try {
+      // Use file picker to select an image
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        // User canceled the picker
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+      });
+
+      final PlatformFile file = result.files.first;
+      final sopService = Provider.of<SOPService>(context, listen: false);
+
+      String? thumbnailUrl;
+
+      // Handle web platform (using bytes)
+      if (file.bytes != null) {
+        // Create a data URL for web platform
+        final base64 = base64Encode(file.bytes!);
+        final extension = file.extension?.toLowerCase() ?? 'jpg';
+        thumbnailUrl = 'data:image/$extension;base64,$base64';
+      }
+      // Handle native platforms (using file path)
+      else if (file.path != null) {
+        try {
+          // In a real app, this would upload to Firebase Storage
+          // For now, we'll use a similar approach to step images
+          final storageRef = _storage.ref().child('sop_thumbnails/$sopId.jpg');
+          final uploadTask = storageRef.putFile(File(file.path!));
+          final snapshot = await uploadTask;
+          thumbnailUrl = await snapshot.ref.getDownloadURL();
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error uploading thumbnail from path: $e');
+          }
+          // Create a data URL as fallback
+          final bytes = await File(file.path!).readAsBytes();
+          final base64 = base64Encode(bytes);
+          thumbnailUrl = 'data:image/jpeg;base64,$base64';
+        }
+      }
+
+      if (thumbnailUrl != null) {
+        // Update the SOP with the new thumbnail URL
+        final updatedSop = _sop.copyWith(thumbnailUrl: thumbnailUrl);
+
+        // Update locally
+        await _updateSOPLocally(updatedSop);
+
+        // Update the state
+        setState(() {
+          _sop = updatedSop;
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Thumbnail uploaded successfully')),
+        );
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to upload thumbnail')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading thumbnail: $e')),
+      );
+    }
+  }
+
+  // Update visible tabs based on category settings
+  void _updateVisibleTabsForCategory(Category category) {
+    // Always show the basic info and steps tabs
+    final Map<String, bool> requiredSections = category.categorySettings;
+
+    // Determine which tabs should be visible
+    List<Widget> newTabs = [
+      const Tab(text: 'Basic Info'),
+      const Tab(text: 'Description'),
+    ];
+
+    // Add conditional tabs based on category settings
+    if (requiredSections['tools'] == true) {
+      newTabs.add(const Tab(text: 'Tools'));
+    }
+
+    if (requiredSections['safety'] == true) {
+      newTabs.add(const Tab(text: 'Safety'));
+    }
+
+    if (requiredSections['cautions'] == true) {
+      newTabs.add(const Tab(text: 'Cautions'));
+    }
+
+    // Steps tab is always included
+    newTabs.add(const Tab(text: 'Steps'));
+
+    // Update the tab controller
+    setState(() {
+      _tabController.dispose();
+      _tabController = TabController(
+        length: newTabs.length,
+        vsync: this,
+        initialIndex: 0,
+      );
+      _tabs = newTabs;
+    });
   }
 }

@@ -121,6 +121,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
@@ -145,11 +147,29 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_sop.title,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _navigateBack,
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.of(context).pop();
+            } else {
+              _navigateBack();
+            }
+          },
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _sop.title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              'Category: ${_sop.categoryName}',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
         ),
         actions: [
           if (_isAnonymousAccess)

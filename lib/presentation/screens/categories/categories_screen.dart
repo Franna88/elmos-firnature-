@@ -52,6 +52,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return AppScaffold(
       title: 'SOP Categories',
       actions: [
+        // Add Category button
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline),
+          tooltip: 'Add Category',
+          onPressed: () => _showAddCategoryDialog(context),
+        ),
         IconButton(
           icon: const Icon(Icons.help_outline),
           onPressed: () {
@@ -63,7 +69,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 content: const Text(
                   'This screen shows all SOPs organized by their categories. '
                   'Each category contains all the SOPs that belong to it. '
-                  'Use the search bar to find specific SOPs across all categories.',
+                  'Use the search bar to find specific SOPs across all categories. '
+                  'Click the settings icon on a category to configure which sections are required.',
                 ),
                 actions: [
                   TextButton(
@@ -151,24 +158,37 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             color: categoryColor.withOpacity(0.8),
             width: double.infinity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  category.name,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category.name,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 4),
+                      Text(
+                        '${sops.length} SOPs',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${sops.length} SOPs',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
-                      ),
+                // Settings/gear icon for category settings
+                IconButton(
+                  icon: const Icon(Icons.settings, color: Colors.white),
+                  tooltip: 'Category Settings',
+                  onPressed: () =>
+                      _showCategorySettingsDialog(context, category),
                 ),
               ],
             ),
@@ -424,6 +444,317 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           context.go('/editor/${sop.id}');
         },
       ),
+    );
+  }
+
+  void _showAddCategoryDialog(BuildContext context) {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController descriptionController = TextEditingController();
+    String selectedColor = '#4682B4'; // Default Steel Blue color
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setState) {
+        return AlertDialog(
+          title: const Text('Add New Category'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Category Name',
+                    hintText: 'Enter category name',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (Optional)',
+                    hintText: 'Describe this category',
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 24),
+                const Text('Category Color:'),
+                const SizedBox(height: 8),
+                // Basic color choices
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildColorChoice('#4682B4', 'Steel Blue', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#CD853F', 'Peru (Brown)', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#2E8B57', 'Sea Green', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#8B4513', 'Brown', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#4169E1', 'Royal Blue', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#800000', 'Maroon', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#9370DB', 'Medium Purple', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice(
+                        '#3CB371', 'Medium Sea Green', selectedColor, (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Validate input
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Please enter a category name')),
+                  );
+                  return;
+                }
+
+                // Create the category
+                final categoryService =
+                    Provider.of<CategoryService>(context, listen: false);
+                categoryService.createCategory(
+                  nameController.text.trim(),
+                  description: descriptionController.text.trim().isNotEmpty
+                      ? descriptionController.text.trim()
+                      : null,
+                  color: selectedColor,
+                );
+
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Category "${nameController.text.trim()}" created'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: const Text('CREATE'),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildColorChoice(String colorCode, String name, String selectedColor,
+      Function(String) onSelect) {
+    final Color color =
+        Color(int.parse('FF${colorCode.substring(1)}', radix: 16));
+    final bool isSelected = colorCode == selectedColor;
+
+    return InkWell(
+      onTap: () => onSelect(colorCode),
+      child: Container(
+        width: 70,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          border: Border.all(
+            color: isSelected ? color : Colors.transparent,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white70, width: 2),
+              ),
+              child: isSelected
+                  ? const Center(
+                      child: Icon(Icons.check, color: Colors.white, size: 16),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              name,
+              style: TextStyle(fontSize: 10, color: Colors.black87),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCategorySettingsDialog(BuildContext context, Category category) {
+    // Create a mutable copy of the category settings
+    Map<String, bool> settings = Map.from(category.categorySettings);
+    // Initialize with the current color
+    String selectedColor = category.color ?? '#4682B4';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setState) {
+        return AlertDialog(
+          title: Text('Category Settings: ${category.name}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Configure which sections are required for SOPs in this category:',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                // Color selector
+                const Text('Category Color:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+
+                // Color picker
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildColorChoice('#4682B4', 'Steel Blue', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#CD853F', 'Peru (Brown)', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#2E8B57', 'Sea Green', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#8B4513', 'Brown', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#4169E1', 'Royal Blue', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#800000', 'Maroon', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice('#9370DB', 'Medium Purple', selectedColor,
+                        (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                    _buildColorChoice(
+                        '#3CB371', 'Medium Sea Green', selectedColor, (color) {
+                      setState(() => selectedColor = color);
+                    }),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+                // Section toggles
+                const Text('Required Sections:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  title: const Text('Tools Section'),
+                  subtitle: const Text('Enable tools requirement for SOPs'),
+                  value: settings['tools'] ?? true,
+                  onChanged: (value) {
+                    setState(() {
+                      settings['tools'] = value ?? true;
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('Safety Requirements'),
+                  subtitle: const Text('Enable safety requirements for SOPs'),
+                  value: settings['safety'] ?? true,
+                  onChanged: (value) {
+                    setState(() {
+                      settings['safety'] = value ?? true;
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('Cautions Section'),
+                  subtitle: const Text('Enable cautions for SOPs'),
+                  value: settings['cautions'] ?? true,
+                  onChanged: (value) {
+                    setState(() {
+                      settings['cautions'] = value ?? true;
+                    });
+                  },
+                ),
+                const CheckboxListTile(
+                  title: Text('Steps Section'),
+                  subtitle: Text('Steps are always required'),
+                  value: true,
+                  onChanged: null, // Disabled - always required
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Update the category
+                final categoryService =
+                    Provider.of<CategoryService>(context, listen: false);
+                final updatedCategory = category.copyWith(
+                  categorySettings: settings,
+                  color: selectedColor,
+                );
+
+                categoryService.updateCategory(updatedCategory);
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Category settings updated'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: const Text('SAVE'),
+            ),
+          ],
+        );
+      }),
     );
   }
 }

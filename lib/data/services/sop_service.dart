@@ -346,6 +346,8 @@ class SOPService extends ChangeNotifier {
           safetyRequirements:
               List<String>.from(sopData['safetyRequirements'] ?? []),
           cautions: List<String>.from(sopData['cautions'] ?? []),
+          qrCodeUrl: sopData['qrCodeUrl'],
+          thumbnailUrl: sopData['thumbnailUrl'],
         ));
       }
 
@@ -444,6 +446,7 @@ class SOPService extends ChangeNotifier {
           'cautions': [],
           'steps': [], // Empty steps array - no default step
           'qrCodeUrl': qrCodeUrl, // Add QR code URL
+          'thumbnailUrl': null, // Initialize thumbnail URL as null
         };
 
         if (kDebugMode) {
@@ -501,6 +504,7 @@ class SOPService extends ChangeNotifier {
       safetyRequirements: [],
       cautions: [],
       qrCodeUrl: _qrCodeService.generateQRDataForSOP(sopId), // Add QR code URL
+      thumbnailUrl: null, // Initialize with no thumbnail
     );
 
     // Add to the local list
@@ -587,6 +591,7 @@ class SOPService extends ChangeNotifier {
           'safetyRequirements': updatedSop.safetyRequirements,
           'cautions': updatedSop.cautions,
           'qrCodeUrl': qrCodeUrl, // Add QR code URL
+          'thumbnailUrl': updatedSop.thumbnailUrl, // Add thumbnail URL
           'steps': stepsData, // Store steps directly in the document
         };
 
@@ -823,6 +828,8 @@ class SOPService extends ChangeNotifier {
           'Do not overtighten fasteners',
           'Ensure level surface for assembly'
         ],
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1581539250439-c96689b516dd?q=80&w=1000',
       ),
       SOP(
         id: '2',
@@ -873,6 +880,8 @@ class SOPService extends ChangeNotifier {
           'Dispose of rags properly to prevent spontaneous combustion',
           'Keep all chemicals away from heat sources'
         ],
+        thumbnailUrl:
+            'https://media.istockphoto.com/id/1200265110/photo/carpenter-working-with-sander-on-wooden-surface-in-carpentry-workshop.jpg?s=612x612&w=0&k=20&c=XxULNxf7adQlV3wMbIvANJ6a3Vp0KdnvqBWRcvP-IlQ=',
       ),
     ];
     notifyListeners();
@@ -907,6 +916,7 @@ class SOPService extends ChangeNotifier {
       safetyRequirements: [],
       cautions: [],
       qrCodeUrl: _qrCodeService.generateQRDataForSOP(sopId),
+      thumbnailUrl: null, // Initialize with no thumbnail
     );
 
     // Mark this SOP as having local changes
@@ -982,6 +992,7 @@ class SOPService extends ChangeNotifier {
         'safetyRequirements': sop.safetyRequirements,
         'cautions': sop.cautions,
         'qrCodeUrl': sop.qrCodeUrl,
+        'thumbnailUrl': sop.thumbnailUrl,
         'steps': stepsData,
       };
 

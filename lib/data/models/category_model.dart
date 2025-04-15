@@ -4,6 +4,8 @@ class Category {
   final String? description;
   final String? color; // optional color code for the category
   final DateTime createdAt;
+  final Map<String, bool>
+      categorySettings; // Store section requirements (tools, safety, cautions, etc.)
 
   Category({
     required this.id,
@@ -11,7 +13,14 @@ class Category {
     this.description,
     this.color,
     required this.createdAt,
-  });
+    Map<String, bool>? categorySettings,
+  }) : categorySettings = categorySettings ??
+            {
+              'tools': true,
+              'safety': true,
+              'cautions': true,
+              'steps': true, // Steps are always required
+            };
 
   Category copyWith({
     String? id,
@@ -19,6 +28,7 @@ class Category {
     String? description,
     String? color,
     DateTime? createdAt,
+    Map<String, bool>? categorySettings,
   }) {
     return Category(
       id: id ?? this.id,
@@ -26,6 +36,7 @@ class Category {
       description: description ?? this.description,
       color: color ?? this.color,
       createdAt: createdAt ?? this.createdAt,
+      categorySettings: categorySettings ?? this.categorySettings,
     );
   }
 
@@ -36,17 +47,37 @@ class Category {
       'description': description,
       'color': color,
       'createdAt': createdAt,
+      'categorySettings': categorySettings,
     };
   }
 
   // Create a Category from a Firestore document
   factory Category.fromMap(String id, Map<String, dynamic> map) {
+    // Parse categorySettings if it exists
+    Map<String, bool> settings = {
+      'tools': true,
+      'safety': true,
+      'cautions': true,
+      'steps': true,
+    };
+
+    if (map['categorySettings'] != null) {
+      // Convert from Firestore map to Map<String, bool>
+      final rawSettings = map['categorySettings'] as Map<String, dynamic>;
+      rawSettings.forEach((key, value) {
+        if (value is bool) {
+          settings[key] = value;
+        }
+      });
+    }
+
     return Category(
       id: id,
       name: map['name'] ?? '',
       description: map['description'],
       color: map['color'],
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
+      categorySettings: settings,
     );
   }
 }

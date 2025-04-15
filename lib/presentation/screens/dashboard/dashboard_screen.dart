@@ -370,11 +370,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSOPCard(BuildContext context, SOP sop) {
-    // Get primary image for the card
-    final String? imageUrl =
-        sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
+    // Use the SOP thumbnail if available, otherwise fallback to first step image
+    final String? imageUrl = sop.thumbnailUrl ??
+        (sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
             ? sop.steps.first.imageUrl
-            : null;
+            : null);
 
     // Get department color
     final Color departmentColor =

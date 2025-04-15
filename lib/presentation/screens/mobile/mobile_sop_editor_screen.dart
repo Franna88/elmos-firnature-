@@ -60,6 +60,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   List<String> _sopTools = [];
   List<String> _sopSafetyRequirements = [];
   List<String> _sopCautions = [];
+  // Thumbnail URL for the SOP
+  String? _thumbnailUrl;
 
   @override
   void initState() {
@@ -126,6 +128,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 _sopTools = [];
                 _sopSafetyRequirements = [];
                 _sopCautions = [];
+                _thumbnailUrl =
+                    null; // Initialize thumbnail URL to null for new SOPs
                 _isLoading = false;
               },
             );
@@ -148,6 +152,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         _sopTools = List.from(_sop.tools);
         _sopSafetyRequirements = List.from(_sop.safetyRequirements);
         _sopCautions = List.from(_sop.cautions);
+        _thumbnailUrl =
+            _sop.thumbnailUrl; // Initialize thumbnail URL from existing SOP
       }
 
       // Initialize controllers
@@ -224,6 +230,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         tools: _sopTools,
         safetyRequirements: _sopSafetyRequirements,
         cautions: _sopCautions,
+        thumbnailUrl: _thumbnailUrl,
       );
     });
     // Return a completed future to allow chaining
@@ -471,58 +478,136 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
   // Upload image for a step
   Future<void> _uploadStepImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    await _showImageSourceDialog((ImageSource source) async {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: source);
 
-    if (image != null) {
-      setState(() {
-        _isLoading = true;
-      });
+      if (image != null) {
+        setState(() {
+          _isLoading = true;
+        });
 
-      try {
-        final sopService = Provider.of<SOPService>(context, listen: false);
-        final imageBytes = await image.readAsBytes();
+        try {
+          final sopService = Provider.of<SOPService>(context, listen: false);
+          final imageBytes = await image.readAsBytes();
 
-        // If editing an existing step
-        if (_currentStepIndex < _sop.steps.length) {
-          List<SOPStep> updatedSteps = List.from(_sop.steps);
-          final currentStep = updatedSteps[_currentStepIndex];
+          // If editing an existing step
+          if (_currentStepIndex < _sop.steps.length) {
+            List<SOPStep> updatedSteps = List.from(_sop.steps);
+            final currentStep = updatedSteps[_currentStepIndex];
+
+            // Simulate uploading the image and getting a URL
+            // In a real app, this would actually upload the image to Firebase Storage
+            final String imageUrl =
+                'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+            // Update the step with the new image URL
+            updatedSteps[_currentStepIndex] =
+                currentStep.copyWith(imageUrl: imageUrl);
+            final updatedSop = _sop.copyWith(steps: updatedSteps);
+
+            await sopService.updateSopLocally(updatedSop);
+            setState(() {
+              _sop = updatedSop;
+              _isLoading = false;
+            });
+          } else {
+            // We're creating a new step, so we'll save the step first
+            // and then update the image in a separate operation
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Save the step first before adding an image')),
+            );
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        } catch (e) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error uploading image: $e')),
+          );
+        }
+      }
+    });
+  }
+
+  // Upload thumbnail image for the SOP
+  Future<void> _uploadSOPThumbnail() async {
+    await _showImageSourceDialog((ImageSource source) async {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: source);
+
+      if (image != null) {
+        setState(() {
+          _isLoading = true;
+        });
+
+        try {
+          final imageBytes = await image.readAsBytes();
 
           // Simulate uploading the image and getting a URL
           // In a real app, this would actually upload the image to Firebase Storage
           final String imageUrl =
               'data:image/jpeg;base64,${base64Encode(imageBytes)}';
 
-          // Update the step with the new image URL
-          updatedSteps[_currentStepIndex] =
-              currentStep.copyWith(imageUrl: imageUrl);
-          final updatedSop = _sop.copyWith(steps: updatedSteps);
+          setState(() {
+            _thumbnailUrl = imageUrl;
+            _isLoading = false;
+          });
 
-          await sopService.updateSopLocally(updatedSop);
-          setState(() {
-            _sop = updatedSop;
-            _isLoading = false;
-          });
-        } else {
-          // We're creating a new step, so we'll save the step first
-          // and then update the image in a separate operation
+          // Update the SOP locally with the new thumbnail URL
+          await _updateSOPLocally();
+
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Save the step first before adding an image')),
+            const SnackBar(content: Text('Thumbnail uploaded successfully')),
           );
+        } catch (e) {
           setState(() {
             _isLoading = false;
           });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error uploading thumbnail: $e')),
+          );
         }
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading image: $e')),
-        );
       }
-    }
+    });
+  }
+
+  // Show a dialog to select image source (camera or gallery)
+  Future<void> _showImageSourceDialog(
+      Function(ImageSource) onSourceSelected) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Image Source'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onSourceSelected(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Camera'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onSourceSelected(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // Method to build the content for the current section
@@ -560,6 +645,85 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 24),
+
+            // SOP Thumbnail
+            Center(
+              child: Column(
+                children: [
+                  const Text(
+                    'SOP Thumbnail',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Add an image that represents the end product or result of this SOP',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Thumbnail image or placeholder
+                  GestureDetector(
+                    onTap: _uploadSOPThumbnail,
+                    child: Container(
+                      width: 200,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey[100],
+                      ),
+                      child: _thumbnailUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                _thumbnailUrl!,
+                                fit: BoxFit.cover,
+                                width: 200,
+                                height: 150,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Center(
+                                  child: Icon(Icons.broken_image,
+                                      size: 48, color: Colors.grey),
+                                ),
+                              ),
+                            )
+                          : const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_photo_alternate,
+                                      size: 48, color: Colors.grey),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Add Thumbnail',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: _uploadSOPThumbnail,
+                    icon: const Icon(Icons.upload),
+                    label: Text(_thumbnailUrl != null
+                        ? 'Change Thumbnail'
+                        : 'Upload Thumbnail'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
             TextFormField(
               controller: _titleController,
               decoration: const InputDecoration(

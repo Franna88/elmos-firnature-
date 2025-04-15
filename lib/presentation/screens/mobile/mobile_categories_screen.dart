@@ -17,6 +17,7 @@ class MobileCategoriesScreen extends StatefulWidget {
 
 class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
   bool _isLoading = true;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -54,10 +55,18 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
       ..sort((a, b) => a.name.compareTo(b.name));
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: const Text("Categories",
             style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

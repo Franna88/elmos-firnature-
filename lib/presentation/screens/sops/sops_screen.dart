@@ -209,11 +209,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
   }
 
   Widget _buildSOPCard(BuildContext context, SOP sop) {
-    // Get primary image for the card
-    final String? imageUrl =
-        sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
+    // Use the SOP thumbnail if available, otherwise fallback to first step image
+    final String? imageUrl = sop.thumbnailUrl ??
+        (sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
             ? sop.steps.first.imageUrl
-            : null;
+            : null);
 
     // Get department color
     final Color departmentColor =
@@ -221,8 +221,8 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      margin: const EdgeInsets.all(0),
+      elevation: 2, // Increased elevation for better visibility
+      margin: const EdgeInsets.all(4), // Added small margin
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: AppColors.cardBorder),
@@ -244,11 +244,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
                   ),
                   // Department badge
                   Positioned(
-                    top: 4,
-                    right: 4,
+                    top: 6, // Increased slightly
+                    right: 6, // Increased slightly
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
+                          horizontal: 6, vertical: 3), // Increased padding
                       decoration: BoxDecoration(
                         color: departmentColor.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(4),
@@ -257,7 +257,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                         sop.categoryName ?? 'Unknown',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 7,
+                          fontSize: 9, // Increased from 7
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -285,7 +285,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                             sop.title,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              fontSize: 11,
+                              fontSize: 14, // Increased from 11
                               color: AppColors.textDark,
                             ),
                             maxLines: 1,
@@ -294,7 +294,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 1),
+                              horizontal: 5, vertical: 2), // Increased padding
                           decoration: BoxDecoration(
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(3),
@@ -303,7 +303,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                             'Rev ${sop.revisionNumber}',
                             style: TextStyle(
                               color: AppColors.textMedium,
-                              fontSize: 7,
+                              fontSize: 9, // Increased from 7
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -311,35 +311,47 @@ class _SOPsScreenState extends State<SOPsScreen> {
                       ],
                     ),
 
-                    // Stats in a row
+                    // Description (new addition)
                     const SizedBox(height: 4),
+                    Text(
+                      sop.description,
+                      style: TextStyle(
+                        color: AppColors.textMedium,
+                        fontSize: 10, // Readable size for description
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    // Stats in a row
+                    const SizedBox(height: 8), // Increased spacing
                     Row(
                       children: [
                         Icon(
-                          Icons.checklist,
-                          size: 10,
+                          Icons.format_list_numbered,
+                          size: 12, // Increased from 10
                           color: AppColors.textLight,
                         ),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 4), // Increased spacing
                         Text(
                           '${sop.steps.length} steps',
                           style: TextStyle(
                             color: AppColors.textLight,
-                            fontSize: 8,
+                            fontSize: 10, // Increased from 8
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12), // Increased spacing
                         Icon(
                           Icons.calendar_today_outlined,
-                          size: 10,
+                          size: 12, // Increased from 10
                           color: AppColors.textLight,
                         ),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 4), // Increased spacing
                         Text(
-                          _formatDate(sop.createdAt),
+                          _formatDate(sop.updatedAt), // Changed to updated date
                           style: TextStyle(
                             color: AppColors.textLight,
-                            fontSize: 8,
+                            fontSize: 10, // Increased from 8
                           ),
                         ),
                       ],
@@ -377,10 +389,23 @@ class _SOPsScreenState extends State<SOPsScreen> {
         color: Colors.grey[100],
         width: double.infinity,
         child: Center(
-          child: Icon(
-            Icons.image_not_supported,
-            size: 14,
-            color: AppColors.textLight.withOpacity(0.5),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.image_not_supported,
+                size: 24, // Increased from 14
+                color: AppColors.textLight.withOpacity(0.7),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "No Thumbnail",
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textLight.withOpacity(0.7),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -398,7 +423,6 @@ class _SOPsScreenState extends State<SOPsScreen> {
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
         );
       } catch (e) {
-        debugPrint('Error displaying data URL image: $e');
         return _buildImageError();
       }
     }
@@ -426,13 +450,26 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
   Widget _buildImageError() {
     return Container(
-      width: double.infinity,
       color: Colors.grey[100],
+      width: double.infinity,
       child: Center(
-        child: Icon(
-          Icons.broken_image,
-          size: 14,
-          color: AppColors.textLight.withOpacity(0.5),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.broken_image,
+              size: 24, // Increased from 14
+              color: AppColors.textLight.withOpacity(0.7),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Image Error",
+              style: TextStyle(
+                fontSize: 10,
+                color: AppColors.textLight.withOpacity(0.7),
+              ),
+            ),
+          ],
         ),
       ),
     );
