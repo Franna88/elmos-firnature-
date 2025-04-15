@@ -215,19 +215,22 @@ class PrintService {
     return null;
   }
 
-  // Build the PDF header with company logo and SOP information - more compact
+  // Build the PDF header with company logo, SOP information, and total time
   pw.Widget _buildPDFHeader(
       SOP sop, pw.MemoryImage? logoImage, pw.MemoryImage? qrCodeImage) {
+    // Calculate total SOP time
+    final totalTime = _calculateTotalSOPTime(sop);
+
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        // Logo on the left - smaller
+        // Logo on the left
         pw.Container(
-          width: 90, // Reduced width
+          width: 90,
           child: logoImage != null
               ? pw.Image(logoImage)
               : pw.Container(
-                  height: 50, // Reduced height
+                  height: 50,
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey300),
                     borderRadius: pw.BorderRadius.circular(4),
@@ -238,7 +241,7 @@ class PrintService {
                 ),
         ),
 
-        pw.SizedBox(width: 15), // Reduced spacing
+        pw.SizedBox(width: 15),
 
         // SOP info in the middle
         pw.Expanded(
@@ -284,6 +287,16 @@ class PrintService {
                   color: PdfColors.grey700,
                 ),
               ),
+              // Add total SOP time
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Total Estimated Time: ${_formatTime(totalTime)}',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blue700,
+                ),
+              ),
             ],
           ),
         ),
@@ -308,7 +321,7 @@ class PrintService {
     );
   }
 
-  // Build the summary section with tools, safety requirements, and cautions
+  // Build the summary section with just the SOP description
   pw.Widget _buildSummarySection(SOP sop) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(10),
@@ -319,113 +332,31 @@ class PrintService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Row(
-            children: [
-              pw.Expanded(
-                flex: 2,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      "Required Tools:",
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      children: sop.tools.map((tool) {
-                        return pw.Container(
-                          padding: const pw.EdgeInsets.fromLTRB(8, 4, 8, 4),
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.blue50,
-                            border: pw.Border.all(color: PdfColors.blue200),
-                            borderRadius: pw.BorderRadius.circular(4),
-                          ),
-                          child: pw.Text(tool,
-                              style: const pw.TextStyle(fontSize: 10)),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(width: 20),
-              pw.Expanded(
-                flex: 3,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      "Safety Requirements:",
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      children: sop.safetyRequirements.map((safety) {
-                        return pw.Container(
-                          padding: const pw.EdgeInsets.fromLTRB(8, 4, 8, 4),
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.red50,
-                            border: pw.Border.all(color: PdfColors.red200),
-                            borderRadius: pw.BorderRadius.circular(4),
-                          ),
-                          child: pw.Text(safety,
-                              style: const pw.TextStyle(fontSize: 10)),
-                        );
-                      }).toList(),
-                    ),
-                    pw.SizedBox(height: 10),
-                    pw.Text(
-                      "Cautions:",
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      children: sop.cautions.map((caution) {
-                        return pw.Container(
-                          padding: const pw.EdgeInsets.fromLTRB(8, 4, 8, 4),
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.amber50,
-                            border: pw.Border.all(color: PdfColors.amber),
-                            borderRadius: pw.BorderRadius.circular(4),
-                          ),
-                          child: pw.Text(caution,
-                              style: const pw.TextStyle(fontSize: 10)),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          pw.Text(
+            "Description:",
+            style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text(
+            sop.description,
+            style: const pw.TextStyle(fontSize: 10),
           ),
         ],
       ),
     );
   }
 
-  // Build a grid of steps with 5 steps per row
+  // Build a grid of steps with 3 steps per row instead of 5
   pw.Widget _buildStepsGrid(SOP sop, Map<String, pw.MemoryImage?> stepImages) {
     final steps = sop.steps;
     final List<pw.Widget> rows = [];
 
-    // Create rows with 5 steps per row
-    for (int i = 0; i < steps.length; i += 5) {
-      final rowSteps = steps.skip(i).take(5).toList();
+    // Create rows with 3 steps per row (changed from 5)
+    for (int i = 0; i < steps.length; i += 3) {
+      final rowSteps = steps.skip(i).take(3).toList();
       rows.add(
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -440,27 +371,170 @@ class PrintService {
               .toList(),
         ),
       );
-      rows.add(pw.SizedBox(height: 10)); // Reduced spacing
+      rows.add(pw.SizedBox(height: 10)); // Spacing between rows
     }
 
-    return pw.Column(
+    return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(
-          "Step-by-Step Procedure",
-          style: pw.TextStyle(
-            fontSize: 14, // Smaller font
-            fontWeight: pw.FontWeight.bold,
+        // Left side - Steps grid (75% width)
+        pw.Expanded(
+          flex: 3,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                "Step-by-Step Procedure",
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.Divider(),
+              pw.SizedBox(height: 8),
+              ...rows,
+            ],
           ),
         ),
-        pw.Divider(),
-        pw.SizedBox(height: 8), // Reduced spacing
-        ...rows,
+
+        // Right side - Global SOP Information (25% width)
+        pw.SizedBox(width: 10),
+        pw.Container(
+          width: 150,
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey300),
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+          ),
+          padding: const pw.EdgeInsets.all(8),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                "GLOBAL SOP INFORMATION",
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.grey800,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+              pw.Divider(),
+
+              // GLOBAL TOOLS SECTION
+              pw.Container(
+                padding:
+                    const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                color: PdfColors.blue100,
+                width: double.infinity,
+                margin: const pw.EdgeInsets.only(top: 10),
+                child: pw.Text(
+                  "GLOBAL TOOLS",
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 10,
+                    color: PdfColors.blue900,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+              pw.SizedBox(height: 5),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: sop.tools.map((tool) {
+                  return pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.fromLTRB(8, 3, 8, 3),
+                    margin: const pw.EdgeInsets.only(bottom: 2),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.blue50,
+                      border: pw.Border.all(color: PdfColors.blue200),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child:
+                        pw.Text(tool, style: const pw.TextStyle(fontSize: 8)),
+                  );
+                }).toList(),
+              ),
+
+              // GLOBAL SAFETY REQUIREMENTS SECTION
+              pw.Container(
+                padding:
+                    const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                color: PdfColors.red100,
+                width: double.infinity,
+                margin: const pw.EdgeInsets.only(top: 10),
+                child: pw.Text(
+                  "SAFETY REQUIREMENTS",
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 10,
+                    color: PdfColors.red900,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+              pw.SizedBox(height: 5),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: sop.safetyRequirements.map((safety) {
+                  return pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.fromLTRB(8, 3, 8, 3),
+                    margin: const pw.EdgeInsets.only(bottom: 2),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.red50,
+                      border: pw.Border.all(color: PdfColors.red200),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child:
+                        pw.Text(safety, style: const pw.TextStyle(fontSize: 8)),
+                  );
+                }).toList(),
+              ),
+
+              // GLOBAL CAUTIONS SECTION
+              pw.Container(
+                padding:
+                    const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                color: PdfColors.amber100,
+                width: double.infinity,
+                margin: const pw.EdgeInsets.only(top: 10),
+                child: pw.Text(
+                  "CAUTIONS & WARNINGS",
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 10,
+                    color: PdfColors.amber900,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+              pw.SizedBox(height: 5),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: sop.cautions.map((caution) {
+                  return pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.fromLTRB(8, 3, 8, 3),
+                    margin: const pw.EdgeInsets.only(bottom: 2),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.amber50,
+                      border: pw.Border.all(color: PdfColors.amber),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child: pw.Text(caution,
+                        style: const pw.TextStyle(fontSize: 8)),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  // Build an individual step card with image at the top
+  // Build an individual step card with consistent image size and text limited to 4 lines
   pw.Widget _buildStepCard(
       SOPStep step, int stepNumber, pw.MemoryImage? stepImage) {
     return pw.Container(
@@ -473,7 +547,7 @@ class PrintService {
         children: [
           // Step header with step number
           pw.Container(
-            padding: const pw.EdgeInsets.all(6), // Reduced padding
+            padding: const pw.EdgeInsets.all(6),
             decoration: const pw.BoxDecoration(
               color: PdfColors.grey200,
               borderRadius: pw.BorderRadius.only(
@@ -484,8 +558,8 @@ class PrintService {
             child: pw.Row(
               children: [
                 pw.Container(
-                  width: 20, // Smaller size
-                  height: 20, // Smaller size
+                  width: 20,
+                  height: 20,
                   decoration: pw.BoxDecoration(
                     color: PdfColors.blue700,
                     shape: pw.BoxShape.circle,
@@ -496,209 +570,98 @@ class PrintService {
                     style: pw.TextStyle(
                       color: PdfColors.white,
                       fontWeight: pw.FontWeight.bold,
-                      fontSize: 10, // Smaller font
+                      fontSize: 10,
                     ),
                   ),
                 ),
-                pw.SizedBox(width: 6), // Reduced spacing
+                pw.SizedBox(width: 6),
                 pw.Expanded(
                   child: pw.Text(
                     step.title,
                     style: pw.TextStyle(
                       fontWeight: pw.FontWeight.bold,
-                      fontSize: 10, // Smaller font
+                      fontSize: 10,
                     ),
                   ),
                 ),
+                // Add estimated time if available
+                if (step.estimatedTime != null)
+                  pw.Text(
+                    _formatTime(step.estimatedTime!),
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
               ],
             ),
           ),
 
-          // Step image (if available) - display in proper aspect ratio
+          // Step image (if available) - consistent height and width for all images
           if (stepImage != null)
             pw.Container(
               width: double.infinity,
-              height: 100, // Increased height for better image display
+              height: 120, // Fixed height for consistent images
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                border: const pw.Border(
+                  bottom: pw.BorderSide(color: PdfColors.grey300),
+                ),
+              ),
               child: pw.Center(
                 child: pw.Image(stepImage,
-                    fit: pw.BoxFit.contain), // Use contain instead of cover
+                    fit: pw.BoxFit.contain), // Consistent image fitting
               ),
             ),
 
-          // Step content
+          // Step content - instruction with max 4 lines
           pw.Padding(
-            padding: const pw.EdgeInsets.all(6), // Reduced padding
+            padding: const pw.EdgeInsets.all(8),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text(step.instruction,
-                    style: const pw.TextStyle(fontSize: 9)), // Smaller font
-                if (step.helpNote != null && step.helpNote!.isNotEmpty) ...[
-                  pw.SizedBox(height: 4), // Reduced spacing
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(4), // Reduced padding
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.amber50,
-                      borderRadius: pw.BorderRadius.circular(4),
-                    ),
-                    child: pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          "ⓘ ",
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.amber800,
-                            fontSize: 8, // Smaller font
-                          ),
-                        ),
-                        pw.Expanded(
-                          child: pw.Text(
-                            step.helpNote!,
-                            style: pw.TextStyle(
-                              fontSize: 8, // Smaller font
-                              fontStyle: pw.FontStyle.italic,
-                              color: PdfColors.grey800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                // Tools and hazards in a more compact format
-                pw.SizedBox(height: 4), // Reduced spacing
-                pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    if (step.stepTools.isNotEmpty)
-                      pw.Expanded(
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              "Tools:",
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 8, // Smaller font
-                              ),
-                            ),
-                            pw.SizedBox(height: 2), // Reduced spacing
-                            pw.Wrap(
-                              spacing: 2,
-                              runSpacing: 2,
-                              children: step.stepTools.map((tool) {
-                                return pw.Container(
-                                  padding:
-                                      const pw.EdgeInsets.fromLTRB(3, 1, 3, 1),
-                                  decoration: pw.BoxDecoration(
-                                    color: PdfColors.blue50,
-                                    borderRadius: pw.BorderRadius.circular(2),
-                                  ),
-                                  child: pw.Text(
-                                    tool,
-                                    style: const pw.TextStyle(
-                                        fontSize: 6), // Smaller font
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (step.stepTools.isNotEmpty &&
-                        step.stepHazards.isNotEmpty)
-                      pw.SizedBox(width: 4), // Reduced spacing
-                    if (step.stepHazards.isNotEmpty)
-                      pw.Expanded(
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              "Hazards:",
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 8, // Smaller font
-                              ),
-                            ),
-                            pw.SizedBox(height: 2), // Reduced spacing
-                            pw.Wrap(
-                              spacing: 2,
-                              runSpacing: 2,
-                              children: step.stepHazards.map((hazard) {
-                                return pw.Container(
-                                  padding:
-                                      const pw.EdgeInsets.fromLTRB(3, 1, 3, 1),
-                                  decoration: pw.BoxDecoration(
-                                    color: PdfColors.orange50,
-                                    borderRadius: pw.BorderRadius.circular(2),
-                                  ),
-                                  child: pw.Text(
-                                    hazard,
-                                    style: const pw.TextStyle(
-                                        fontSize: 6), // Smaller font
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
+                // Limit text to approximately 4 lines by limiting characters
+                pw.Text(
+                  step.instruction.length > 200
+                      ? '${step.instruction.substring(0, 200)}...'
+                      : step.instruction,
+                  style: const pw.TextStyle(fontSize: 9),
                 ),
-
-                // Assigned to and estimated time in a single row
-                if ((step.assignedTo != null && step.assignedTo!.isNotEmpty) ||
-                    step.estimatedTime != null) ...[
-                  pw.SizedBox(height: 3), // Reduced spacing
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (step.assignedTo != null &&
-                          step.assignedTo!.isNotEmpty)
-                        pw.Row(
-                          children: [
-                            pw.Text(
-                              "Assigned: ",
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 6, // Smaller font
-                              ),
-                            ),
-                            pw.Text(
-                              step.assignedTo!,
-                              style: const pw.TextStyle(
-                                  fontSize: 6), // Smaller font
-                            ),
-                          ],
-                        ),
-                      if (step.estimatedTime != null)
-                        pw.Row(
-                          children: [
-                            pw.Text(
-                              "Time: ",
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 6, // Smaller font
-                              ),
-                            ),
-                            pw.Text(
-                              "${step.estimatedTime} min",
-                              style: const pw.TextStyle(
-                                  fontSize: 6), // Smaller font
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ],
+                // No step-specific tools or other information as requested
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  // Format time in hours, minutes, and seconds
+  String _formatTime(int totalSeconds) {
+    int hours = totalSeconds ~/ 3600;
+    int minutes = (totalSeconds % 3600) ~/ 60;
+    int seconds = totalSeconds % 60;
+
+    String hourStr = hours > 0 ? '${hours}h ' : '';
+    String minStr = minutes > 0 ? '${minutes}m ' : '';
+    String secStr = seconds > 0 ? '${seconds}s' : '';
+
+    if (hours == 0 && minutes == 0 && seconds == 0) {
+      return '0s';
+    }
+
+    return '$hourStr$minStr$secStr'.trim();
+  }
+
+  // Calculate total SOP time by summing all step times
+  int _calculateTotalSOPTime(SOP sop) {
+    int totalSeconds = 0;
+    for (final step in sop.steps) {
+      if (step.estimatedTime != null) {
+        totalSeconds += step.estimatedTime!;
+      }
+    }
+    return totalSeconds;
   }
 
   // Build the footer for each page

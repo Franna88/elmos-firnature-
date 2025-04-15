@@ -355,8 +355,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           ? null
           : _stepHelpNoteController.text,
       estimatedTime: estimatedTime,
-      stepTools: const [], // Empty list for tools
-      stepHazards: const [], // Empty list for hazards
+      stepTools: _currentStepTools,
+      stepHazards: _currentStepHazards,
     );
 
     if (_currentStepIndex < updatedSteps.length) {
