@@ -355,8 +355,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           ? null
           : _stepHelpNoteController.text,
       estimatedTime: estimatedTime,
-      stepTools: _currentStepTools,
-      stepHazards: _currentStepHazards,
+      stepTools: const [], // Empty list for tools
+      stepHazards: const [], // Empty list for hazards
     );
 
     if (_currentStepIndex < updatedSteps.length) {
@@ -395,38 +395,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         ..insert(newIndex, step);
 
       _sop = _sop.copyWith(steps: updatedSteps);
-    });
-  }
-
-  // Add a new tool to the current step
-  void _addStepTool(String tool) {
-    if (tool.isNotEmpty && !_currentStepTools.contains(tool)) {
-      setState(() {
-        _currentStepTools.add(tool);
-      });
-    }
-  }
-
-  // Remove a tool from the current step
-  void _removeStepTool(String tool) {
-    setState(() {
-      _currentStepTools.remove(tool);
-    });
-  }
-
-  // Add a new hazard to the current step
-  void _addStepHazard(String hazard) {
-    if (hazard.isNotEmpty && !_currentStepHazards.contains(hazard)) {
-      setState(() {
-        _currentStepHazards.add(hazard);
-      });
-    }
-  }
-
-  // Remove a hazard from the current step
-  void _removeStepHazard(String hazard) {
-    setState(() {
-      _currentStepHazards.remove(hazard);
     });
   }
 
@@ -1153,49 +1121,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                       ),
                       const SizedBox(height: 16),
                     ],
-
-                    // Tools
-                    if (step.stepTools.isNotEmpty) ...[
-                      const Text(
-                        'Tools Required:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 8,
-                        children: step.stepTools
-                            .map((tool) => Chip(
-                                  label: Text(tool),
-                                  backgroundColor: Colors.blue[50],
-                                ))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Hazards
-                    if (step.stepHazards.isNotEmpty) ...[
-                      const Text(
-                        'Hazards:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 8,
-                        children: step.stepHazards
-                            .map((hazard) => Chip(
-                                  label: Text(hazard),
-                                  backgroundColor: Colors.red[50],
-                                ))
-                            .toList(),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -1714,30 +1639,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
             ),
           ),
 
-          // Step Tools
-          const SizedBox(height: 24),
-          const Text(
-            'Tools Required for this Step',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildStepToolsSection(),
-
-          // Step Hazards
-          const SizedBox(height: 24),
-          const Text(
-            'Hazards for this Step',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildStepHazardsSection(),
-
           // Action buttons
           const SizedBox(height: 32),
           Row(
@@ -1770,128 +1671,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  // Build the tools list for the step being edited
-  Widget _buildStepToolsSection() {
-    final TextEditingController toolController = TextEditingController();
-
-    // Request focus when this section is visible
-    Future.microtask(() => _stepToolFocusNode.requestFocus());
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: toolController,
-                focusNode: _stepToolFocusNode,
-                decoration: const InputDecoration(
-                    labelText: 'Tool name',
-                    border: OutlineInputBorder(),
-                    hintText: 'E.g., Screwdriver, Hammer'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.add_circle),
-              color: Theme.of(context).primaryColor,
-              onPressed: () {
-                if (toolController.text.isNotEmpty) {
-                  _addStepTool(toolController.text);
-                  toolController.clear();
-                  // Maintain focus on text field
-                  _stepToolFocusNode.requestFocus();
-                }
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (_currentStepTools.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'No tools added for this step',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          )
-        else
-          Column(
-            children: _currentStepTools.map((tool) {
-              return _buildItemChip(
-                tool,
-                onDelete: () => _removeStepTool(tool),
-                color: Colors.blue,
-              );
-            }).toList(),
-          ),
-      ],
-    );
-  }
-
-  // Build the hazards list for the step being edited
-  Widget _buildStepHazardsSection() {
-    final TextEditingController hazardController = TextEditingController();
-
-    // Request focus when this section is visible
-    Future.microtask(() => _stepHazardFocusNode.requestFocus());
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: hazardController,
-                focusNode: _stepHazardFocusNode,
-                decoration: const InputDecoration(
-                    labelText: 'Hazard description',
-                    border: OutlineInputBorder(),
-                    hintText: 'E.g., Sharp edges, Hot surfaces'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.add_circle),
-              color: Theme.of(context).primaryColor,
-              onPressed: () {
-                if (hazardController.text.isNotEmpty) {
-                  _addStepHazard(hazardController.text);
-                  hazardController.clear();
-                  // Maintain focus on text field
-                  _stepHazardFocusNode.requestFocus();
-                }
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (_currentStepHazards.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'No hazards added for this step',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          )
-        else
-          Column(
-            children: _currentStepHazards.map((hazard) {
-              return _buildItemChip(
-                hazard,
-                onDelete: () => _removeStepHazard(hazard),
-                color: Colors.red,
-              );
-            }).toList(),
-          ),
-      ],
     );
   }
 }

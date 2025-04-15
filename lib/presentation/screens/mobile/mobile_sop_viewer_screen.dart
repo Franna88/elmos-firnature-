@@ -457,170 +457,44 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
               child: _buildImage(step.imageUrl!),
             ),
 
-          // Step instruction
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Text(
-              step.instruction,
-              style: const TextStyle(fontSize: 16),
+          // Instructions
+          const Text(
+            'Instructions:',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            step.instruction,
+            style: const TextStyle(fontSize: 15),
+          ),
+          const SizedBox(height: 24),
 
-          const SizedBox(height: 16),
-
-          // Help note (if any)
-          if (step.helpNote != null && step.helpNote!.isNotEmpty)
+          // Help Note (if available)
+          if (step.helpNote != null && step.helpNote!.isNotEmpty) ...[
+            const Text(
+              'Help Note:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 4),
             Container(
-              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.yellow[50],
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber),
+                border: Border.all(color: Colors.yellow[700]!),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    color: Colors.amber,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      step.helpNote!,
-                      style: TextStyle(
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                step.helpNote!,
+                style: const TextStyle(fontSize: 15),
               ),
             ),
-
-          const SizedBox(height: 16),
-
-          // Tools and Hazards
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (step.stepTools.isNotEmpty)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Tools",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: step.stepTools.map((tool) {
-                          return Chip(
-                            label: Text(tool),
-                            backgroundColor: Colors.blue[50],
-                            side: BorderSide(color: Colors.blue[200]!),
-                            labelStyle: TextStyle(color: Colors.blue[800]),
-                            padding: EdgeInsets.zero,
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              if (step.stepTools.isNotEmpty && step.stepHazards.isNotEmpty)
-                const SizedBox(width: 16),
-              if (step.stepHazards.isNotEmpty)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Hazards",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: step.stepHazards.map((hazard) {
-                          return Chip(
-                            label: Text(hazard),
-                            backgroundColor: Colors.red[50],
-                            side: BorderSide(color: Colors.red[200]!),
-                            labelStyle: TextStyle(color: Colors.red[800]),
-                            padding: EdgeInsets.zero,
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-
-          if ((step.assignedTo != null && step.assignedTo!.isNotEmpty) ||
-              step.estimatedTime != null) ...[
-            const SizedBox(height: 16),
-            Divider(color: Colors.grey[300]),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (step.assignedTo != null && step.assignedTo!.isNotEmpty)
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.person,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "Assigned: ${step.assignedTo}",
-                        style: TextStyle(
-                          color: Colors.grey[700],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                if (step.estimatedTime != null)
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.timer,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${step.estimatedTime} min",
-                        style: TextStyle(
-                          color: Colors.grey[700],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
+            const SizedBox(height: 24),
           ],
         ],
       ),
