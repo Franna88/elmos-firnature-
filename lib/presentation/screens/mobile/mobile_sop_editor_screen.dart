@@ -9,6 +9,7 @@ import '../../../data/services/sop_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class MobileSOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -47,6 +48,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   // Form controllers
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
+  late TextEditingController _youtubeUrlController;
   late TextEditingController _stepTitleController;
   late TextEditingController _stepInstructionController;
   late TextEditingController _stepHelpNoteController;
@@ -62,6 +64,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   List<String> _sopCautions = [];
   // Thumbnail URL for the SOP
   String? _thumbnailUrl;
+  // YouTube URL for the SOP
+  String? _youtubeUrl;
 
   @override
   void initState() {
@@ -73,6 +77,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _youtubeUrlController.dispose();
     _stepTitleController.dispose();
     _stepInstructionController.dispose();
     _stepHelpNoteController.dispose();
@@ -114,6 +119,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 // Initialize controllers with empty strings
                 _titleController = TextEditingController();
                 _descriptionController = TextEditingController();
+                _youtubeUrlController = TextEditingController();
                 _stepTitleController = TextEditingController();
                 _stepInstructionController = TextEditingController();
                 _stepHelpNoteController = TextEditingController();
@@ -130,6 +136,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 _sopCautions = [];
                 _thumbnailUrl =
                     null; // Initialize thumbnail URL to null for new SOPs
+                _youtubeUrl =
+                    null; // Initialize YouTube URL to null for new SOPs
                 _isLoading = false;
               },
             );
@@ -154,11 +162,15 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         _sopCautions = List.from(_sop.cautions);
         _thumbnailUrl =
             _sop.thumbnailUrl; // Initialize thumbnail URL from existing SOP
+        _youtubeUrl =
+            _sop.youtubeUrl; // Initialize YouTube URL from existing SOP
       }
 
       // Initialize controllers
       _titleController = TextEditingController(text: _sop.title);
       _descriptionController = TextEditingController(text: _sop.description);
+      _youtubeUrlController =
+          TextEditingController(text: _sop.youtubeUrl ?? '');
       _stepTitleController = TextEditingController();
       _stepInstructionController = TextEditingController();
       _stepHelpNoteController = TextEditingController();
@@ -231,6 +243,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         safetyRequirements: _sopSafetyRequirements,
         cautions: _sopCautions,
         thumbnailUrl: _thumbnailUrl,
+        youtubeUrl: _youtubeUrlController.text.isEmpty
+            ? null
+            : _youtubeUrlController.text,
       );
     });
     // Return a completed future to allow chaining
@@ -747,6 +762,64 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               maxLines: 3,
             ),
             const SizedBox(height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _youtubeUrlController,
+                  decoration: const InputDecoration(
+                    labelText: 'YouTube URL (Optional)',
+                    hintText: 'https://youtube.com/watch?v=...',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.video_library),
+                  ),
+                  onChanged: (value) {
+                    // Force refresh to update QR code
+                    setState(() {});
+                  },
+                ),
+                if (_youtubeUrlController.text.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: !_isValidYoutubeUrl(_youtubeUrlController.text)
+                        ? const Text(
+                            'Please enter a valid YouTube URL',
+                            style: TextStyle(color: Colors.red),
+                          )
+                        : Column(
+                            children: [
+                              const SizedBox(height: 8.0),
+                              const Text(
+                                'YouTube Video QR Code',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              Center(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                  child: _generateYouTubeQRCode(),
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              const Text(
+                                'This QR code will be displayed on the printable SOP',
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: Colors.grey,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                 labelText: 'Category',
@@ -778,6 +851,31 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         ),
       ),
     );
+  }
+
+  // Add a method to generate a QR code for the YouTube URL
+  QrImageView? _generateYouTubeQRCode() {
+    if (_youtubeUrlController.text.isEmpty) {
+      return null;
+    }
+
+    // Check if it's a valid YouTube URL
+    if (!_isValidYoutubeUrl(_youtubeUrlController.text)) {
+      return null;
+    }
+
+    return QrImageView(
+      data: _youtubeUrlController.text,
+      version: QrVersions.auto,
+      size: 150.0,
+      backgroundColor: Colors.white,
+    );
+  }
+
+  // Validate YouTube URL
+  bool _isValidYoutubeUrl(String url) {
+    // This is a simple validation, you might want to improve it
+    return url.contains('youtube.com/') || url.contains('youtu.be/');
   }
 
   // Section 2: Tools

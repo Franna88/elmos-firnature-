@@ -447,6 +447,7 @@ class SOPService extends ChangeNotifier {
           'steps': [], // Empty steps array - no default step
           'qrCodeUrl': qrCodeUrl, // Add QR code URL
           'thumbnailUrl': null, // Initialize thumbnail URL as null
+          'youtubeUrl': null, // Initialize YouTube URL as null
         };
 
         if (kDebugMode) {
@@ -505,6 +506,7 @@ class SOPService extends ChangeNotifier {
       cautions: [],
       qrCodeUrl: _qrCodeService.generateQRDataForSOP(sopId), // Add QR code URL
       thumbnailUrl: null, // Initialize with no thumbnail
+      youtubeUrl: null, // No YouTube video initially
     );
 
     // Add to the local list
@@ -892,41 +894,49 @@ class SOPService extends ChangeNotifier {
 
   // Create a SOP locally without saving to Firebase
   SOP createLocalSop(String title, String description, String categoryId) {
+    final now = DateTime.now();
     final String sopId = const Uuid().v4();
-    final DateTime now = DateTime.now();
-    String userIdentifier = 'anonymous';
+    final String userIdentifier = _auth?.currentUser?.email ?? 'demo_user';
+    final String userName = _auth?.currentUser?.displayName ?? 'Demo User';
+    final String? categoryName = _findCategoryName(categoryId);
+    final String qrCodeUrl = _qrCodeService.generateQRDataForSOP(sopId);
 
-    if (!_usingLocalData && _auth!.currentUser != null) {
-      userIdentifier = _auth!.currentUser!.email ?? _auth!.currentUser!.uid;
-    }
-
-    // Create the local SOP object
+    // Create a new local SOP
     final sop = SOP(
       id: sopId,
       title: title,
       description: description,
       categoryId: categoryId,
-      categoryName: '', // Will be updated later when saving to Firebase
+      categoryName: categoryName ?? '', // Handle null case
       revisionNumber: 1,
-      createdBy: userIdentifier,
+      createdBy: userName,
       createdAt: now,
       updatedAt: now,
-      steps: [], // Empty steps list
+      steps: [],
       tools: [],
       safetyRequirements: [],
       cautions: [],
-      qrCodeUrl: _qrCodeService.generateQRDataForSOP(sopId),
-      thumbnailUrl: null, // Initialize with no thumbnail
+      qrCodeUrl: qrCodeUrl, // QR code for the SOP access
+      thumbnailUrl: null, // No thumbnail initially
+      youtubeUrl: null, // No YouTube video initially
     );
 
-    // Mark this SOP as having local changes
+    // Store in local changes
     _localChanges[sopId] = sop;
 
-    if (kDebugMode) {
-      print('Created local SOP with ID: $sopId (not saved to Firebase yet)');
+    return sop;
+  }
+
+  // Helper method to find a category name from its ID
+  String? _findCategoryName(String categoryId) {
+    // If the category ID is empty, return an empty string
+    if (categoryId.isEmpty) {
+      return '';
     }
 
-    return sop;
+    // For simplicity, just return empty string as we'll update this later
+    // We would normally search through a category collection to find the name
+    return '';
   }
 
   // Save a local SOP to Firebase

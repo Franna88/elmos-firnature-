@@ -17,6 +17,7 @@ import '../../../data/models/category_model.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/sop_viewer.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -40,6 +41,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   // Form controllers
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
+  late TextEditingController
+      _youtubeUrlController; // Added for YouTube URL support
 
   late TabController _tabController;
   List<Widget> _tabs = [
@@ -76,6 +79,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _youtubeUrlController.dispose();
     super.dispose();
   }
 
@@ -103,6 +107,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
               // Initialize controllers with empty strings
               _titleController = TextEditingController();
               _descriptionController = TextEditingController();
+              _youtubeUrlController = TextEditingController();
               // No need for department controller as we'll use a dropdown
               _isLoading = false;
               _isEditing = true;
@@ -128,6 +133,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       // Initialize controllers
       _titleController = TextEditingController(text: _sop.title);
       _descriptionController = TextEditingController(text: _sop.description);
+      _youtubeUrlController =
+          TextEditingController(text: _sop.youtubeUrl ?? '');
       // No need for department controller as we'll use a dropdown
 
       setState(() {
@@ -171,6 +178,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
           categoryName: categoryName,
           updatedAt: DateTime.now(),
           thumbnailUrl: _sop.thumbnailUrl, // Preserve the thumbnail URL
+          youtubeUrl: _youtubeUrlController.text.isEmpty
+              ? null
+              : _youtubeUrlController.text, // Save YouTube URL
         );
 
         // Save to Firebase
@@ -205,15 +215,25 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   }
 
   // Add a new method to update SOP locally without saving to Firebase
-  Future<void> _updateSOPLocally(SOP updatedSop) async {
+  Future<void> _updateSOPLocally([SOP? updatedSop]) async {
     try {
       final sopService = Provider.of<SOPService>(context, listen: false);
 
+      // Use passed SOP if available, otherwise create a new one with current values
+      final newSop = updatedSop ??
+          _sop.copyWith(
+            title: _titleController.text,
+            description: _descriptionController.text,
+            youtubeUrl: _youtubeUrlController.text.isEmpty
+                ? null
+                : _youtubeUrlController.text,
+          );
+
       // Update the SOP locally only
-      await sopService.updateSopLocally(updatedSop);
+      await sopService.updateSopLocally(newSop);
 
       setState(() {
-        _sop = updatedSop;
+        _sop = newSop;
       });
     } catch (e) {
       if (mounted) {
@@ -899,13 +919,14 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                 // Main content area
                 Expanded(
                   child: DefaultTabController(
-                    length: 4,
+                    length: 6,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TabBar(
                           tabs: const [
                             Tab(text: 'Thumbnail'),
+                            Tab(text: 'Video'),
                             Tab(text: 'Description'),
                             Tab(text: 'Tools'),
                             Tab(text: 'Safety'),
@@ -1028,6 +1049,104 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                         ],
                                       ),
                                     ),
+                                  ],
+                                ),
+                              ),
+
+                              // Video Tab
+                              SingleChildScrollView(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'YouTube Video',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Add a YouTube video demonstration for this SOP',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    TextFormField(
+                                      controller: _youtubeUrlController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'YouTube Video URL',
+                                        hintText:
+                                            'https://youtube.com/watch?v=...',
+                                        helperText:
+                                            'Add a YouTube video demonstration link',
+                                        border: OutlineInputBorder(),
+                                        prefixIcon: Icon(Icons.video_library),
+                                      ),
+                                      onChanged: (value) {
+                                        // Force refresh to update QR code if needed
+                                        if (_youtubeUrlController
+                                            .text.isNotEmpty) {
+                                          setState(() {});
+                                        }
+                                        // Update SOP locally with the new YouTube URL
+                                        _updateSOPLocally();
+                                      },
+                                    ),
+                                    if (_youtubeUrlController
+                                        .text.isNotEmpty) ...[
+                                      const SizedBox(height: 24),
+                                      if (!_isValidYoutubeUrl(
+                                          _youtubeUrlController.text))
+                                        const Padding(
+                                          padding:
+                                              EdgeInsets.only(bottom: 16.0),
+                                          child: Text(
+                                            'Please enter a valid YouTube URL',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        )
+                                      else
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'YouTube Video QR Code',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleSmall,
+                                            ),
+                                            const SizedBox(height: 16.0),
+                                            Center(
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(16.0),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                      color: Colors.grey),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8.0),
+                                                ),
+                                                child: _generateYouTubeQRCode(),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16.0),
+                                            const Center(
+                                              child: Text(
+                                                'This QR code will be displayed on the printable SOP',
+                                                style: TextStyle(
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Colors.grey,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -3771,5 +3890,30 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       );
       _tabs = newTabs;
     });
+  }
+
+  // Validate YouTube URL
+  bool _isValidYoutubeUrl(String url) {
+    // Simple validation to check if the URL contains youtube.com or youtu.be
+    return url.contains('youtube.com/') || url.contains('youtu.be/');
+  }
+
+  // Generate a QR code for YouTube URL
+  Widget? _generateYouTubeQRCode() {
+    if (_youtubeUrlController.text.isEmpty) {
+      return null;
+    }
+
+    // Check if it's a valid YouTube URL
+    if (!_isValidYoutubeUrl(_youtubeUrlController.text)) {
+      return null;
+    }
+
+    return QrImageView(
+      data: _youtubeUrlController.text,
+      version: QrVersions.auto,
+      size: 150.0,
+      backgroundColor: Colors.white,
+    );
   }
 }

@@ -14,6 +14,7 @@ class SOP {
   final List<String> cautions;
   final String? qrCodeUrl;
   final String? thumbnailUrl;
+  final String? youtubeUrl;
 
   SOP({
     required this.id,
@@ -31,6 +32,7 @@ class SOP {
     required this.cautions,
     this.qrCodeUrl,
     this.thumbnailUrl,
+    this.youtubeUrl,
   });
 
   SOP copyWith({
@@ -49,6 +51,7 @@ class SOP {
     List<String>? cautions,
     String? qrCodeUrl,
     String? thumbnailUrl,
+    String? youtubeUrl,
   }) {
     return SOP(
       id: id ?? this.id,
@@ -66,6 +69,7 @@ class SOP {
       cautions: cautions ?? this.cautions,
       qrCodeUrl: qrCodeUrl ?? this.qrCodeUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      youtubeUrl: youtubeUrl ?? this.youtubeUrl,
     );
   }
 }
