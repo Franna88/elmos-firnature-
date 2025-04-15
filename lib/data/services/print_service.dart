@@ -299,7 +299,7 @@ class PrintService {
                   style: pw.TextStyle(
                     fontSize: 16,
                     fontWeight: pw.FontWeight.bold,
-                    color: categoryColor,
+                    color: PdfColors.black,
                   ),
                 ),
                 pw.SizedBox(width: 15),
@@ -351,7 +351,7 @@ class PrintService {
             style: pw.TextStyle(
               fontWeight: pw.FontWeight.bold,
               fontSize: 14,
-              color: categoryColor,
+              color: PdfColors.black,
             ),
           ),
           pw.SizedBox(height: 5),
@@ -415,10 +415,10 @@ class PrintService {
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
-                  color: categoryColor,
+                  color: PdfColors.black,
                 ),
               ),
-              pw.Divider(color: categoryColor),
+              pw.Divider(color: PdfColors.grey300),
               pw.SizedBox(height: 8),
               ...rows,
             ],
@@ -447,7 +447,7 @@ class PrintService {
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
-                    color: categoryColor,
+                    color: PdfColors.black,
                   ),
                   textAlign: pw.TextAlign.center,
                 ),
@@ -572,7 +572,7 @@ class PrintService {
       pw.MemoryImage? stepImage, PdfColor categoryColor) {
     return pw.Container(
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300),
+        border: pw.Border.all(color: categoryColor),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
       ),
       child: pw.Column(
@@ -614,7 +614,7 @@ class PrintService {
                     style: pw.TextStyle(
                       fontWeight: pw.FontWeight.bold,
                       fontSize: 10,
-                      color: categoryColor,
+                      color: PdfColors.black,
                     ),
                   ),
                 ),
