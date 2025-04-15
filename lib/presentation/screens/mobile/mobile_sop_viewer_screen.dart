@@ -24,6 +24,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   late AnimationController _animationController;
   bool _isFromQRScan = false;
   bool _isAnonymousAccess = false;
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -35,16 +36,26 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+  }
 
-    // Check if this SOP was accessed via QR code scan
-    final route = ModalRoute.of(context)?.settings.name ?? '';
-    _isFromQRScan = route.contains('/sop/') && !route.contains('/editor/');
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
 
-    // Check if this is anonymous access
-    final authService = Provider.of<AuthService>(context, listen: false);
-    _isAnonymousAccess = !authService.isLoggedIn;
+    if (!_initialized) {
+      _initialized = true;
 
-    _loadSOP();
+      // Check if this SOP was accessed via QR code scan - safely done in didChangeDependencies
+      final route = ModalRoute.of(context)?.settings.name ?? '';
+      _isFromQRScan = route.contains('/sop/') && !route.contains('/editor/');
+
+      // Check if this is anonymous access - safely done in didChangeDependencies
+      final authService = Provider.of<AuthService>(context, listen: false);
+      _isAnonymousAccess = !authService.isLoggedIn;
+
+      // Load the SOP after dependencies are available
+      _loadSOP();
+    }
   }
 
   @override

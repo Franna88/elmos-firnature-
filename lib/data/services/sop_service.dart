@@ -880,4 +880,139 @@ class SOPService extends ChangeNotifier {
 
   // Get QR code service
   QRCodeService get qrCodeService => _qrCodeService;
+
+  // Create a SOP locally without saving to Firebase
+  SOP createLocalSop(String title, String description, String categoryId) {
+    final String sopId = const Uuid().v4();
+    final DateTime now = DateTime.now();
+    String userIdentifier = 'anonymous';
+
+    if (!_usingLocalData && _auth!.currentUser != null) {
+      userIdentifier = _auth!.currentUser!.email ?? _auth!.currentUser!.uid;
+    }
+
+    // Create the local SOP object
+    final sop = SOP(
+      id: sopId,
+      title: title,
+      description: description,
+      categoryId: categoryId,
+      categoryName: '', // Will be updated later when saving to Firebase
+      revisionNumber: 1,
+      createdBy: userIdentifier,
+      createdAt: now,
+      updatedAt: now,
+      steps: [], // Empty steps list
+      tools: [],
+      safetyRequirements: [],
+      cautions: [],
+      qrCodeUrl: _qrCodeService.generateQRDataForSOP(sopId),
+    );
+
+    // Mark this SOP as having local changes
+    _localChanges[sopId] = sop;
+
+    if (kDebugMode) {
+      print('Created local SOP with ID: $sopId (not saved to Firebase yet)');
+    }
+
+    return sop;
+  }
+
+  // Save a local SOP to Firebase
+  Future<void> saveLocalSopToFirebase(SOP sop) async {
+    if (_usingLocalData) {
+      // If using local data, just update the local list
+      final index = _sops.indexWhere((s) => s.id == sop.id);
+      if (index >= 0) {
+        _sops[index] = sop;
+      } else {
+        _sops.add(sop);
+      }
+      notifyListeners();
+      return;
+    }
+
+    try {
+      // Get category name if needed
+      String? categoryName = sop.categoryName;
+      if (sop.categoryName?.isEmpty == true && sop.categoryId.isNotEmpty) {
+        try {
+          final categoryDoc = await _firestore!
+              .collection('categories')
+              .doc(sop.categoryId)
+              .get();
+          if (categoryDoc.exists) {
+            categoryName = categoryDoc.data()?['name'];
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Failed to fetch category name: $e');
+          }
+        }
+      }
+
+      // Convert steps to a format suitable for Firestore
+      List<Map<String, dynamic>> stepsData = sop.steps
+          .map((step) => {
+                'id': step.id,
+                'title': step.title,
+                'instruction': step.instruction,
+                'imageUrl': step.imageUrl,
+                'helpNote': step.helpNote,
+                'assignedTo': step.assignedTo,
+                'estimatedTime': step.estimatedTime,
+                'stepTools': step.stepTools,
+                'stepHazards': step.stepHazards,
+                'updatedAt': Timestamp.fromDate(DateTime.now()),
+              })
+          .toList();
+
+      // Create the SOP document with embedded steps
+      final sopData = {
+        'title': sop.title,
+        'description': sop.description,
+        'categoryId': sop.categoryId,
+        'categoryName': categoryName,
+        'revisionNumber': sop.revisionNumber,
+        'createdBy': sop.createdBy,
+        'createdAt': Timestamp.fromDate(sop.createdAt),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+        'tools': sop.tools,
+        'safetyRequirements': sop.safetyRequirements,
+        'cautions': sop.cautions,
+        'qrCodeUrl': sop.qrCodeUrl,
+        'steps': stepsData,
+      };
+
+      await _firestore!.collection('sops').doc(sop.id).set(sopData);
+
+      if (kDebugMode) {
+        print('Saved local SOP to Firebase with ID: ${sop.id}');
+      }
+
+      // Update the local list with the saved SOP
+      final updatedSop = sop.copyWith(
+        categoryName: categoryName,
+        updatedAt: DateTime.now(),
+      );
+
+      // Update the local list
+      final index = _sops.indexWhere((s) => s.id == sop.id);
+      if (index >= 0) {
+        _sops[index] = updatedSop;
+      } else {
+        _sops.add(updatedSop);
+      }
+
+      // Remove from local changes map
+      _localChanges.remove(sop.id);
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving local SOP to Firebase: $e');
+      }
+      throw e;
+    }
+  }
 }

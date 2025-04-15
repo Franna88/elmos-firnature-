@@ -24,6 +24,14 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   bool _isLoading = true;
   final _formKey = GlobalKey<FormState>();
   int _currentStepIndex = -1; // -1 means editing SOP details, not steps
+  int _selectedStepTab = 0; // Track selected step tab
+
+  // Focus nodes
+  final FocusNode _stepToolFocusNode = FocusNode();
+  final FocusNode _stepHazardFocusNode = FocusNode();
+  final FocusNode _sopToolFocusNode = FocusNode();
+  final FocusNode _sopSafetyFocusNode = FocusNode();
+  final FocusNode _sopCautionFocusNode = FocusNode();
 
   // Current section of the SOP being edited
   int _currentSection = 0;
@@ -69,6 +77,14 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     _stepEstimatedHoursController.dispose();
     _stepEstimatedMinutesController.dispose();
     _stepEstimatedSecondsController.dispose();
+
+    // Dispose focus nodes
+    _stepToolFocusNode.dispose();
+    _stepHazardFocusNode.dispose();
+    _sopToolFocusNode.dispose();
+    _sopSafetyFocusNode.dispose();
+    _sopCautionFocusNode.dispose();
+
     super.dispose();
   }
 
@@ -81,35 +97,38 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       final sopService = Provider.of<SOPService>(context, listen: false);
 
       if (widget.sopId == 'new') {
-        // Create a new SOP
-        Future.microtask(() async {
-          final newSop = await sopService.createSop(
+        // Create a new SOP locally (without saving to Firebase)
+        Future.microtask(() {
+          final newSop = sopService.createLocalSop(
             '',
             '',
             '', // Empty categoryId - will be selected by user
           );
 
           if (mounted) {
-            setState(() {
-              _sop = newSop;
-              // Initialize controllers with empty strings
-              _titleController = TextEditingController();
-              _descriptionController = TextEditingController();
-              _stepTitleController = TextEditingController();
-              _stepInstructionController = TextEditingController();
-              _stepHelpNoteController = TextEditingController();
-              _stepEstimatedHoursController = TextEditingController(text: '0');
-              _stepEstimatedMinutesController =
-                  TextEditingController(text: '0');
-              _stepEstimatedSecondsController =
-                  TextEditingController(text: '0');
-              _currentStepTools = [];
-              _currentStepHazards = [];
-              _sopTools = [];
-              _sopSafetyRequirements = [];
-              _sopCautions = [];
-              _isLoading = false;
-            });
+            setState(
+              () {
+                _sop = newSop;
+                // Initialize controllers with empty strings
+                _titleController = TextEditingController();
+                _descriptionController = TextEditingController();
+                _stepTitleController = TextEditingController();
+                _stepInstructionController = TextEditingController();
+                _stepHelpNoteController = TextEditingController();
+                _stepEstimatedHoursController =
+                    TextEditingController(text: '0');
+                _stepEstimatedMinutesController =
+                    TextEditingController(text: '0');
+                _stepEstimatedSecondsController =
+                    TextEditingController(text: '0');
+                _currentStepTools = [];
+                _currentStepHazards = [];
+                _sopTools = [];
+                _sopSafetyRequirements = [];
+                _sopCautions = [];
+                _isLoading = false;
+              },
+            );
           }
         });
         return;
@@ -171,37 +190,13 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         }
         break;
       case 1: // Tools
-        if (_sopTools.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please add at least one tool'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return false;
-        }
+        // Tools are optional, no validation required
         break;
       case 2: // Safety Requirements
-        if (_sopSafetyRequirements.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please add at least one safety requirement'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return false;
-        }
+        // Safety requirements are optional, no validation required
         break;
       case 3: // Cautions
-        if (_sopCautions.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please add at least one caution'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return false;
-        }
+        // Cautions are optional, no validation required
         break;
       case 4: // Steps
         if (_sop.steps.isEmpty) {
@@ -244,8 +239,13 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       // Get the SOP service from provider
       final sopService = Provider.of<SOPService>(context, listen: false);
 
-      // Save to Firebase
-      await sopService.updateSop(_sop);
+      // For new SOPs, use saveLocalSopToFirebase to save it to Firebase
+      // For existing SOPs, use updateSop to update it in Firebase
+      if (widget.sopId == 'new') {
+        await sopService.saveLocalSopToFirebase(_sop);
+      } else {
+        await sopService.updateSop(_sop);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -652,13 +652,16 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   Widget _buildToolsSection() {
     final TextEditingController toolController = TextEditingController();
 
+    // Request focus when this section is built
+    Future.microtask(() => _sopToolFocusNode.requestFocus());
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Add tools required for this SOP',
+            'Add tools required for this SOP (Optional)',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16),
           ),
@@ -668,6 +671,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               Expanded(
                 child: TextField(
                   controller: toolController,
+                  focusNode: _sopToolFocusNode,
                   decoration: const InputDecoration(
                       labelText: 'Tool name',
                       border: OutlineInputBorder(),
@@ -682,6 +686,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                   if (toolController.text.isNotEmpty) {
                     _addSOPTool(toolController.text);
                     toolController.clear();
+                    // Maintain focus on text field
+                    _sopToolFocusNode.requestFocus();
                   }
                 },
               ),
@@ -727,13 +733,16 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   Widget _buildSafetyRequirementsSection() {
     final TextEditingController requirementController = TextEditingController();
 
+    // Request focus when this section is built
+    Future.microtask(() => _sopSafetyFocusNode.requestFocus());
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Add safety requirements for this SOP',
+            'Add safety requirements for this SOP (Optional)',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16),
           ),
@@ -743,6 +752,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               Expanded(
                 child: TextField(
                   controller: requirementController,
+                  focusNode: _sopSafetyFocusNode,
                   decoration: const InputDecoration(
                       labelText: 'Safety requirement',
                       border: OutlineInputBorder(),
@@ -757,6 +767,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                   if (requirementController.text.isNotEmpty) {
                     _addSOPSafetyRequirement(requirementController.text);
                     requirementController.clear();
+                    // Maintain focus on text field
+                    _sopSafetyFocusNode.requestFocus();
                   }
                 },
               ),
@@ -803,13 +815,16 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   Widget _buildCautionsSection() {
     final TextEditingController cautionController = TextEditingController();
 
+    // Request focus when this section is built
+    Future.microtask(() => _sopCautionFocusNode.requestFocus());
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Add cautions and warnings for this SOP',
+            'Add cautions and warnings for this SOP (Optional)',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16),
           ),
@@ -819,6 +834,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               Expanded(
                 child: TextField(
                   controller: cautionController,
+                  focusNode: _sopCautionFocusNode,
                   decoration: const InputDecoration(
                       labelText: 'Caution',
                       border: OutlineInputBorder(),
@@ -833,6 +849,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                   if (cautionController.text.isNotEmpty) {
                     _addSOPCaution(cautionController.text);
                     cautionController.clear();
+                    // Maintain focus on text field
+                    _sopCautionFocusNode.requestFocus();
                   }
                 },
               ),
@@ -874,7 +892,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     );
   }
 
-  // Section 5: Steps
+  // Section 5: Steps with Tabbed View
   Widget _buildStepsSection() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -935,116 +953,313 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Drag to reorder steps (${_sop.steps.length} steps)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: ReorderableListView.builder(
-                          shrinkWrap: true,
+                      // Tab navigation for steps
+                      Container(
+                        height: 50,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
                           itemCount: _sop.steps.length,
-                          onReorder: _reorderSteps,
                           itemBuilder: (context, index) {
-                            final step = _sop.steps[index];
-
-                            return Card(
-                              key: ValueKey(step.id),
-                              margin: const EdgeInsets.symmetric(vertical: 8.0),
-                              child: ListTile(
-                                title: Row(
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedStepTab = index;
+                                });
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _selectedStepTab == index
+                                      ? Colors.red[700]
+                                      : Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
                                   children: [
                                     Container(
                                       width: 24,
                                       height: 24,
                                       decoration: BoxDecoration(
-                                        color: Colors.red[700],
+                                        color: _selectedStepTab == index
+                                            ? Colors.white.withOpacity(0.3)
+                                            : Colors.red[700],
                                         shape: BoxShape.circle,
                                       ),
                                       child: Center(
                                         child: Text(
                                           '${index + 1}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: _selectedStepTab == index
+                                                ? Colors.white
+                                                : Colors.white,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 12,
                                           ),
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: Text(step.title)),
-                                  ],
-                                ),
-                                subtitle: step.instruction.isNotEmpty
-                                    ? Text(
-                                        step.instruction,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                    : null,
-                                leading: step.imageUrl != null
-                                    ? SizedBox(
-                                        width: 40,
-                                        height: 40,
-                                        child: Image.network(
-                                          step.imageUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error,
-                                                  stackTrace) =>
-                                              const Icon(Icons.broken_image),
-                                        ),
-                                      )
-                                    : const Icon(Icons.article),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (step.estimatedTime != null)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                              color:
-                                                  Colors.blue.withOpacity(0.5)),
-                                        ),
-                                        child: Text(
-                                          _formatTime(step.estimatedTime!),
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.blue,
-                                          ),
-                                        ),
-                                      ),
                                     const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _editStep(index),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () =>
-                                          _showDeleteConfirmation(index),
+                                    Text(
+                                      _sop.steps[index].title.length > 15
+                                          ? '${_sop.steps[index].title.substring(0, 15)}...'
+                                          : _sop.steps[index].title,
+                                      style: TextStyle(
+                                        color: _selectedStepTab == index
+                                            ? Colors.white
+                                            : Colors.black,
+                                        fontWeight: _selectedStepTab == index
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                onTap: () => _editStep(index),
                               ),
                             );
                           },
                         ),
                       ),
+                      const SizedBox(height: 16),
+
+                      // Currently selected step details
+                      Expanded(
+                        child: _sop.steps.isNotEmpty
+                            ? _buildStepCard(
+                                _sop.steps[_selectedStepTab], _selectedStepTab)
+                            : Container(),
+                      ),
                     ],
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Build a card to display step details in the tabbed view
+  Widget _buildStepCard(SOPStep step, int index) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    step.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    if (step.estimatedTime != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              Border.all(color: Colors.blue.withOpacity(0.5)),
+                        ),
+                        child: Text(
+                          _formatTime(step.estimatedTime!),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _editStep(index),
+                      tooltip: 'Edit Step',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => _showDeleteConfirmation(index),
+                      tooltip: 'Delete Step',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Step image
+                    if (step.imageUrl != null && step.imageUrl!.isNotEmpty)
+                      Container(
+                        height: 150,
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            step.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Center(
+                              child: Icon(Icons.broken_image, size: 48),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Instructions
+                    const Text(
+                      'Instructions:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(step.instruction),
+                    const SizedBox(height: 16),
+
+                    // Help note if exists
+                    if (step.helpNote != null && step.helpNote!.isNotEmpty) ...[
+                      const Text(
+                        'Help Note:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.yellow[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.yellow[700]!),
+                        ),
+                        child: Text(step.helpNote!),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Tools
+                    if (step.stepTools.isNotEmpty) ...[
+                      const Text(
+                        'Tools Required:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        children: step.stepTools
+                            .map((tool) => Chip(
+                                  label: Text(tool),
+                                  backgroundColor: Colors.blue[50],
+                                ))
+                            .toList(),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Hazards
+                    if (step.stepHazards.isNotEmpty) ...[
+                      const Text(
+                        'Hazards:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        children: step.stepHazards
+                            .map((hazard) => Chip(
+                                  label: Text(hazard),
+                                  backgroundColor: Colors.red[50],
+                                ))
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            // Reorder button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Reorder Steps'),
+                        content: Container(
+                          width: double.maxFinite,
+                          height: 300,
+                          child: ReorderableListView.builder(
+                            itemCount: _sop.steps.length,
+                            onReorder: _reorderSteps,
+                            itemBuilder: (context, i) {
+                              return ListTile(
+                                key: ValueKey(_sop.steps[i].id),
+                                leading: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[700],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${i + 1}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                title: Text(_sop.steps[i].title),
+                                trailing: const Icon(Icons.drag_handle),
+                              );
+                            },
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('DONE'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.reorder),
+                  label: const Text('Reorder Steps'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1091,6 +1306,267 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(
+            widget.sopId == 'new' ? 'Create New SOP' : 'Edit SOP',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // If we're in step editor mode, show the step editor
+    if (_currentStepIndex >= 0) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(
+            _currentStepIndex >= _sop.steps.length
+                ? 'Add New Step'
+                : 'Edit Step ${_currentStepIndex + 1}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              setState(() {
+                _currentStepIndex = -1;
+              });
+            },
+          ),
+        ),
+        body: _buildStepEditorForm(),
+      );
+    }
+
+    // Otherwise, show the appropriate section of the SOP form
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.sopId == 'new' ? 'Create New SOP' : 'Edit SOP',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (_currentSection > 0) {
+              // Navigate to previous section
+              setState(() {
+                _currentSection--;
+              });
+            } else {
+              // Exit to SOPs screen
+              context.go('/mobile/sops');
+            }
+          },
+        ),
+        actions: [
+          // Only show delete button for existing SOPs (not new ones)
+          if (widget.sopId != 'new')
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: _showDeleteConfirmationDialog,
+              tooltip: 'Delete SOP',
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Progress indicator
+          LinearProgressIndicator(
+            value: (_currentSection + 1) / _sectionTitles.length,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.red[700]!),
+          ),
+
+          // Section title
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Section ${_currentSection + 1}/${_sectionTitles.length}: ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                Text(
+                  _sectionTitles[_currentSection],
+                  style: const TextStyle(
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Current section content
+          Expanded(
+            child: _buildCurrentSectionContent(),
+          ),
+
+          // Navigation buttons
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (_currentSection > 0)
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _currentSection--;
+                      });
+                    },
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Previous'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[400],
+                    ),
+                  )
+                else
+                  const SizedBox(width: 100), // Placeholder for spacing
+
+                _currentSection < _sectionTitles.length - 1
+                    ? ElevatedButton.icon(
+                        onPressed: () {
+                          // Validate current section before proceeding
+                          if (_validateCurrentSection()) {
+                            // Update SOP locally before moving to next section
+                            _updateSOPLocally().then((_) {
+                              setState(() {
+                                _currentSection++;
+                              });
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.arrow_forward),
+                        label: const Text('Next'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: () {
+                          // Validate current section before saving
+                          if (_validateCurrentSection()) {
+                            // Save to Firebase only on the final submission
+                            _saveSOP().then((_) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('SOP saved successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              context.go('/mobile/sops');
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text('Save SOP'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shows a confirmation dialog before deleting the SOP
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete SOP'),
+        content: const Text(
+          'Are you sure you want to delete this SOP? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteSOP();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Deletes the SOP from Firebase
+  Future<void> _deleteSOP() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      await sopService.deleteSop(_sop.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('SOP deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Navigate back to SOPs list
+        context.go('/mobile/sops');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting SOP: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Helper method to format time in HH:MM:SS format
+  String _formatTime(int totalSeconds) {
+    int hours = totalSeconds ~/ 3600;
+    int minutes = (totalSeconds % 3600) ~/ 60;
+    int seconds = totalSeconds % 60;
+
+    String hourStr = hours > 0 ? '${hours}h ' : '';
+    String minStr = minutes > 0 ? '${minutes}m ' : '';
+    String secStr = seconds > 0 ? '${seconds}s' : '';
+
+    // If all are zero, show 0s
+    if (hours == 0 && minutes == 0 && seconds == 0) {
+      return '0s';
+    }
+
+    return '$hourStr$minStr$secStr'.trim();
   }
 
   // Build the step editor form
@@ -1301,6 +1777,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   Widget _buildStepToolsSection() {
     final TextEditingController toolController = TextEditingController();
 
+    // Request focus when this section is visible
+    Future.microtask(() => _stepToolFocusNode.requestFocus());
+
     return Column(
       children: [
         Row(
@@ -1308,6 +1787,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
             Expanded(
               child: TextField(
                 controller: toolController,
+                focusNode: _stepToolFocusNode,
                 decoration: const InputDecoration(
                     labelText: 'Tool name',
                     border: OutlineInputBorder(),
@@ -1322,6 +1802,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 if (toolController.text.isNotEmpty) {
                   _addStepTool(toolController.text);
                   toolController.clear();
+                  // Maintain focus on text field
+                  _stepToolFocusNode.requestFocus();
                 }
               },
             ),
@@ -1356,6 +1838,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   Widget _buildStepHazardsSection() {
     final TextEditingController hazardController = TextEditingController();
 
+    // Request focus when this section is visible
+    Future.microtask(() => _stepHazardFocusNode.requestFocus());
+
     return Column(
       children: [
         Row(
@@ -1363,6 +1848,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
             Expanded(
               child: TextField(
                 controller: hazardController,
+                focusNode: _stepHazardFocusNode,
                 decoration: const InputDecoration(
                     labelText: 'Hazard description',
                     border: OutlineInputBorder(),
@@ -1377,6 +1863,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 if (hazardController.text.isNotEmpty) {
                   _addStepHazard(hazardController.text);
                   hazardController.clear();
+                  // Maintain focus on text field
+                  _stepHazardFocusNode.requestFocus();
                 }
               },
             ),
@@ -1405,266 +1893,5 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           ),
       ],
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            widget.sopId == 'new' ? 'Create New SOP' : 'Edit SOP',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // If we're in step editor mode, show the step editor
-    if (_currentStepIndex >= 0) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _currentStepIndex >= _sop.steps.length
-                ? 'Add New Step'
-                : 'Edit Step ${_currentStepIndex + 1}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              setState(() {
-                _currentStepIndex = -1;
-              });
-            },
-          ),
-        ),
-        body: _buildStepEditorForm(),
-      );
-    }
-
-    // Otherwise, show the appropriate section of the SOP form
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.sopId == 'new' ? 'Create New SOP' : 'Edit SOP',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (_currentSection > 0) {
-              // Navigate to previous section
-              setState(() {
-                _currentSection--;
-              });
-            } else {
-              // Exit to SOPs screen
-              context.go('/mobile/sops');
-            }
-          },
-        ),
-        actions: [
-          // Only show delete button for existing SOPs (not new ones)
-          if (widget.sopId != 'new')
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: _showDeleteConfirmationDialog,
-              tooltip: 'Delete SOP',
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Progress indicator
-          LinearProgressIndicator(
-            value: (_currentSection + 1) / _sectionTitles.length,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.red[700]!),
-          ),
-
-          // Section title
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Section ${_currentSection + 1}/${_sectionTitles.length}: ',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                Text(
-                  _sectionTitles[_currentSection],
-                  style: const TextStyle(
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Current section content
-          Expanded(
-            child: _buildCurrentSectionContent(),
-          ),
-
-          // Navigation buttons
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (_currentSection > 0)
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _currentSection--;
-                      });
-                    },
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Previous'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[400],
-                    ),
-                  )
-                else
-                  const SizedBox(width: 100), // Placeholder for spacing
-
-                _currentSection < _sectionTitles.length - 1
-                    ? ElevatedButton.icon(
-                        onPressed: () {
-                          // Validate current section before proceeding
-                          if (_validateCurrentSection()) {
-                            // Update SOP locally before moving to next section
-                            _updateSOPLocally().then((_) {
-                              setState(() {
-                                _currentSection++;
-                              });
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.arrow_forward),
-                        label: const Text('Next'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                        ),
-                      )
-                    : ElevatedButton.icon(
-                        onPressed: () {
-                          // Validate current section before saving
-                          if (_validateCurrentSection()) {
-                            // Save to Firebase only on the final submission
-                            _saveSOP().then((_) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('SOP saved successfully!'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                              Navigator.of(context).pop();
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.save),
-                        label: const Text('Save SOP'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Shows a confirmation dialog before deleting the SOP
-  void _showDeleteConfirmationDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete SOP'),
-        content: const Text(
-          'Are you sure you want to delete this SOP? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _deleteSOP();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('DELETE'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Deletes the SOP from Firebase
-  Future<void> _deleteSOP() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final sopService = Provider.of<SOPService>(context, listen: false);
-      await sopService.deleteSop(_sop.id);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('SOP deleted successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Navigate back to SOPs list
-        context.go('/mobile/sops');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error deleting SOP: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // Helper method to format time in HH:MM:SS format
-  String _formatTime(int totalSeconds) {
-    int hours = totalSeconds ~/ 3600;
-    int minutes = (totalSeconds % 3600) ~/ 60;
-    int seconds = totalSeconds % 60;
-
-    String hourStr = hours > 0 ? '${hours}h ' : '';
-    String minStr = minutes > 0 ? '${minutes}m ' : '';
-    String secStr = seconds > 0 ? '${seconds}s' : '';
-
-    // If all are zero, show 0s
-    if (hours == 0 && minutes == 0 && seconds == 0) {
-      return '0s';
-    }
-
-    return '$hourStr$minStr$secStr'.trim();
   }
 }

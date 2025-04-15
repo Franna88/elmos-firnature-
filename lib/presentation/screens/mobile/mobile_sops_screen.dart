@@ -165,6 +165,18 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _loadData,
           ),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () => _showQRScanner(context),
+            tooltip: 'Scan QR Code',
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              context.go('/mobile/editor/new');
+            },
+            tooltip: 'Create New SOP',
+          ),
         ],
       ),
       drawer: Drawer(
@@ -416,29 +428,6 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                           ),
                         ],
                       ),
-          ),
-        ],
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          // Add SOP button
-          FloatingActionButton(
-            onPressed: () {
-              context.go('/mobile/editor/new');
-            },
-            heroTag: 'createSOP',
-            backgroundColor: Colors.green[700],
-            mini: true,
-            child: const Icon(Icons.add, color: Colors.white),
-          ),
-          const SizedBox(height: 16),
-          // QR Scanner button
-          FloatingActionButton(
-            onPressed: () => _showQRScanner(context),
-            heroTag: 'scanQR',
-            backgroundColor: Colors.red[700],
-            child: const Icon(Icons.qr_code_scanner, color: Colors.white),
           ),
         ],
       ),
