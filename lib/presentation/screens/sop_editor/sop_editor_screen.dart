@@ -3216,7 +3216,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   Future<String?> _pickAndUploadImage(
       BuildContext context, String sopId, String stepId) async {
     try {
-      // Use file picker to pick an image
+      // For web, we always use FilePicker as it's more reliable than ImagePicker on mobile web
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
@@ -3230,40 +3230,30 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       final PlatformFile file = result.files.first;
       final sopService = Provider.of<SOPService>(context, listen: false);
 
-      // If we're in local data mode, just create a data URL
-      if (sopService.usingLocalData && file.bytes != null) {
+      // For web platform
+      if (kIsWeb && file.bytes != null) {
+        try {
+          // Create a data URL for web
+          final base64 = base64Encode(file.bytes!);
+          final extension = file.extension?.toLowerCase() ?? 'jpg';
+          final dataUrl = 'data:image/$extension;base64,$base64';
+          return dataUrl;
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error processing web image: $e');
+          }
+          return 'assets/images/placeholder.png';
+        }
+      }
+      // For local data mode on any platform with bytes available
+      else if (sopService.usingLocalData && file.bytes != null) {
         final base64 = base64Encode(file.bytes!);
         final extension = file.extension?.toLowerCase() ?? 'jpg';
         final dataUrl = 'data:image/$extension;base64,$base64';
         return dataUrl;
       }
-
-      // For web, handle file.bytes
-      if (file.bytes != null) {
-        try {
-          // On web, we'll use a workaround since we can't directly create a File
-          // Instead, we'll create a data URL and pass it to the service
-          final base64 = base64Encode(file.bytes!);
-          final extension = file.extension?.toLowerCase() ?? 'jpg';
-          final dataUrl = 'data:image/$extension;base64,$base64';
-
-          if (kIsWeb) {
-            // In web mode, we'll use this directly
-            return dataUrl;
-          } else {
-            // This is a fallback that shouldn't happen - web detected but not using kIsWeb
-            return 'assets/images/placeholder.png';
-          }
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error processing web image: $e');
-          }
-          // Return a placeholder as fallback
-          return 'assets/images/placeholder.png';
-        }
-      }
-      // For mobile platforms with file.path
-      else if (file.path != null) {
+      // For native platforms with file path
+      else if (!kIsWeb && file.path != null) {
         try {
           final uploadedUrl =
               await sopService.uploadImage(File(file.path!), sopId, stepId);
@@ -3276,7 +3266,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         }
       }
 
-      // If we reach here, something went wrong but we have a fallback
+      // Fallback
       return 'assets/images/placeholder.png';
     } catch (e) {
       if (kDebugMode) {
@@ -3770,7 +3760,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   // Upload thumbnail image for the SOP
   Future<void> _uploadSOPThumbnail(String sopId) async {
     try {
-      // Use file picker to select an image
+      // Use file picker for better compatibility, especially on mobile web
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
@@ -3790,7 +3780,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
       String? thumbnailUrl;
 
-      // Handle web platform (using bytes)
+      // Handle web platform or when bytes are available
       if (file.bytes != null) {
         // Create a data URL for web platform
         final base64 = base64Encode(file.bytes!);
@@ -3798,10 +3788,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         thumbnailUrl = 'data:image/$extension;base64,$base64';
       }
       // Handle native platforms (using file path)
-      else if (file.path != null) {
+      else if (!kIsWeb && file.path != null) {
         try {
           // In a real app, this would upload to Firebase Storage
-          // For now, we'll use a similar approach to step images
           final storageRef = _storage.ref().child('sop_thumbnails/$sopId.jpg');
           final uploadTask = storageRef.putFile(File(file.path!));
           final snapshot = await uploadTask;

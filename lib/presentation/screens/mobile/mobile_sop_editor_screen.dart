@@ -10,6 +10,7 @@ import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 class MobileSOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -594,7 +595,14 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   // Show a dialog to select image source (camera or gallery)
   Future<void> _showImageSourceDialog(
       Function(ImageSource) onSourceSelected) async {
-    await showDialog(
+    if (kIsWeb) {
+      // On mobile web, we'll just use gallery option directly
+      // as camera support is inconsistent across mobile browsers
+      onSourceSelected(ImageSource.gallery);
+      return;
+    }
+
+    showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(

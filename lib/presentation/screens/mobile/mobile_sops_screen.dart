@@ -10,6 +10,7 @@ import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../data/services/qr_code_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class MobileSOPsScreen extends StatefulWidget {
   const MobileSOPsScreen({super.key});
@@ -250,6 +251,37 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                 if (context.mounted) {
                   context.go('/login');
                 }
+              },
+            ),
+            // Version display
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                String version = "Version: ";
+                if (snapshot.hasData) {
+                  version += "${snapshot.data!.version}";
+                } else {
+                  version += "Loading...";
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 16.0, horizontal: 16.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline,
+                          size: 16, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Text(
+                        version,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
           ],

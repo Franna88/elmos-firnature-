@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../data/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -306,6 +307,53 @@ class AppScaffold extends StatelessWidget {
                         isSelected: currentLocation == '/settings',
                       ),
                     ],
+                  ),
+                ),
+
+                // Version number at bottom of sidebar
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      String version = "Version: ";
+                      if (snapshot.hasData) {
+                        version +=
+                            "${snapshot.data!.version}+${snapshot.data!.buildNumber}";
+                      } else {
+                        version += "Loading...";
+                      }
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.textLight.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                              color: AppColors.textLight.withOpacity(0.1)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 14,
+                              color: AppColors.textLight,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              version,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textLight,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
