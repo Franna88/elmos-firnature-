@@ -10,7 +10,8 @@ import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import '../../../utils/permission_handler.dart';
 
 class MobileSOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -552,44 +553,88 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
   // Upload thumbnail image for the SOP
   Future<void> _uploadSOPThumbnail() async {
-    await _showImageSourceDialog((ImageSource source) async {
+    if (kIsWeb) {
+      // For web, use gallery directly since camera is inconsistent
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: source);
-
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        setState(() {
-          _isLoading = true;
-        });
-
-        try {
-          final imageBytes = await image.readAsBytes();
-
-          // Simulate uploading the image and getting a URL
-          // In a real app, this would actually upload the image to Firebase Storage
-          final String imageUrl =
-              'data:image/jpeg;base64,${base64Encode(imageBytes)}';
-
-          setState(() {
-            _thumbnailUrl = imageUrl;
-            _isLoading = false;
-          });
-
-          // Update the SOP locally with the new thumbnail URL
-          await _updateSOPLocally();
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Thumbnail uploaded successfully')),
-          );
-        } catch (e) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error uploading thumbnail: $e')),
-          );
-        }
+        await _processThumbnailImage(image);
       }
+      return;
+    }
+
+    // For native Android, show proper source selection
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Image Source'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image = await PermissionHandler.pickImage(
+                      context, ImageSource.gallery);
+                  if (image != null) {
+                    await _processThumbnailImage(image);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Camera'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image = await PermissionHandler.pickImage(
+                      context, ImageSource.camera);
+                  if (image != null) {
+                    await _processThumbnailImage(image);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Process the thumbnail image
+  Future<void> _processThumbnailImage(XFile image) async {
+    setState(() {
+      _isLoading = true;
     });
+
+    try {
+      final imageBytes = await image.readAsBytes();
+
+      // Create data URL for the image
+      final String imageUrl =
+          'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+      setState(() {
+        _thumbnailUrl = imageUrl;
+        _isLoading = false;
+      });
+
+      // Update the SOP locally with the new thumbnail URL
+      await _updateSOPLocally();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thumbnail uploaded successfully')),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading thumbnail: $e')),
+      );
+    }
   }
 
   // Show a dialog to select image source (camera or gallery)
@@ -602,6 +647,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       return;
     }
 
+    // For native Android, show a proper dialog with both options
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -613,17 +659,25 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: const Text('Gallery'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  onSourceSelected(ImageSource.gallery);
+                  final image = await PermissionHandler.pickImage(
+                      context, ImageSource.gallery);
+                  if (image != null) {
+                    await _processPickedImage(image);
+                  }
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_camera),
                 title: const Text('Camera'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  onSourceSelected(ImageSource.camera);
+                  final image = await PermissionHandler.pickImage(
+                      context, ImageSource.camera);
+                  if (image != null) {
+                    await _processPickedImage(image);
+                  }
                 },
               ),
             ],
@@ -631,6 +685,55 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         );
       },
     );
+  }
+
+  // Process the image picked from camera or gallery
+  Future<void> _processPickedImage(XFile image) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      final Uint8List imageBytes = await image.readAsBytes();
+
+      // If editing an existing step
+      if (_currentStepIndex < _sop.steps.length) {
+        List<SOPStep> updatedSteps = List.from(_sop.steps);
+        final currentStep = updatedSteps[_currentStepIndex];
+
+        // Create data URL for the image
+        final String imageUrl =
+            'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+        // Update the step with the new image URL
+        updatedSteps[_currentStepIndex] =
+            currentStep.copyWith(imageUrl: imageUrl);
+        final updatedSop = _sop.copyWith(steps: updatedSteps);
+
+        await sopService.updateSopLocally(updatedSop);
+        setState(() {
+          _sop = updatedSop;
+          _isLoading = false;
+        });
+      } else {
+        // We're creating a new step, so warn user to save step first
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Save the step first before adding an image')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error processing image: $e')),
+      );
+    }
   }
 
   // Method to build the content for the current section
@@ -702,18 +805,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                       child: _thumbnailUrl != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                _thumbnailUrl!,
-                                fit: BoxFit.cover,
-                                width: 200,
-                                height: 150,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Center(
-                                  child: Icon(Icons.broken_image,
-                                      size: 48, color: Colors.grey),
-                                ),
-                              ),
-                            )
+                              child: _buildImage(_thumbnailUrl!,
+                                  fit: BoxFit.cover, width: 200, height: 150))
                           : const Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1347,14 +1440,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                         margin: const EdgeInsets.only(bottom: 16),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            step.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Center(
-                              child: Icon(Icons.broken_image, size: 48),
-                            ),
-                          ),
+                          child: _buildImage(step.imageUrl!, fit: BoxFit.cover),
                         ),
                       ),
 
@@ -1870,13 +1956,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 border: Border.all(color: Colors.grey),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Icon(Icons.broken_image, size: 48),
-                ),
-              ),
+              child: _buildImage(imageUrl, fit: BoxFit.contain),
             )
           else
             Container(
@@ -1942,5 +2022,60 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         ],
       ),
     );
+  }
+
+  // Helper method to build an image widget based on URL type
+  Widget _buildImage(String imageUrl,
+      {BoxFit fit = BoxFit.cover, double? width, double? height}) {
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',')[1]);
+        return Image.memory(
+          bytes,
+          fit: fit,
+          width: width,
+          height: height,
+          errorBuilder: (context, error, stackTrace) => Center(
+            child: Icon(Icons.broken_image,
+                size: height != null ? height / 4 : 48, color: Colors.grey),
+          ),
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error decoding data URL: $e');
+        }
+        return Center(
+          child: Icon(Icons.broken_image,
+              size: height != null ? height / 4 : 48, color: Colors.grey),
+        );
+      }
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: fit,
+        width: width,
+        height: height,
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Icon(Icons.broken_image,
+              size: height != null ? height / 4 : 48, color: Colors.grey),
+        ),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        fit: fit,
+        width: width,
+        height: height,
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Icon(Icons.broken_image,
+              size: height != null ? height / 4 : 48, color: Colors.grey),
+        ),
+      );
+    }
   }
 }

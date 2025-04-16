@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:html' as html;
+// Conditionally import dart:html for web and stub for other platforms
+import '../../../utils/html_stub.dart' if (dart.library.html) 'dart:html'
+    as html;
 import '../../../data/services/print_service.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/category_service.dart';
@@ -3216,57 +3217,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   Future<String?> _pickAndUploadImage(
       BuildContext context, String sopId, String stepId) async {
     try {
-      // For web, we always use FilePicker as it's more reliable than ImagePicker on mobile web
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
+      // Temporary implementation while file_picker is disabled
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image upload is temporarily disabled')),
       );
 
-      if (result == null || result.files.isEmpty) {
-        // User canceled the picker
-        return null;
-      }
-
-      final PlatformFile file = result.files.first;
-      final sopService = Provider.of<SOPService>(context, listen: false);
-
-      // For web platform
-      if (kIsWeb && file.bytes != null) {
-        try {
-          // Create a data URL for web
-          final base64 = base64Encode(file.bytes!);
-          final extension = file.extension?.toLowerCase() ?? 'jpg';
-          final dataUrl = 'data:image/$extension;base64,$base64';
-          return dataUrl;
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error processing web image: $e');
-          }
-          return 'assets/images/placeholder.png';
-        }
-      }
-      // For local data mode on any platform with bytes available
-      else if (sopService.usingLocalData && file.bytes != null) {
-        final base64 = base64Encode(file.bytes!);
-        final extension = file.extension?.toLowerCase() ?? 'jpg';
-        final dataUrl = 'data:image/$extension;base64,$base64';
-        return dataUrl;
-      }
-      // For native platforms with file path
-      else if (!kIsWeb && file.path != null) {
-        try {
-          final uploadedUrl =
-              await sopService.uploadImage(File(file.path!), sopId, stepId);
-          return uploadedUrl;
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error uploading image from path: $e');
-          }
-          return 'assets/images/placeholder.png';
-        }
-      }
-
-      // Fallback
+      // Return placeholder image
       return 'assets/images/placeholder.png';
     } catch (e) {
       if (kDebugMode) {
@@ -3760,77 +3716,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   // Upload thumbnail image for the SOP
   Future<void> _uploadSOPThumbnail(String sopId) async {
     try {
-      // Use file picker for better compatibility, especially on mobile web
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
+      // Temporary implementation while file_picker is disabled
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Thumbnail upload is temporarily disabled')),
       );
-
-      if (result == null || result.files.isEmpty) {
-        // User canceled the picker
-        return;
-      }
-
-      setState(() {
-        _isLoading = true;
-      });
-
-      final PlatformFile file = result.files.first;
-      final sopService = Provider.of<SOPService>(context, listen: false);
-
-      String? thumbnailUrl;
-
-      // Handle web platform or when bytes are available
-      if (file.bytes != null) {
-        // Create a data URL for web platform
-        final base64 = base64Encode(file.bytes!);
-        final extension = file.extension?.toLowerCase() ?? 'jpg';
-        thumbnailUrl = 'data:image/$extension;base64,$base64';
-      }
-      // Handle native platforms (using file path)
-      else if (!kIsWeb && file.path != null) {
-        try {
-          // In a real app, this would upload to Firebase Storage
-          final storageRef = _storage.ref().child('sop_thumbnails/$sopId.jpg');
-          final uploadTask = storageRef.putFile(File(file.path!));
-          final snapshot = await uploadTask;
-          thumbnailUrl = await snapshot.ref.getDownloadURL();
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error uploading thumbnail from path: $e');
-          }
-          // Create a data URL as fallback
-          final bytes = await File(file.path!).readAsBytes();
-          final base64 = base64Encode(bytes);
-          thumbnailUrl = 'data:image/jpeg;base64,$base64';
-        }
-      }
-
-      if (thumbnailUrl != null) {
-        // Update the SOP with the new thumbnail URL
-        final updatedSop = _sop.copyWith(thumbnailUrl: thumbnailUrl);
-
-        // Update locally
-        await _updateSOPLocally(updatedSop);
-
-        // Update the state
-        setState(() {
-          _sop = updatedSop;
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thumbnail uploaded successfully')),
-        );
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to upload thumbnail')),
-        );
-      }
+      return;
     } catch (e) {
       setState(() {
         _isLoading = false;

@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../data/services/qr_code_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter/foundation.dart';
 
 class MobileSOPsScreen extends StatefulWidget {
   const MobileSOPsScreen({super.key});
@@ -630,15 +631,44 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   }
 
   Widget _buildImageFromUrl(String url) {
-    return Image.network(
-      url,
-      width: double.infinity,
-      height: 140, // Increased height to match the placeholder
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
+    // Check if this is a data URL
+    if (url.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(url.split(',')[1]);
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: 140,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: double.infinity,
+              height: 140,
+              color: Colors.grey[200],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image, size: 56, color: Colors.grey[400]),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Image Error",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  )
+                ],
+              ),
+            );
+          },
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error decoding data URL: $e');
+        }
         return Container(
           width: double.infinity,
-          height: 140, // Increased height
+          height: 140,
           color: Colors.grey[200],
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -655,26 +685,84 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
             ],
           ),
         );
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          width: double.infinity,
-          height: 140, // Increased height
-          color: Colors.grey[200],
-          child: Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 3.0, // Thicker progress indicator
-              color: Colors.red[700],
+      }
+    }
+    // Check if this is an asset image
+    else if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        width: double.infinity,
+        height: 140,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: double.infinity,
+            height: 140,
+            color: Colors.grey[200],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, size: 56, color: Colors.grey[400]),
+                const SizedBox(height: 8),
+                Text("Image Error",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    )),
+              ],
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        url,
+        width: double.infinity,
+        height: 140,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: double.infinity,
+            height: 140,
+            color: Colors.grey[200],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, size: 56, color: Colors.grey[400]),
+                const SizedBox(height: 8),
+                Text(
+                  "Image Error",
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                )
+              ],
+            ),
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: double.infinity,
+            height: 140,
+            color: Colors.grey[200],
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 3.0,
+                color: Colors.red[700],
+              ),
+            ),
+          );
+        },
+      );
+    }
   }
 
   Color _getCategoryColor(String category) {

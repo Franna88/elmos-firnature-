@@ -1,7 +1,7 @@
-import 'package:elmos_app/data/services/auth_service.dart';
-import 'package:elmos_app/data/services/sop_service.dart';
-import 'package:elmos_app/data/services/analytics_service.dart';
-import 'package:elmos_app/data/services/category_service.dart';
+import 'package:elmos_furniture_app/data/services/auth_service.dart';
+import 'package:elmos_furniture_app/data/services/sop_service.dart';
+import 'package:elmos_furniture_app/data/services/analytics_service.dart';
+import 'package:elmos_furniture_app/data/services/category_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:provider/provider.dart';
