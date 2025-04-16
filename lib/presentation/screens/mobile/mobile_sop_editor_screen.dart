@@ -513,10 +513,17 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
             List<SOPStep> updatedSteps = List.from(_sop.steps);
             final currentStep = updatedSteps[_currentStepIndex];
 
-            // Simulate uploading the image and getting a URL
-            // In a real app, this would actually upload the image to Firebase Storage
-            final String imageUrl =
+            // Convert image to data URL
+            final String dataUrl =
                 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+            // Upload the image to Firebase Storage
+            final String? imageUrl = await sopService.uploadImageFromDataUrl(
+                dataUrl, _sop.id, currentStep.id);
+
+            if (kDebugMode) {
+              print('Uploaded step image, received URL: $imageUrl');
+            }
 
             // Update the step with the new image URL
             updatedSteps[_currentStepIndex] =
@@ -528,6 +535,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               _sop = updatedSop;
               _isLoading = false;
             });
+
+            // Also save the SOP to Firestore to ensure the image URL is saved
+            await sopService.updateSop(updatedSop);
           } else {
             // We're creating a new step, so we'll save the step first
             // and then update the image in a separate operation
@@ -610,19 +620,35 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     });
 
     try {
+      final sopService = Provider.of<SOPService>(context, listen: false);
       final imageBytes = await image.readAsBytes();
 
       // Create data URL for the image
-      final String imageUrl =
+      final String dataUrl =
           'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+      // Upload the thumbnail to Firebase Storage
+      final String thumbnailId =
+          'thumbnail-${DateTime.now().millisecondsSinceEpoch}';
+      final String? imageUrl = await sopService.uploadImageFromDataUrl(
+          dataUrl, _sop.id, thumbnailId);
+
+      if (kDebugMode) {
+        print('Uploaded thumbnail, received URL: $imageUrl');
+      }
 
       setState(() {
         _thumbnailUrl = imageUrl;
         _isLoading = false;
       });
 
-      // Update the SOP locally with the new thumbnail URL
-      await _updateSOPLocally();
+      // Update the SOP with the new thumbnail URL
+      final updatedSop = _sop.copyWith(thumbnailUrl: imageUrl);
+      await sopService.updateSop(updatedSop);
+
+      setState(() {
+        _sop = updatedSop;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Thumbnail uploaded successfully')),
@@ -703,19 +729,33 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         final currentStep = updatedSteps[_currentStepIndex];
 
         // Create data URL for the image
-        final String imageUrl =
+        final String dataUrl =
             'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+        // Upload to Firebase Storage and get the URL
+        final String? imageUrl = await sopService.uploadImageFromDataUrl(
+            dataUrl, _sop.id, currentStep.id);
+
+        if (kDebugMode) {
+          print('Uploaded image for step ${currentStep.id}: $imageUrl');
+        }
 
         // Update the step with the new image URL
         updatedSteps[_currentStepIndex] =
             currentStep.copyWith(imageUrl: imageUrl);
         final updatedSop = _sop.copyWith(steps: updatedSteps);
 
-        await sopService.updateSopLocally(updatedSop);
+        // Update SOP in Firestore
+        await sopService.updateSop(updatedSop);
+
         setState(() {
           _sop = updatedSop;
           _isLoading = false;
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Image uploaded successfully')),
+        );
       } else {
         // We're creating a new step, so warn user to save step first
         ScaffoldMessenger.of(context).showSnackBar(

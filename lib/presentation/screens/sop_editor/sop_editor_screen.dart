@@ -19,6 +19,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/sop_viewer.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:flutter/services.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -30,7 +31,7 @@ class SOPEditorScreen extends StatefulWidget {
 }
 
 class _SOPEditorScreenState extends State<SOPEditorScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late SOP _sop;
   bool _isLoading = true;
   bool _isEditing = false;
@@ -985,20 +986,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               7),
-                                                      child: Image.network(
-                                                        _sop.thumbnailUrl!,
+                                                      child: _displayImage(
+                                                        _sop.thumbnailUrl,
                                                         fit: BoxFit.cover,
-                                                        errorBuilder: (context,
-                                                                error,
-                                                                stackTrace) =>
-                                                            const Center(
-                                                          child: Icon(
-                                                              Icons
-                                                                  .broken_image,
-                                                              size: 64,
-                                                              color:
-                                                                  Colors.grey),
-                                                        ),
                                                       ),
                                                     )
                                                   : _isLoading
@@ -1821,13 +1811,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                         .withOpacity(0.5)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Image.network(
-                                imageUrl!,
+                              child: _displayImage(
+                                imageUrl,
                                 fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Center(
-                                  child: Icon(Icons.broken_image, size: 48),
-                                ),
                               ),
                             )
                           else
@@ -1873,18 +1859,14 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                             children: [
                               OutlinedButton.icon(
                                 onPressed: () async {
-                                  final ImagePicker picker = ImagePicker();
-                                  final XFile? image = await picker.pickImage(
-                                      source: ImageSource.gallery);
-
-                                  if (image != null) {
-                                    // In a real app, you would upload the image to Firebase Storage
-                                    // and get back a URL. For demo purposes, we'll simulate this.
-                                    final imageBytes =
-                                        await image.readAsBytes();
+                                  final stepId = DateTime.now()
+                                      .millisecondsSinceEpoch
+                                      .toString();
+                                  final url = await _pickAndUploadImage(
+                                      context, _sop.id, stepId);
+                                  if (url != null) {
                                     setState(() {
-                                      imageUrl =
-                                          'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+                                      imageUrl = url;
                                     });
                                   }
                                 },
@@ -1950,6 +1932,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                           int totalSeconds =
                               (hours * 3600) + (minutes * 60) + seconds;
 
+                          if (kDebugMode) {
+                            print('Step image URL: $imageUrl');
+                          }
+
                           // Create the new step
                           final newStep = SOPStep(
                             id: uuid.v4(),
@@ -1969,6 +1955,11 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                             stepHazards: const [], // Use empty list for hazards
                           );
 
+                          if (kDebugMode) {
+                            print(
+                                'Created step with ID: ${newStep.id}, Image URL: ${newStep.imageUrl}');
+                          }
+
                           // Add the step to the SOP
                           final updatedSteps = List<SOPStep>.from(_sop.steps)
                             ..add(newStep);
@@ -1976,6 +1967,13 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
                           // Update locally without saving to Firebase
                           _updateSOPLocally(updatedSop);
+
+                          if (kDebugMode) {
+                            print(
+                                'SOP updated locally with ${updatedSop.steps.length} steps');
+                            print(
+                                'Last step image URL: ${updatedSop.steps.last.imageUrl}');
+                          }
 
                           Navigator.pop(context);
                         },
@@ -3217,13 +3215,47 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   Future<String?> _pickAndUploadImage(
       BuildContext context, String sopId, String stepId) async {
     try {
-      // Temporary implementation while file_picker is disabled
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image upload is temporarily disabled')),
+      // Use ImagePicker for web
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
 
-      // Return placeholder image
-      return 'assets/images/placeholder.png';
+      if (image != null) {
+        final Uint8List imageBytes = await image.readAsBytes();
+        final sopService = Provider.of<SOPService>(context, listen: false);
+
+        // For web, encode as a data URL
+        if (kIsWeb) {
+          final String imageUrl =
+              'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+          // Upload the data URL to Firebase Storage
+          // This will ensure the URL is stored even for web
+          return await sopService.uploadImageFromDataUrl(
+              imageUrl, sopId, stepId);
+        }
+        // For native platforms - convert to a data URL and upload to Firebase Storage
+        else {
+          // Convert to data URL format
+          final String dataUrl =
+              'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+          // Use the SOP service to upload the image to Firebase Storage
+          final String? uploadedUrl =
+              await sopService.uploadImageFromDataUrl(dataUrl, sopId, stepId);
+
+          if (kDebugMode) {
+            print('Native image uploaded successfully: $uploadedUrl');
+          }
+
+          return uploadedUrl;
+        }
+      }
+      return null;
     } catch (e) {
       if (kDebugMode) {
         print('Error in image picking process: $e');
@@ -3506,13 +3538,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                         .withOpacity(0.5)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Image.network(
-                                imageUrl!,
+                              child: _displayImage(
+                                imageUrl,
                                 fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Center(
-                                  child: Icon(Icons.broken_image, size: 48),
-                                ),
                               ),
                             )
                           else
@@ -3558,18 +3586,14 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                             children: [
                               OutlinedButton.icon(
                                 onPressed: () async {
-                                  final ImagePicker picker = ImagePicker();
-                                  final XFile? image = await picker.pickImage(
-                                      source: ImageSource.gallery);
-
-                                  if (image != null) {
-                                    // In a real app, you would upload the image to Firebase Storage
-                                    // and get back a URL. For demo purposes, we'll simulate this.
-                                    final imageBytes =
-                                        await image.readAsBytes();
+                                  final stepId = DateTime.now()
+                                      .millisecondsSinceEpoch
+                                      .toString();
+                                  final url = await _pickAndUploadImage(
+                                      context, _sop.id, stepId);
+                                  if (url != null) {
                                     setState(() {
-                                      imageUrl =
-                                          'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+                                      imageUrl = url;
                                     });
                                   }
                                 },
@@ -3635,6 +3659,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                           int totalSeconds =
                               (hours * 3600) + (minutes * 60) + seconds;
 
+                          if (kDebugMode) {
+                            print('Step image URL: $imageUrl');
+                          }
+
                           // Create the new step
                           final newStep = SOPStep(
                             id: uuid.v4(),
@@ -3654,13 +3682,25 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                             stepHazards: const [], // Use empty list for hazards
                           );
 
-                          // Add the step to the SOP - use updatedSteps approach
+                          if (kDebugMode) {
+                            print(
+                                'Created step with ID: ${newStep.id}, Image URL: ${newStep.imageUrl}');
+                          }
+
+                          // Add the step to the SOP
                           final updatedSteps = List<SOPStep>.from(_sop.steps)
                             ..add(newStep);
                           final updatedSop = _sop.copyWith(steps: updatedSteps);
 
                           // Update locally without saving to Firebase
                           _updateSOPLocally(updatedSop);
+
+                          if (kDebugMode) {
+                            print(
+                                'SOP updated locally with ${updatedSop.steps.length} steps');
+                            print(
+                                'Last step image URL: ${updatedSop.steps.last.imageUrl}');
+                          }
 
                           Navigator.pop(context);
                         },
@@ -3716,12 +3756,48 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   // Upload thumbnail image for the SOP
   Future<void> _uploadSOPThumbnail(String sopId) async {
     try {
-      // Temporary implementation while file_picker is disabled
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Thumbnail upload is temporarily disabled')),
+      // Use ImagePicker for web
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
-      return;
+
+      if (image != null) {
+        setState(() {
+          _isLoading = true;
+        });
+
+        final Uint8List imageBytes = await image.readAsBytes();
+
+        // For web, encode as a data URL
+        if (kIsWeb) {
+          final String imageUrl =
+              'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+          // Update the SOP with the new thumbnail URL
+          final updatedSop = _sop.copyWith(thumbnailUrl: imageUrl);
+
+          // Update locally
+          await _updateSOPLocally(updatedSop);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Thumbnail uploaded successfully')),
+          );
+        }
+        // For native platforms - just use a placeholder for now
+        else {
+          final updatedSop =
+              _sop.copyWith(thumbnailUrl: 'assets/images/placeholder.png');
+          await _updateSOPLocally(updatedSop);
+        }
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -3795,5 +3871,49 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       size: 150.0,
       backgroundColor: Colors.white,
     );
+  }
+
+  // Helper function to display images, handling different URL types properly
+  Widget _displayImage(String? imageUrl, {BoxFit fit = BoxFit.contain}) {
+    if (imageUrl == null) return Container();
+
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',')[1]);
+        return Image.memory(
+          bytes,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => const Center(
+            child: Icon(Icons.broken_image, size: 48),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error displaying data URL image: $e');
+        return const Center(
+          child: Icon(Icons.broken_image, size: 48),
+        );
+      }
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image, size: 48),
+        ),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image, size: 48),
+        ),
+      );
+    }
   }
 }

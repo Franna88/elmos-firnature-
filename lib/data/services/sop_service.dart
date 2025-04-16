@@ -6,12 +6,13 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/sop_model.dart';
 import 'qr_code_service.dart';
+import 'dart:convert';
 
 class SOPService extends ChangeNotifier {
   // QR Code Service
   final QRCodeService _qrCodeService = QRCodeService();
 
-  // Nullable Firebase services
+  // Firebase services
   FirebaseFirestore? _firestore;
   FirebaseStorage? _storage;
   FirebaseAuth? _auth;
@@ -19,15 +20,11 @@ class SOPService extends ChangeNotifier {
   List<SOP> _sops = [];
   List<SOPTemplate> _templates = [];
 
-  // Flag to track if we're using local data
-  bool _usingLocalData = false;
-
   // Map to track SOPs with unsaved changes
   final Map<String, SOP> _localChanges = {};
 
   List<SOP> get sops => List.unmodifiable(_sops);
   List<SOPTemplate> get templates => List.unmodifiable(_templates);
-  bool get usingLocalData => _usingLocalData;
 
   SOPService() {
     _initializeData();
@@ -62,15 +59,13 @@ class SOPService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) {
         print('❌ Firebase initialization error in SOPService: $e');
-        print('Using local SOP data instead');
+        print('Firebase connection failed');
         if (e is FirebaseException) {
           print('Firebase error code: ${e.code}');
           print('Firebase error message: ${e.message}');
         }
       }
-      _usingLocalData = true;
-      _loadSampleTemplates();
-      _loadSampleSOPs();
+      throw Exception('Firebase connection failed: $e');
     }
   }
 
@@ -167,11 +162,6 @@ class SOPService extends ChangeNotifier {
   }
 
   Future<void> _loadTemplates() async {
-    if (_usingLocalData) {
-      _loadSampleTemplates();
-      return;
-    }
-
     try {
       final snapshot = await _firestore!.collection('templates').get();
       final List<SOPTemplate> loadedTemplates = [];
@@ -193,59 +183,12 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('Error loading templates: $e');
       }
-      // Load some sample templates if there's an error
-      _loadSampleTemplates();
+      throw Exception('Failed to load templates: $e');
     }
   }
 
-  void _loadSampleTemplates() {
-    _templates = [
-      SOPTemplate(
-        id: '1',
-        title: 'Furniture Assembly Template',
-        description: 'Standard template for furniture assembly procedures',
-        category: 'Assembly',
-        thumbnailUrl:
-            'https://media.istockphoto.com/id/1271691214/photo/successful-furniture-assembly-worker-reads-instructions-to-assemble-shelf.jpg?s=612x612&w=0&k=20&c=KBMOiPX2o2WeTN6jcdpDVbMlBwizXTM2Sps2Jex2eQ0=',
-      ),
-      SOPTemplate(
-        id: '2',
-        title: 'Wood Finishing Template',
-        description: 'Standard procedures for wood finishing and treatment',
-        category: 'Finishing',
-        thumbnailUrl:
-            'https://media.istockphoto.com/id/1303862719/photo/applying-varnish-to-a-wooden-surface-with-a-brush.jpg?s=612x612&w=0&k=20&c=F5VFRuPmX_yreFirNlBBX98lPg_l2CqCDnG6I2WyFSY=',
-      ),
-      SOPTemplate(
-        id: '3',
-        title: 'Quality Control Template',
-        description: 'Quality control procedures for furniture inspection',
-        category: 'Quality',
-        thumbnailUrl:
-            'https://media.istockphoto.com/id/655986486/photo/man-using-a-digital-level-while-installing-furniture.jpg?s=612x612&w=0&k=20&c=Ih_mSCZaM7Q0JnLniCdaFMJE38XWQNc15GmiXaZVkM0=',
-      ),
-      SOPTemplate(
-        id: '4',
-        title: 'Upholstery Template',
-        description: 'Standard procedures for furniture upholstery',
-        category: 'Upholstery',
-        thumbnailUrl:
-            'https://media.istockphoto.com/id/1440598592/photo/close-up-hands-of-professional-upholsterer-stapling-fabric-to-a-furniture-upholstery-of-a.jpg?s=612x612&w=0&k=20&c=N1T8eAe1vP38ek4DxSXBt5rJ6p0ZfOiX62QkTIyUn10=',
-      ),
-      SOPTemplate(
-        id: '5',
-        title: 'Machine Operation Template',
-        description: 'Safety procedures for woodworking machinery operation',
-        category: 'Machinery',
-        thumbnailUrl:
-            'https://media.istockphoto.com/id/1132841403/photo/a-cnc-wood-router-cutting-out-a-pattern-for-furniture.jpg?s=612x612&w=0&k=20&c=Bh-G3D0Fdo5RZtZdvnJxm-J1-qdmKI7hGU_WcGx29so=',
-      ),
-    ];
-    notifyListeners();
-  }
-
   void _listenForSOPChanges() {
-    if (_usingLocalData || _firestore == null) return;
+    if (_firestore == null) return;
 
     try {
       // Listen for changes to the SOPs collection
@@ -265,14 +208,6 @@ class SOPService extends ChangeNotifier {
   }
 
   Future<void> _loadSOPs() async {
-    if (_usingLocalData) {
-      if (kDebugMode) {
-        print('Using local data: Loading sample SOPs');
-      }
-      _loadSampleSOPs();
-      return;
-    }
-
     try {
       if (kDebugMode) {
         print('Attempting to load SOPs from Firestore...');
@@ -364,9 +299,8 @@ class SOPService extends ChangeNotifier {
           print('Firebase error code: ${e.code}');
           print('Firebase error message: ${e.message}');
         }
-        print('Using sample SOPs instead');
       }
-      _loadSampleSOPs();
+      throw Exception('Failed to load SOPs: $e');
     }
   }
 
@@ -394,13 +328,11 @@ class SOPService extends ChangeNotifier {
 
     if (kDebugMode) {
       print('Starting SOP creation process for "$title"');
-      print(
-          'Firebase connection status: ${!_usingLocalData ? "Connected" : "Not connected (local mode)"}');
     }
 
     // Get user info
     String userIdentifier = 'anonymous';
-    if (!_usingLocalData && _auth!.currentUser != null) {
+    if (_auth!.currentUser != null) {
       userIdentifier = _auth!.currentUser!.email ?? _auth!.currentUser!.uid;
       if (kDebugMode) {
         print('User creating SOP: $userIdentifier');
@@ -408,7 +340,7 @@ class SOPService extends ChangeNotifier {
     }
 
     // Get category name if categoryId is provided
-    if (categoryId.isNotEmpty && !_usingLocalData) {
+    if (categoryId.isNotEmpty) {
       try {
         final categoryDoc =
             await _firestore!.collection('categories').doc(categoryId).get();
@@ -422,71 +354,66 @@ class SOPService extends ChangeNotifier {
       }
     }
 
-    if (!_usingLocalData) {
-      try {
-        if (kDebugMode) {
-          print('_firestore instance exists: ${_firestore != null}');
-        }
-
-        // Create a QR code URL for the SOP
-        final qrCodeUrl = _qrCodeService.generateQRDataForSOP(sopId);
-
-        // Create the SOP document without any steps
-        final sopData = {
-          'title': title,
-          'description': description,
-          'categoryId': categoryId,
-          'categoryName': categoryName,
-          'revisionNumber': 1,
-          'createdBy': userIdentifier,
-          'createdAt': Timestamp.fromDate(now),
-          'updatedAt': Timestamp.fromDate(now),
-          'tools': [],
-          'safetyRequirements': [],
-          'cautions': [],
-          'steps': [], // Empty steps array - no default step
-          'qrCodeUrl': qrCodeUrl, // Add QR code URL
-          'thumbnailUrl': null, // Initialize thumbnail URL as null
-          'youtubeUrl': null, // Initialize YouTube URL as null
-        };
-
-        if (kDebugMode) {
-          print('Creating SOP in Firestore with data: $sopData');
-          print('Target Firestore path: sops/$sopId');
-        }
-
-        // Create the SOP with steps embedded in Firestore
-        await _firestore!.collection('sops').doc(sopId).set(sopData).then((_) {
-          if (kDebugMode) {
-            print(
-                '✅ Successfully wrote SOP data to Firestore path: sops/$sopId');
-          }
-        }).catchError((error) {
-          if (kDebugMode) {
-            print('❌ Failed to write to Firestore: $error');
-          }
-          throw error;
-        });
-
-        if (kDebugMode) {
-          print('Created new SOP in Firestore with ID: $sopId');
-          // Verify the document exists
-          _firestore!.collection('sops').doc(sopId).get().then((doc) {
-            if (doc.exists) {
-              print('✅ Confirmed SOP document exists in Firestore');
-            } else {
-              print(
-                  '❌ SOP document does not exist in Firestore after creation');
-            }
-          });
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('❌ Error creating SOP in Firestore: $e');
-          print('Using local SOP data instead');
-        }
-        _usingLocalData = true;
+    try {
+      if (kDebugMode) {
+        print('_firestore instance exists: ${_firestore != null}');
       }
+
+      // Create a QR code URL for the SOP
+      final qrCodeUrl = _qrCodeService.generateQRDataForSOP(sopId);
+
+      // Create the SOP document without any steps
+      final sopData = {
+        'title': title,
+        'description': description,
+        'categoryId': categoryId,
+        'categoryName': categoryName,
+        'revisionNumber': 1,
+        'createdBy': userIdentifier,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+        'tools': [],
+        'safetyRequirements': [],
+        'cautions': [],
+        'steps': [], // Empty steps array - no default step
+        'qrCodeUrl': qrCodeUrl, // Add QR code URL
+        'thumbnailUrl': null, // Initialize thumbnail URL as null
+        'youtubeUrl': null, // Initialize YouTube URL as null
+      };
+
+      if (kDebugMode) {
+        print('Creating SOP in Firestore with data: $sopData');
+        print('Target Firestore path: sops/$sopId');
+      }
+
+      // Create the SOP with steps embedded in Firestore
+      await _firestore!.collection('sops').doc(sopId).set(sopData).then((_) {
+        if (kDebugMode) {
+          print('✅ Successfully wrote SOP data to Firestore path: sops/$sopId');
+        }
+      }).catchError((error) {
+        if (kDebugMode) {
+          print('❌ Failed to write to Firestore: $error');
+        }
+        throw error;
+      });
+
+      if (kDebugMode) {
+        print('Created new SOP in Firestore with ID: $sopId');
+        // Verify the document exists
+        _firestore!.collection('sops').doc(sopId).get().then((doc) {
+          if (doc.exists) {
+            print('✅ Confirmed SOP document exists in Firestore');
+          } else {
+            print('❌ SOP document does not exist in Firestore after creation');
+          }
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error creating SOP in Firestore: $e');
+      }
+      throw Exception('Failed to create SOP: $e');
     }
 
     // Create and return the local SOP object with an empty steps list
@@ -518,15 +445,13 @@ class SOPService extends ChangeNotifier {
     }
 
     // Explicitly reload SOPs from Firestore to ensure UI is updated with the latest data
-    if (!_usingLocalData) {
-      // Use a slight delay to allow Firestore to complete the write
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (kDebugMode) {
-          print('Explicitly refreshing SOPs from Firestore after creation');
-        }
-        _loadSOPs();
-      });
-    }
+    // Use a slight delay to allow Firestore to complete the write
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (kDebugMode) {
+        print('Explicitly refreshing SOPs from Firestore after creation');
+      }
+      _loadSOPs();
+    });
 
     return sop;
   }
@@ -564,48 +489,54 @@ class SOPService extends ChangeNotifier {
     final updatedSop = sop.copyWith(updatedAt: now, qrCodeUrl: qrCodeUrl);
 
     try {
-      if (!_usingLocalData) {
-        // Convert steps to a format suitable for Firestore
-        List<Map<String, dynamic>> stepsData = updatedSop.steps
-            .map((step) => {
-                  'id': step.id,
-                  'title': step.title,
-                  'instruction': step.instruction,
-                  'imageUrl': step.imageUrl,
-                  'helpNote': step.helpNote,
-                  'assignedTo': step.assignedTo,
-                  'estimatedTime': step.estimatedTime,
-                  'stepTools': step.stepTools,
-                  'stepHazards': step.stepHazards,
-                  'updatedAt': Timestamp.fromDate(now),
-                })
-            .toList();
+      // Convert steps to a format suitable for Firestore
+      List<Map<String, dynamic>> stepsData = updatedSop.steps
+          .map((step) => {
+                'id': step.id,
+                'title': step.title,
+                'instruction': step.instruction,
+                'imageUrl': step.imageUrl,
+                'helpNote': step.helpNote,
+                'assignedTo': step.assignedTo,
+                'estimatedTime': step.estimatedTime,
+                'stepTools': step.stepTools,
+                'stepHazards': step.stepHazards,
+                'updatedAt': Timestamp.fromDate(now),
+              })
+          .toList();
 
-        // Update the SOP document with embedded steps
-        final sopData = {
-          'title': updatedSop.title,
-          'description': updatedSop.description,
-          'categoryId': updatedSop.categoryId,
-          'categoryName': updatedSop.categoryName,
-          'revisionNumber': updatedSop.revisionNumber,
-          'updatedAt': Timestamp.fromDate(now),
-          'tools': updatedSop.tools,
-          'safetyRequirements': updatedSop.safetyRequirements,
-          'cautions': updatedSop.cautions,
-          'qrCodeUrl': qrCodeUrl, // Add QR code URL
-          'thumbnailUrl': updatedSop.thumbnailUrl, // Add thumbnail URL
-          'steps': stepsData, // Store steps directly in the document
-        };
-
-        await _firestore!.collection('sops').doc(updatedSop.id).update(sopData);
-
-        if (kDebugMode) {
-          print('Updated SOP in Firestore with ID: ${updatedSop.id}');
+      if (kDebugMode) {
+        print('Saving SOP to Firestore with ${stepsData.length} steps');
+        for (int i = 0; i < stepsData.length; i++) {
+          print(
+              'Step ${i + 1} - ID: ${stepsData[i]['id']}, imageUrl: ${stepsData[i]['imageUrl']}');
         }
-
-        // Clear from local changes map since it's now saved to Firebase
-        _localChanges.remove(updatedSop.id);
       }
+
+      // Update the SOP document with embedded steps
+      final sopData = {
+        'title': updatedSop.title,
+        'description': updatedSop.description,
+        'categoryId': updatedSop.categoryId,
+        'categoryName': updatedSop.categoryName,
+        'revisionNumber': updatedSop.revisionNumber,
+        'updatedAt': Timestamp.fromDate(now),
+        'tools': updatedSop.tools,
+        'safetyRequirements': updatedSop.safetyRequirements,
+        'cautions': updatedSop.cautions,
+        'qrCodeUrl': qrCodeUrl, // Add QR code URL
+        'thumbnailUrl': updatedSop.thumbnailUrl, // Add thumbnail URL
+        'steps': stepsData, // Store steps directly in the document
+      };
+
+      await _firestore!.collection('sops').doc(updatedSop.id).update(sopData);
+
+      if (kDebugMode) {
+        print('Updated SOP in Firestore with ID: ${updatedSop.id}');
+      }
+
+      // Clear from local changes map since it's now saved to Firebase
+      _localChanges.remove(updatedSop.id);
 
       // Update the local list
       final index = _sops.indexWhere((s) => s.id == updatedSop.id);
@@ -617,52 +548,37 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('Error updating SOP: $e');
       }
-
-      // If using Firestore failed, switch to local data
-      if (!_usingLocalData) {
-        _usingLocalData = true;
-
-        // Update local list
-        final index = _sops.indexWhere((s) => s.id == updatedSop.id);
-        if (index >= 0) {
-          _sops[index] = updatedSop;
-          notifyListeners();
-        }
-      } else {
-        throw Exception('Failed to update SOP: $e');
-      }
+      throw Exception('Failed to update SOP: $e');
     }
   }
 
   Future<void> deleteSop(String id) async {
     try {
-      if (!_usingLocalData) {
-        // Delete the SOP document (steps are now embedded)
-        await _firestore!.collection('sops').doc(id).delete();
+      // Delete the SOP document (steps are now embedded)
+      await _firestore!.collection('sops').doc(id).delete();
 
-        // Delete any associated images from storage
-        final sop = getSopById(id);
-        if (sop != null) {
-          for (var step in sop.steps) {
-            if (step.imageUrl != null &&
-                (step.imageUrl!.startsWith('gs://') ||
-                    step.imageUrl!.startsWith('https://firebasestorage'))) {
-              try {
-                final storageRef =
-                    _storage!.ref().child('sop_images/$id/${step.id}.jpg');
-                await storageRef.delete();
-              } catch (e) {
-                if (kDebugMode) {
-                  print('Error deleting image: $e');
-                }
+      // Delete any associated images from storage
+      final sop = getSopById(id);
+      if (sop != null) {
+        for (var step in sop.steps) {
+          if (step.imageUrl != null &&
+              (step.imageUrl!.startsWith('gs://') ||
+                  step.imageUrl!.startsWith('https://firebasestorage'))) {
+            try {
+              final storageRef =
+                  _storage!.ref().child('sop_images/$id/${step.id}.jpg');
+              await storageRef.delete();
+            } catch (e) {
+              if (kDebugMode) {
+                print('Error deleting image: $e');
               }
             }
           }
         }
+      }
 
-        if (kDebugMode) {
-          print('Deleted SOP with ID: $id from Firestore');
-        }
+      if (kDebugMode) {
+        print('Deleted SOP with ID: $id from Firestore');
       }
 
       // Update the local list
@@ -672,24 +588,11 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('Error deleting SOP: $e');
       }
-
-      if (!_usingLocalData) {
-        _usingLocalData = true;
-        // Update the local list
-        _sops.removeWhere((sop) => sop.id == id);
-        notifyListeners();
-      } else {
-        throw Exception('Failed to delete SOP: $e');
-      }
+      throw Exception('Failed to delete SOP: $e');
     }
   }
 
   Future<String?> uploadImage(File file, String sopId, String stepId) async {
-    if (_usingLocalData) {
-      // For local data mode, we'll just return a placeholder
-      return 'assets/images/placeholder.png';
-    }
-
     try {
       final storageRef = _storage!.ref().child('sop_images/$sopId/$stepId.jpg');
       final uploadTask = storageRef.putFile(file);
@@ -708,15 +611,36 @@ class SOPService extends ChangeNotifier {
 
   Future<String> uploadImageFromDataUrl(
       String dataUrl, String sopId, String stepId) async {
-    if (_usingLocalData) {
-      // In local mode, just return the data URL
-      return dataUrl;
-    }
-
     try {
-      // On Firebase, we'd convert the data URL to a file and upload
-      // For now in web mode, we'll just return the data URL
-      return dataUrl;
+      // Extract base64 data from the data URL
+      if (dataUrl.contains('base64,')) {
+        // Parse the data URL to extract the base64 string and content type
+        final contentType = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+        final base64String = dataUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+
+        // Create a reference to the file location in Firebase Storage
+        final storageRef =
+            _storage!.ref().child('sop_images/$sopId/$stepId.jpg');
+
+        // Upload the data
+        final metadata = SettableMetadata(contentType: contentType);
+        final uploadTask = storageRef.putData(bytes, metadata);
+        final TaskSnapshot snapshot = await uploadTask;
+
+        // Get the download URL from Firebase Storage
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+
+        if (kDebugMode) {
+          print(
+              'Successfully uploaded image to Firebase Storage: $downloadUrl');
+        }
+
+        return downloadUrl;
+      } else {
+        // If it's not a base64 data URL, return as is
+        return dataUrl;
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error uploading image from data URL: $e');
@@ -747,146 +671,6 @@ class SOPService extends ChangeNotifier {
   // Public method to refresh SOPs
   Future<void> refreshSOPs() async {
     await _loadSOPs();
-  }
-
-  // Sample SOPs for local development and testing
-  void _loadSampleSOPs() {
-    final now = DateTime.now();
-    _sops = [
-      SOP(
-        id: '1',
-        title: 'Dining Table Assembly',
-        description:
-            'Procedure for assembling wooden dining tables with four legs',
-        categoryId: 'Assembly',
-        categoryName: 'Assembly',
-        revisionNumber: 2,
-        createdBy: 'assembly@elmosfurniture.com',
-        createdAt: now.subtract(const Duration(days: 45)),
-        updatedAt: now.subtract(const Duration(days: 5)),
-        steps: [
-          SOPStep(
-            id: '1_1',
-            title: 'Prepare Components',
-            instruction:
-                'Gather all table components and verify completeness against the bill of materials.',
-            helpNote: 'Ensure all parts are free from damage and defects.',
-            stepTools: ['Inspection checklist', 'Measuring tape'],
-            stepHazards: ['Splinters from rough edges'],
-            imageUrl:
-                'https://images.unsplash.com/photo-1581539250439-c96689b516dd?q=80&w=1000',
-          ),
-          SOPStep(
-            id: '1_2',
-            title: 'Attach Table Legs',
-            instruction:
-                'Align table legs with designated mounting points and secure with bolts.',
-            assignedTo: 'Assembly Team',
-            estimatedTime: 20,
-            stepTools: ['Electric screwdriver', '5mm hex key', 'Rubber mallet'],
-            stepHazards: ['Pinch points when aligning legs', 'Heavy lifting'],
-            imageUrl:
-                'https://media.istockphoto.com/id/1271691214/photo/successful-furniture-assembly-worker-reads-instructions-to-assemble-shelf.jpg?s=612x612&w=0&k=20&c=KBMOiPX2o2WeTN6jcdpDVbMlBwizXTM2Sps2Jex2eQ0=',
-          ),
-          SOPStep(
-            id: '1_3',
-            title: 'Secure Cross-Supports',
-            instruction:
-                'Attach cross-support beams between legs using the provided hardware.',
-            assignedTo: 'Assembly Team',
-            estimatedTime: 15,
-            stepTools: ['Electric screwdriver', 'Level', 'Tape measure'],
-            stepHazards: ['Unstable structure during assembly'],
-            imageUrl:
-                'https://media.istockphoto.com/id/825530266/photo/assembling-of-furniture-closeup-hex-wrench-in-hand-furniture-screw-screwed-into-board-of-bench.jpg?s=612x612&w=0&k=20&c=tUMEuNdtJ7N0sNwIkJ0J5kMkzG0OjLB7MZlqKl-0Uo8=',
-          ),
-          SOPStep(
-            id: '1_4',
-            title: 'Final Inspection',
-            instruction:
-                'Check stability, level, and quality of finished assembly.',
-            helpNote:
-                'Table should not wobble and all connections should be tight.',
-            assignedTo: 'Quality Control',
-            estimatedTime: 10,
-            stepTools: ['Level', 'Inspection checklist'],
-            stepHazards: [],
-            imageUrl:
-                'https://media.istockphoto.com/id/655986486/photo/man-using-a-digital-level-while-installing-furniture.jpg?s=612x612&w=0&k=20&c=Ih_mSCZaM7Q0JnLniCdaFMJE38XWQNc15GmiXaZVkM0=',
-          ),
-        ],
-        tools: [
-          'Electric screwdriver',
-          '5mm hex key',
-          'Rubber mallet',
-          'Level',
-          'Measuring tape'
-        ],
-        safetyRequirements: [
-          'Wear safety gloves',
-          'Use proper lifting technique'
-        ],
-        cautions: [
-          'Do not overtighten fasteners',
-          'Ensure level surface for assembly'
-        ],
-        thumbnailUrl:
-            'https://images.unsplash.com/photo-1581539250439-c96689b516dd?q=80&w=1000',
-      ),
-      SOP(
-        id: '2',
-        title: 'Oak Finishing Process',
-        description: 'Standard procedure for applying finish to oak furniture',
-        categoryId: 'Finishing',
-        categoryName: 'Finishing',
-        revisionNumber: 3,
-        createdBy: 'finishing@elmosfurniture.com',
-        createdAt: now.subtract(const Duration(days: 90)),
-        updatedAt: now.subtract(const Duration(days: 10)),
-        steps: [
-          SOPStep(
-            id: '2_1',
-            title: 'Surface Preparation',
-            instruction:
-                'Sand all surfaces with 120-grit sandpaper, then 220-grit for final smoothing.',
-            helpNote:
-                'Ensure all surfaces are sanded with the grain to avoid scratches.',
-            assignedTo: 'Finishing Department',
-            estimatedTime: 30,
-            stepTools: [
-              'Orbital sander',
-              'Sanding blocks',
-              'Tack cloth',
-              'Dust mask'
-            ],
-            stepHazards: ['Wood dust inhalation', 'Skin irritation from dust'],
-            imageUrl:
-                'https://media.istockphoto.com/id/1200265110/photo/carpenter-working-with-sander-on-wooden-surface-in-carpentry-workshop.jpg?s=612x612&w=0&k=20&c=XxULNxf7adQlV3wMbIvANJ6a3Vp0KdnvqBWRcvP-IlQ=',
-          ),
-        ],
-        tools: [
-          'Orbital sander',
-          'Sanding blocks',
-          'Brushes',
-          'Clean cloths',
-          'Respirator',
-          'Gloves'
-        ],
-        safetyRequirements: [
-          'Wear respirator',
-          'Ensure proper ventilation',
-          'Wear nitrile gloves',
-          'No open flames in work area'
-        ],
-        cautions: [
-          'Dispose of rags properly to prevent spontaneous combustion',
-          'Keep all chemicals away from heat sources'
-        ],
-        thumbnailUrl:
-            'https://media.istockphoto.com/id/1200265110/photo/carpenter-working-with-sander-on-wooden-surface-in-carpentry-workshop.jpg?s=612x612&w=0&k=20&c=XxULNxf7adQlV3wMbIvANJ6a3Vp0KdnvqBWRcvP-IlQ=',
-      ),
-    ];
-    notifyListeners();
   }
 
   // Get QR code service
@@ -941,18 +725,6 @@ class SOPService extends ChangeNotifier {
 
   // Save a local SOP to Firebase
   Future<void> saveLocalSopToFirebase(SOP sop) async {
-    if (_usingLocalData) {
-      // If using local data, just update the local list
-      final index = _sops.indexWhere((s) => s.id == sop.id);
-      if (index >= 0) {
-        _sops[index] = sop;
-      } else {
-        _sops.add(sop);
-      }
-      notifyListeners();
-      return;
-    }
-
     try {
       // Get category name if needed
       String? categoryName = sop.categoryName;

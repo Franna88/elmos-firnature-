@@ -192,6 +192,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
 
+          // Developer Tools section
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Developer Tools',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ListTile(
+            title: const Text('Base64 Image Upload Test'),
+            subtitle:
+                const Text('Test uploading base64 images to Firebase Storage'),
+            leading: const Icon(Icons.image),
+            onTap: () {
+              context.go('/image-upload-test');
+            },
+          ),
+          const Divider(),
+
           // About section
           const Padding(
             padding: EdgeInsets.all(16.0),
