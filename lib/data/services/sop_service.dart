@@ -724,7 +724,7 @@ class SOPService extends ChangeNotifier {
   }
 
   // Save a local SOP to Firebase
-  Future<void> saveLocalSopToFirebase(SOP sop) async {
+  Future<SOP> saveLocalSopToFirebase(SOP sop) async {
     try {
       // Get category name if needed
       String? categoryName = sop.categoryName;
@@ -744,8 +744,37 @@ class SOPService extends ChangeNotifier {
         }
       }
 
+      // Process any steps with base64 image data URLs
+      List<SOPStep> processedSteps = [];
+      for (final step in sop.steps) {
+        if (step.imageUrl != null && step.imageUrl!.startsWith('data:image/')) {
+          try {
+            // Upload the image to Firebase Storage
+            final uploadedUrl = await uploadImageFromDataUrl(
+              step.imageUrl!,
+              sop.id,
+              step.id,
+            );
+            // Create a new step with the uploaded URL
+            processedSteps.add(step.copyWith(imageUrl: uploadedUrl));
+          } catch (e) {
+            // Keep original step if upload fails
+            processedSteps.add(step);
+            if (kDebugMode) {
+              print('Failed to upload step image: $e');
+            }
+          }
+        } else {
+          // Keep original step if no image or already a storage URL
+          processedSteps.add(step);
+        }
+      }
+
+      // Update SOP with processed steps
+      SOP processedSop = sop.copyWith(steps: processedSteps);
+
       // Convert steps to a format suitable for Firestore
-      List<Map<String, dynamic>> stepsData = sop.steps
+      List<Map<String, dynamic>> stepsData = processedSop.steps
           .map((step) => {
                 'id': step.id,
                 'title': step.title,
@@ -762,30 +791,45 @@ class SOPService extends ChangeNotifier {
 
       // Create the SOP document with embedded steps
       final sopData = {
-        'title': sop.title,
-        'description': sop.description,
-        'categoryId': sop.categoryId,
+        'title': processedSop.title,
+        'description': processedSop.description,
+        'categoryId': processedSop.categoryId,
         'categoryName': categoryName,
-        'revisionNumber': sop.revisionNumber,
-        'createdBy': sop.createdBy,
-        'createdAt': Timestamp.fromDate(sop.createdAt),
+        'revisionNumber': processedSop.revisionNumber,
+        'createdBy': processedSop.createdBy,
+        'createdAt': Timestamp.fromDate(processedSop.createdAt),
         'updatedAt': Timestamp.fromDate(DateTime.now()),
-        'tools': sop.tools,
-        'safetyRequirements': sop.safetyRequirements,
-        'cautions': sop.cautions,
-        'qrCodeUrl': sop.qrCodeUrl,
-        'thumbnailUrl': sop.thumbnailUrl,
+        'tools': processedSop.tools,
+        'safetyRequirements': processedSop.safetyRequirements,
+        'cautions': processedSop.cautions,
+        'qrCodeUrl': processedSop.qrCodeUrl,
+        'thumbnailUrl': processedSop.thumbnailUrl,
+        'youtubeUrl': processedSop.youtubeUrl,
         'steps': stepsData,
       };
 
-      await _firestore!.collection('sops').doc(sop.id).set(sopData);
-
-      if (kDebugMode) {
-        print('Saved local SOP to Firebase with ID: ${sop.id}');
+      // If this is a new document, let Firestore generate an ID
+      DocumentReference docRef;
+      if (processedSop.id.length < 20 ||
+          !RegExp(r'^[a-zA-Z0-9]+$').hasMatch(processedSop.id)) {
+        docRef = await _firestore!.collection('sops').add(sopData);
+        if (kDebugMode) {
+          print('Created new SOP with Firebase-generated ID: ${docRef.id}');
+        }
+      } else {
+        docRef = _firestore!.collection('sops').doc(processedSop.id);
+        await docRef.set(sopData);
+        if (kDebugMode) {
+          print('Saved SOP with ID: ${processedSop.id}');
+        }
       }
 
-      // Update the local list with the saved SOP
-      final updatedSop = sop.copyWith(
+      // Update the SOP with the Firebase ID if we got a new one
+      final String finalId = docRef.id;
+
+      // Create the final SOP with updated ID and timestamp
+      final updatedSop = processedSop.copyWith(
+        id: finalId,
         categoryName: categoryName,
         updatedAt: DateTime.now(),
       );
@@ -801,6 +845,8 @@ class SOPService extends ChangeNotifier {
       // Remove from local changes map
       _localChanges.remove(sop.id);
       notifyListeners();
+
+      return updatedSop;
     } catch (e) {
       if (kDebugMode) {
         print('Error saving local SOP to Firebase: $e');

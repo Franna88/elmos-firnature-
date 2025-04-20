@@ -257,20 +257,34 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
   /// Saves the SOP to Firebase
   Future<void> _saveSOP() async {
-    // First update locally to ensure we have the latest data
-    await _updateSOPLocally();
+    // Set loading state to prevent multiple submissions
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
+      // First update locally to ensure we have the latest data
+      await _updateSOPLocally();
+
       // Get the SOP service from provider
       final sopService = Provider.of<SOPService>(context, listen: false);
 
       // For new SOPs, use saveLocalSopToFirebase to save it to Firebase
       // For existing SOPs, use updateSop to update it in Firebase
       if (widget.sopId == 'new') {
-        await sopService.saveLocalSopToFirebase(_sop);
+        final savedSop = await sopService.saveLocalSopToFirebase(_sop);
+        // Update the local SOP with the Firebase ID and any processed image URLs
+        setState(() {
+          _sop = savedSop;
+        });
       } else {
         await sopService.updateSop(_sop);
       }
+
+      // Hide loading indicator
+      setState(() {
+        _isLoading = false;
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -281,6 +295,11 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         );
       }
     } catch (e) {
+      // Hide loading indicator on error
+      setState(() {
+        _isLoading = false;
+      });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -343,68 +362,95 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       return;
     }
 
-    final sopService = Provider.of<SOPService>(context, listen: false);
-    List<SOPStep> updatedSteps = List.from(_sop.steps);
+    // Show loading indicator and prevent multiple submissions
+    setState(() {
+      _isLoading = true;
+    });
 
-    // Generate a step ID
-    final String stepId = _currentStepIndex < _sop.steps.length
-        ? _sop.steps[_currentStepIndex].id
-        : '${_sop.id}_step_${DateTime.now().millisecondsSinceEpoch}';
-
-    // Calculate total time in seconds
-    int? estimatedTime;
     try {
-      int hours = int.tryParse(_stepEstimatedHoursController.text) ?? 0;
-      int minutes = int.tryParse(_stepEstimatedMinutesController.text) ?? 0;
-      int seconds = int.tryParse(_stepEstimatedSecondsController.text) ?? 0;
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      List<SOPStep> updatedSteps = List.from(_sop.steps);
 
-      // Convert to total seconds
-      estimatedTime = (hours * 3600) + (minutes * 60) + seconds;
+      // Generate a step ID
+      final String stepId = _currentStepIndex < _sop.steps.length
+          ? _sop.steps[_currentStepIndex].id
+          : '${_sop.id}_step_${DateTime.now().millisecondsSinceEpoch}';
 
-      // If all values are 0, set to null
-      if (estimatedTime == 0) {
+      // Calculate total time in seconds
+      int? estimatedTime;
+      try {
+        int hours = int.tryParse(_stepEstimatedHoursController.text) ?? 0;
+        int minutes = int.tryParse(_stepEstimatedMinutesController.text) ?? 0;
+        int seconds = int.tryParse(_stepEstimatedSecondsController.text) ?? 0;
+
+        // Convert to total seconds
+        estimatedTime = (hours * 3600) + (minutes * 60) + seconds;
+
+        // If all values are 0, set to null
+        if (estimatedTime == 0) {
+          estimatedTime = null;
+        }
+      } catch (e) {
         estimatedTime = null;
       }
-    } catch (e) {
-      estimatedTime = null;
-    }
 
-    final newStep = SOPStep(
-      id: stepId,
-      title: _stepTitleController.text,
-      instruction: _stepInstructionController.text,
-      imageUrl: _currentStepIndex < _sop.steps.length
-          ? _sop.steps[_currentStepIndex].imageUrl
-          : _tempImageUrl, // Use the temp image URL for new steps
-      helpNote: _stepHelpNoteController.text.isEmpty
-          ? null
-          : _stepHelpNoteController.text,
-      estimatedTime: estimatedTime,
-      stepTools: _currentStepTools,
-      stepHazards: _currentStepHazards,
-    );
+      final newStep = SOPStep(
+        id: stepId,
+        title: _stepTitleController.text,
+        instruction: _stepInstructionController.text,
+        imageUrl: _currentStepIndex < _sop.steps.length
+            ? _sop.steps[_currentStepIndex].imageUrl
+            : _tempImageUrl, // Use the temp image URL for new steps
+        helpNote: _stepHelpNoteController.text.isEmpty
+            ? null
+            : _stepHelpNoteController.text,
+        estimatedTime: estimatedTime,
+        stepTools: _currentStepTools,
+        stepHazards: _currentStepHazards,
+      );
 
-    if (_currentStepIndex < updatedSteps.length) {
-      // Update existing step
-      updatedSteps[_currentStepIndex] = newStep;
-    } else {
-      // Add new step
-      updatedSteps.add(newStep);
-    }
+      if (_currentStepIndex < updatedSteps.length) {
+        // Update existing step
+        updatedSteps[_currentStepIndex] = newStep;
+      } else {
+        // Add new step
+        updatedSteps.add(newStep);
+      }
 
-    final updatedSop = _sop.copyWith(steps: updatedSteps);
+      final updatedSop = _sop.copyWith(steps: updatedSteps);
 
-    try {
+      // First, update locally
       await sopService.updateSopLocally(updatedSop);
-      // Also save to Firebase to ensure the image is properly linked
-      await sopService.updateSop(updatedSop);
+
+      SOP finalSop;
+      // For new SOPs, save to Firebase first to ensure the document exists
+      if (widget.sopId == 'new') {
+        finalSop = await sopService.saveLocalSopToFirebase(updatedSop);
+        if (kDebugMode) {
+          print('New SOP saved to Firebase with ID: ${finalSop.id}');
+        }
+      } else {
+        // For existing SOPs, just update
+        await sopService.updateSop(updatedSop);
+        finalSop = updatedSop;
+      }
 
       setState(() {
-        _sop = updatedSop;
+        _sop = finalSop;
         _currentStepIndex = -1; // Return to main form
         _tempImageUrl = null; // Clear temporary image URL
+        _isLoading = false; // Hide loading indicator
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Step saved successfully')),
+      );
     } catch (e) {
+      // Hide loading indicator even if there's an error
+      setState(() {
+        _isLoading = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving step: $e')),
       );
@@ -675,6 +721,21 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       // Create data URL for the image
       final String dataUrl =
           'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+      // If this is a new SOP (not saved to Firebase yet), store the image as a base64 string temporarily
+      if (widget.sopId == 'new' && !_sop.id.startsWith('firebase')) {
+        // Just store the data URL directly as the image URL
+        setState(() {
+          _tempImageUrl = dataUrl;
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Image added - save step to apply changes')),
+        );
+        return;
+      }
 
       // Generate a step ID if this is a new step not yet saved
       final String stepId = _currentStepIndex < _sop.steps.length
@@ -1587,7 +1648,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading && _currentStepIndex == -1) {
+      // Show loading screen only when loading the entire SOP (not when editing a step)
       return Scaffold(
         appBar: AppBar(
           title: Text(
@@ -1611,11 +1673,13 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              setState(() {
-                _currentStepIndex = -1;
-              });
-            },
+            onPressed: _isLoading
+                ? null // Disable back button when loading
+                : () {
+                    setState(() {
+                      _currentStepIndex = -1;
+                    });
+                  },
           ),
         ),
         body: _buildStepEditorForm(),
@@ -1733,26 +1797,41 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                         ),
                       )
                     : ElevatedButton.icon(
-                        onPressed: () {
-                          // Validate current section before saving
-                          if (_validateCurrentSection()) {
-                            // Save to Firebase only on the final submission
-                            _saveSOP().then((_) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('SOP saved successfully!'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                              context.go('/mobile/sops');
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.save),
-                        label: const Text('Save SOP'),
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                // Validate current section before saving
+                                if (_validateCurrentSection()) {
+                                  // Save to Firebase only on the final submission
+                                  _saveSOP().then((_) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content:
+                                            Text('SOP saved successfully!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                    context.go('/mobile/sops');
+                                  });
+                                }
+                              },
+                        icon: _isLoading
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white)),
+                              )
+                            : const Icon(Icons.save),
+                        label: _isLoading
+                            ? const Text('Saving...')
+                            : const Text('Save SOP'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.green[200],
                         ),
                       ),
               ],
@@ -1853,170 +1932,245 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         ? _sop.steps[_currentStepIndex].imageUrl ?? ''
         : _tempImageUrl ?? ''; // Use temp image URL for new steps
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ListView(
-        children: [
-          // Step basic info
-          TextFormField(
-            controller: _stepTitleController,
-            decoration: const InputDecoration(
-              labelText: 'Step Title',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _stepInstructionController,
-            decoration: const InputDecoration(
-              labelText: 'Step Instructions',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 5,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _stepHelpNoteController,
-            decoration: const InputDecoration(
-              labelText: 'Help Note (Optional)',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 3,
-          ),
-
-          // Estimated time fields (hours, minutes, seconds)
-          const SizedBox(height: 16),
-          const Text(
-            'Estimated Time',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ListView(
             children: [
-              // Hours
-              Expanded(
-                child: TextFormField(
-                  controller: _stepEstimatedHoursController,
-                  decoration: const InputDecoration(
-                    labelText: 'Hours',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
+              // Step basic info
+              TextFormField(
+                controller: _stepTitleController,
+                decoration: const InputDecoration(
+                  labelText: 'Step Title',
+                  border: OutlineInputBorder(),
+                ),
+                enabled: !_isLoading,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _stepInstructionController,
+                decoration: const InputDecoration(
+                  labelText: 'Step Instructions',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 5,
+                enabled: !_isLoading,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _stepHelpNoteController,
+                decoration: const InputDecoration(
+                  labelText: 'Help Note (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                enabled: !_isLoading,
+              ),
+
+              // Estimated time fields (hours, minutes, seconds)
+              const SizedBox(height: 16),
+              const Text(
+                'Estimated Time',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
-              // Minutes
-              Expanded(
-                child: TextFormField(
-                  controller: _stepEstimatedMinutesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Minutes',
-                    border: OutlineInputBorder(),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  // Hours
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stepEstimatedHoursController,
+                      decoration: const InputDecoration(
+                        labelText: 'Hours',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      enabled: !_isLoading,
+                    ),
                   ),
-                  keyboardType: TextInputType.number,
+                  const SizedBox(width: 8),
+                  // Minutes
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stepEstimatedMinutesController,
+                      decoration: const InputDecoration(
+                        labelText: 'Minutes',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      enabled: !_isLoading,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Seconds
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stepEstimatedSecondsController,
+                      decoration: const InputDecoration(
+                        labelText: 'Seconds',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      enabled: !_isLoading,
+                    ),
+                  ),
+                ],
+              ),
+
+              // Step image
+              const SizedBox(height: 24),
+              const Text(
+                'Step Image',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
-              // Seconds
-              Expanded(
-                child: TextFormField(
-                  controller: _stepEstimatedSecondsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Seconds',
-                    border: OutlineInputBorder(),
+              const SizedBox(height: 8),
+              if (imageUrl.isNotEmpty)
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  keyboardType: TextInputType.number,
+                  child: _buildImage(imageUrl, fit: BoxFit.contain),
+                )
+              else
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey[100],
+                  ),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.image_outlined,
+                            size: 48, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('No image added'),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _uploadStepImage,
+                icon: const Icon(Icons.image),
+                label: Text(imageUrl.isNotEmpty ? 'Change Image' : 'Add Image'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey,
                 ),
               ),
+
+              // Action buttons
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                _currentStepIndex = -1; // Go back to main form
+                              });
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[400],
+                        disabledBackgroundColor: Colors.grey[300],
+                      ),
+                      child: const Text('CANCEL'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveStep,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[700],
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.red[300],
+                      ),
+                      child: _isLoading
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('SAVING...'),
+                              ],
+                            )
+                          : const Text('SAVE STEP'),
+                    ),
+                  ),
+                ],
+              ),
+              // Add extra space at the bottom for the loading overlay
+              if (_isLoading) const SizedBox(height: 80),
             ],
           ),
-
-          // Step image
-          const SizedBox(height: 24),
-          const Text(
-            'Step Image',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (imageUrl.isNotEmpty)
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: _buildImage(imageUrl, fit: BoxFit.contain),
-            )
-          else
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey[100],
-              ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.image_outlined, size: 48, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text('No image added'),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _uploadStepImage,
-            icon: const Icon(Icons.image),
-            label: Text(imageUrl.isNotEmpty ? 'Change Image' : 'Add Image'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-            ),
-          ),
-
-          // Action buttons
-          const SizedBox(height: 32),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _currentStepIndex = -1; // Go back to main form
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[400],
+        ),
+        // Full-screen loading overlay when saving (semi-transparent)
+        if (_isLoading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+              child: Center(
+                child: Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text('CANCEL'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveStep,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[700],
-                    foregroundColor: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Saving step...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (_tempImageUrl != null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              'Uploading image...',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                  child: const Text('SAVE STEP'),
                 ),
               ),
-            ],
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
