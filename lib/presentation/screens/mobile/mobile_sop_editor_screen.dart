@@ -28,6 +28,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   int _currentStepIndex = -1; // -1 means editing SOP details, not steps
   int _selectedStepTab = 0; // Track selected step tab
+  String? _tempImageUrl; // Store temporary image URL for new steps
 
   // Focus nodes
   final FocusNode _stepToolFocusNode = FocusNode();
@@ -374,7 +375,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       instruction: _stepInstructionController.text,
       imageUrl: _currentStepIndex < _sop.steps.length
           ? _sop.steps[_currentStepIndex].imageUrl
-          : null,
+          : _tempImageUrl, // Use the temp image URL for new steps
       helpNote: _stepHelpNoteController.text.isEmpty
           ? null
           : _stepHelpNoteController.text,
@@ -395,9 +396,13 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
     try {
       await sopService.updateSopLocally(updatedSop);
+      // Also save to Firebase to ensure the image is properly linked
+      await sopService.updateSop(updatedSop);
+
       setState(() {
         _sop = updatedSop;
         _currentStepIndex = -1; // Return to main form
+        _tempImageUrl = null; // Clear temporary image URL
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -500,63 +505,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       final XFile? image = await picker.pickImage(source: source);
 
       if (image != null) {
-        setState(() {
-          _isLoading = true;
-        });
-
-        try {
-          final sopService = Provider.of<SOPService>(context, listen: false);
-          final imageBytes = await image.readAsBytes();
-
-          // If editing an existing step
-          if (_currentStepIndex < _sop.steps.length) {
-            List<SOPStep> updatedSteps = List.from(_sop.steps);
-            final currentStep = updatedSteps[_currentStepIndex];
-
-            // Convert image to data URL
-            final String dataUrl =
-                'data:image/jpeg;base64,${base64Encode(imageBytes)}';
-
-            // Upload the image to Firebase Storage
-            final String? imageUrl = await sopService.uploadImageFromDataUrl(
-                dataUrl, _sop.id, currentStep.id);
-
-            if (kDebugMode) {
-              print('Uploaded step image, received URL: $imageUrl');
-            }
-
-            // Update the step with the new image URL
-            updatedSteps[_currentStepIndex] =
-                currentStep.copyWith(imageUrl: imageUrl);
-            final updatedSop = _sop.copyWith(steps: updatedSteps);
-
-            await sopService.updateSopLocally(updatedSop);
-            setState(() {
-              _sop = updatedSop;
-              _isLoading = false;
-            });
-
-            // Also save the SOP to Firestore to ensure the image URL is saved
-            await sopService.updateSop(updatedSop);
-          } else {
-            // We're creating a new step, so we'll save the step first
-            // and then update the image in a separate operation
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Save the step first before adding an image')),
-            );
-            setState(() {
-              _isLoading = false;
-            });
-          }
-        } catch (e) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error uploading image: $e')),
-          );
-        }
+        await _processPickedImage(image);
       }
     });
   }
@@ -723,22 +672,27 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       final sopService = Provider.of<SOPService>(context, listen: false);
       final Uint8List imageBytes = await image.readAsBytes();
 
-      // If editing an existing step
+      // Create data URL for the image
+      final String dataUrl =
+          'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+      // Generate a step ID if this is a new step not yet saved
+      final String stepId = _currentStepIndex < _sop.steps.length
+          ? _sop.steps[_currentStepIndex].id
+          : '${_sop.id}_step_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Upload to Firebase Storage and get the URL
+      final String? imageUrl =
+          await sopService.uploadImageFromDataUrl(dataUrl, _sop.id, stepId);
+
+      if (kDebugMode) {
+        print('Uploaded image for step $stepId: $imageUrl');
+      }
+
+      // If editing an existing step, update that step
       if (_currentStepIndex < _sop.steps.length) {
         List<SOPStep> updatedSteps = List.from(_sop.steps);
         final currentStep = updatedSteps[_currentStepIndex];
-
-        // Create data URL for the image
-        final String dataUrl =
-            'data:image/jpeg;base64,${base64Encode(imageBytes)}';
-
-        // Upload to Firebase Storage and get the URL
-        final String? imageUrl = await sopService.uploadImageFromDataUrl(
-            dataUrl, _sop.id, currentStep.id);
-
-        if (kDebugMode) {
-          print('Uploaded image for step ${currentStep.id}: $imageUrl');
-        }
 
         // Update the step with the new image URL
         updatedSteps[_currentStepIndex] =
@@ -757,14 +711,16 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           const SnackBar(content: Text('Image uploaded successfully')),
         );
       } else {
-        // We're creating a new step, so warn user to save step first
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Save the step first before adding an image')),
-        );
+        // We're creating a new step, store the image URL temporarily
         setState(() {
+          _tempImageUrl = imageUrl;
           _isLoading = false;
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Image added - save step to apply changes')),
+        );
       }
     } catch (e) {
       setState(() {
@@ -1895,7 +1851,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     final bool isNewStep = _currentStepIndex >= _sop.steps.length;
     final String imageUrl = !isNewStep && _currentStepIndex < _sop.steps.length
         ? _sop.steps[_currentStepIndex].imageUrl ?? ''
-        : '';
+        : _tempImageUrl ?? ''; // Use temp image URL for new steps
 
     return Padding(
       padding: const EdgeInsets.all(16.0),

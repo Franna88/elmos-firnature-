@@ -1,0 +1,2 @@
+/Users/frannanortje/development/dev/elmos-firnature-/android/app/.cxx/RelWithDebInfo/3r695g33/x86/CMakeFiles/edit_cache.dir
+/Users/frannanortje/development/dev/elmos-firnature-/android/app/.cxx/RelWithDebInfo/3r695g33/x86/CMakeFiles/rebuild_cache.dir

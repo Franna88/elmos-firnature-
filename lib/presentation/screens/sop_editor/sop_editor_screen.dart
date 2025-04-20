@@ -86,9 +86,11 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   }
 
   Future<void> _loadSOP() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(
+      () {
+        _isLoading = true;
+      },
+    );
 
     try {
       final sopService = Provider.of<SOPService>(context, listen: false);
@@ -969,6 +971,13 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                             child: Container(
                                               width: 300,
                                               height: 200,
+                                              constraints: BoxConstraints(
+                                                maxWidth: MediaQuery.of(context)
+                                                        .size
+                                                        .width *
+                                                    0.8,
+                                                maxHeight: 200,
+                                              ),
                                               decoration: BoxDecoration(
                                                 border: Border.all(
                                                   color: Theme.of(context)
@@ -3884,15 +3893,14 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         return Image.memory(
           bytes,
           fit: fit,
-          errorBuilder: (context, error, stackTrace) => const Center(
-            child: Icon(Icons.broken_image, size: 48),
-          ),
+          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            return frame != null ? child : _buildImageLoading();
+          },
         );
       } catch (e) {
         debugPrint('Error displaying data URL image: $e');
-        return const Center(
-          child: Icon(Icons.broken_image, size: 48),
-        );
+        return _buildImageError();
       }
     }
     // Check if this is an asset image
@@ -3900,9 +3908,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       return Image.asset(
         imageUrl,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) => const Center(
-          child: Icon(Icons.broken_image, size: 48),
-        ),
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          return frame != null ? child : _buildImageLoading();
+        },
       );
     }
     // Otherwise, assume it's a network image
@@ -3910,9 +3919,16 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       return Image.network(
         imageUrl,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) => const Center(
-          child: Icon(Icons.broken_image, size: 48),
-        ),
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return _buildImageLoading(
+            progress: loadingProgress.expectedTotalBytes != null
+                ? loadingProgress.cumulativeBytesLoaded /
+                    loadingProgress.expectedTotalBytes!
+                : null,
+          );
+        },
       );
     }
   }
