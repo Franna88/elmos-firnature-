@@ -1,0 +1,12 @@
+{
+    "name": "elmos-furniture-release-scripts",
+    "version": "1.0.0",
+    "description": "Scripts for automating Android app releases",
+    "private": true,
+    "dependencies": {
+        "googleapis": "^126.0.1"
+    },
+    "scripts": {
+        "upload": "node play-upload.js"
+    }
+}

@@ -1,0 +1,111 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Type of version update'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  version-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.x'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p android/app/keystore
+          echo $KEYSTORE_BASE64 | base64 --decode > android/app/keystore/upload-keystore.jks
+
+      - name: Increment version
+        id: version
+        run: |
+          CURRENT_VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          CURRENT_BUILD_NUMBER=$(grep 'version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f2)
+          
+          # Increment according to type
+          if [ "${{ github.event.inputs.version_type }}" == "patch" ]; then
+            MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+            MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+            PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          elif [ "${{ github.event.inputs.version_type }}" == "minor" ]; then
+            MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+            MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+            NEW_MINOR=$((MINOR + 1))
+            NEW_VERSION="$MAJOR.$NEW_MINOR.0"
+          elif [ "${{ github.event.inputs.version_type }}" == "major" ]; then
+            MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+            NEW_MAJOR=$((MAJOR + 1))
+            NEW_VERSION="$NEW_MAJOR.0.0"
+          fi
+          
+          # Increment build number
+          NEW_BUILD_NUMBER=$((CURRENT_BUILD_NUMBER + 1))
+          
+          # Update pubspec.yaml
+          sed -i "s/version: $CURRENT_VERSION+$CURRENT_BUILD_NUMBER/version: $NEW_VERSION+$NEW_BUILD_NUMBER/" pubspec.yaml
+          
+          echo "New version: $NEW_VERSION+$NEW_BUILD_NUMBER"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_build_number=$NEW_BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Setup key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "storePassword=$STORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "storeFile=keystore/upload-keystore.jks" >> android/key.properties
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+
+      - name: Upload to Play Store
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          packageName: com.elmosfurniture.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: production
+          status: completed
+          whatsNewDirectory: distribution/whatsnew
+
+      - name: Commit version bump
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add pubspec.yaml
+          git commit -m "Bump version to ${{ steps.version.outputs.new_version }}+${{ steps.version.outputs.new_build_number }}"
+          git push 
