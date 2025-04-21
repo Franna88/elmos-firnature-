@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/models/sop_model.dart';
@@ -119,6 +120,23 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     }
   }
 
+  // Method to launch YouTube video URL
+  Future<void> _launchYoutubeVideo() async {
+    if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty) {
+      final Uri url = Uri.parse(_sop.youtubeUrl!);
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not launch video URL'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -172,6 +190,30 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           ],
         ),
         actions: [
+          // Add Play Video button if SOP has a YouTube URL
+          if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton.icon(
+                onPressed: _launchYoutubeVideo,
+                icon: const Icon(Icons.play_circle_fill, color: Colors.red),
+                label: const Text(
+                  'Play Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.red.shade800,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
           if (_isAnonymousAccess)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
@@ -610,6 +652,25 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
               _buildInfoRow('Created By', _sop.createdBy),
               _buildInfoRow('Created', _formatDate(_sop.createdAt)),
               _buildInfoRow('Last Updated', _formatDate(_sop.updatedAt)),
+
+              // Display YouTube video information if available
+              if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty) ...[
+                const Divider(),
+                Row(
+                  children: [
+                    const Icon(Icons.videocam, color: Colors.red),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Video Tutorial Available',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
               const Divider(),
               const Text(
                 'Required Tools:',
@@ -674,6 +735,18 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),
+          if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchYoutubeVideo();
+              },
+              icon: const Icon(Icons.play_circle_outline, color: Colors.red),
+              label: const Text(
+                'Watch Video',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
         ],
       ),
     );
