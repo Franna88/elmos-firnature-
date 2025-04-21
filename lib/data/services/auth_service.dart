@@ -20,7 +20,7 @@ class AuthService extends ChangeNotifier {
   bool _usingLocalAuth = false;
 
   // Flag to enable auto-login for development
-  bool _enableDevAutoLogin = true; // Set to true for development
+  bool _enableDevAutoLogin = false; // Disabled to prevent automatic login
 
   // Action code settings for email links
   final ActionCodeSettings _actionCodeSettings = ActionCodeSettings(
@@ -901,6 +901,29 @@ class AuthService extends ChangeNotifier {
     if (kDebugMode) {
       print(
           'Development auto-login ${_enableDevAutoLogin ? 'enabled' : 'disabled'}');
+    }
+  }
+
+  // Clear any stored credentials from SharedPreferences
+  Future<void> clearStoredCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('isLoggedIn');
+      await prefs.remove('usingLocalAuth');
+      await prefs.remove('userId');
+      await prefs.remove('userEmail');
+      await prefs.remove('userName');
+      await prefs.remove('userRole');
+      await prefs.remove('saved_email');
+      await prefs.remove('remember_me');
+
+      if (kDebugMode) {
+        print('All stored credentials cleared');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error clearing stored credentials: $e');
+      }
     }
   }
 }

@@ -283,6 +283,7 @@ class SOPService extends ChangeNotifier {
           cautions: List<String>.from(sopData['cautions'] ?? []),
           qrCodeUrl: sopData['qrCodeUrl'],
           thumbnailUrl: sopData['thumbnailUrl'],
+          youtubeUrl: sopData['youtubeUrl'],
         ));
       }
 
@@ -526,6 +527,7 @@ class SOPService extends ChangeNotifier {
         'cautions': updatedSop.cautions,
         'qrCodeUrl': qrCodeUrl, // Add QR code URL
         'thumbnailUrl': updatedSop.thumbnailUrl, // Add thumbnail URL
+        'youtubeUrl': updatedSop.youtubeUrl, // Add YouTube URL
         'steps': stepsData, // Store steps directly in the document
       };
 

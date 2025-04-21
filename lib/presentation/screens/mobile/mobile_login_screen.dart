@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/analytics_service.dart';
 import '../../../data/models/analytics_model.dart';
+import 'package:flutter/foundation.dart';
 
 class MobileLoginScreen extends StatefulWidget {
   const MobileLoginScreen({super.key});
@@ -105,6 +107,16 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
           _errorMessage = 'An error occurred. Please try again.';
           _isLoading = false;
         });
+
+        // Log detailed error information in debug mode
+        if (kDebugMode) {
+          print('Login error details:');
+          print('- Error: $e');
+          if (e is FirebaseAuthException) {
+            print('- Firebase Auth Error Code: ${e.code}');
+            print('- Firebase Auth Error Message: ${e.message}');
+          }
+        }
       }
     }
   }
@@ -378,6 +390,46 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
                           ),
                         ],
                       ),
+
+                      // Developer tools section (only visible in debug mode)
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 40),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Developer Options',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final authService = Provider.of<AuthService>(
+                                context,
+                                listen: false);
+                            await authService.clearStoredCredentials();
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('All stored credentials cleared'),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.cleaning_services),
+                          label: const Text('Clear Stored Credentials'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey[200],
+                            foregroundColor: Colors.grey[700],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

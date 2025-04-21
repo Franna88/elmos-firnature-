@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../../data/services/qr_code_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/sop_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SOPViewer extends StatefulWidget {
   final SOP sop;
@@ -122,6 +123,30 @@ class _SOPViewerState extends State<SOPViewer> {
                 ),
                 Row(
                   children: [
+                    // Add Play Video button if SOP has a YouTube URL
+                    if (widget.sop.youtubeUrl != null &&
+                        widget.sop.youtubeUrl!.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: _launchYoutubeVideo,
+                        icon: const Icon(Icons.play_circle_fill,
+                            color: Colors.red),
+                        label: const Text(
+                          'Play Video',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.red.shade800,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
                     // Added View Info button
                     TextButton.icon(
                       onPressed: () => _showSOPInfoDialog(context),
@@ -150,34 +175,81 @@ class _SOPViewerState extends State<SOPViewer> {
     );
   }
 
+  // Method to launch YouTube video URL
+  Future<void> _launchYoutubeVideo() async {
+    if (widget.sop.youtubeUrl != null && widget.sop.youtubeUrl!.isNotEmpty) {
+      final Uri url = Uri.parse(widget.sop.youtubeUrl!);
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        // Handle error
+      }
+    }
+  }
+
   // New method to show SOP info in a dialog
   void _showSOPInfoDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('${widget.sop.title} - Information'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildInfoRow('Category', widget.sop.categoryName ?? 'Unknown',
-                Icons.business),
-            const SizedBox(height: 12),
-            _buildInfoRow('Revision', widget.sop.revisionNumber.toString(),
-                Icons.history),
-            const SizedBox(height: 12),
-            _buildInfoRow('Created', _formatDate(widget.sop.createdAt),
-                Icons.calendar_today),
-            const SizedBox(height: 12),
-            _buildInfoRow('Last Updated', _formatDate(widget.sop.updatedAt),
-                Icons.update),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoRow('Category', widget.sop.categoryName ?? 'Unknown',
+                  Icons.business),
+              const SizedBox(height: 12),
+              _buildInfoRow('Revision', widget.sop.revisionNumber.toString(),
+                  Icons.history),
+              const SizedBox(height: 12),
+              _buildInfoRow('Created', _formatDate(widget.sop.createdAt),
+                  Icons.calendar_today),
+              const SizedBox(height: 12),
+              _buildInfoRow('Last Updated', _formatDate(widget.sop.updatedAt),
+                  Icons.update),
+
+              // Display YouTube video information if available
+              if (widget.sop.youtubeUrl != null &&
+                  widget.sop.youtubeUrl!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Divider(),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.videocam, color: Colors.red, size: 20),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Video Tutorial Available',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),
+          if (widget.sop.youtubeUrl != null &&
+              widget.sop.youtubeUrl!.isNotEmpty)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchYoutubeVideo();
+              },
+              icon: const Icon(Icons.play_circle_outline, color: Colors.red),
+              label: const Text(
+                'Watch Video',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
         ],
       ),
     );
