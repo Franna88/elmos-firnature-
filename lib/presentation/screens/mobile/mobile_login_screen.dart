@@ -171,7 +171,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Image.asset(
-          'assets/images/logo.png',
+          'assets/images/elmos_logo.png',
           height: 40,
         ),
         centerTitle: true,

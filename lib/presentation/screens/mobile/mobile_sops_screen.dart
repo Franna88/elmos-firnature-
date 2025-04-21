@@ -200,13 +200,10 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Elmo's Furniture",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Image.asset(
+                    'assets/images/elmos_logo.png',
+                    height: 40,
+                    color: Colors.white,
                   ),
                   const SizedBox(height: 8),
                   Text(

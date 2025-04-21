@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/category_model.dart' as models;
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -246,6 +247,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Privacy Policy'),
             onTap: () {
               // Show privacy policy
+              launchUrl(
+                Uri.parse('YOUR_PRIVACY_POLICY_URL_HERE'),
+                mode: LaunchMode.externalApplication,
+              );
             },
           ),
           ListTile(

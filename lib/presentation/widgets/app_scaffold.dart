@@ -41,7 +41,7 @@ class AppScaffold extends StatelessWidget {
             ? Row(
                 children: [
                   Image.asset(
-                    'assets/images/logo.png',
+                    'assets/images/elmos_logo.png',
                     height: 28,
                   ),
                   const SizedBox(width: 12),
@@ -198,25 +198,11 @@ class AppScaffold extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            "elmo's",
-                            style: TextStyle(
-                              color: AppColors.primaryRed,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Image.asset(
+                            'assets/images/elmos_logo.png',
+                            height: 40,
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "FURNITURE",
-                        style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 2,
-                          color: AppColors.textMedium,
-                          fontWeight: FontWeight.w500,
-                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(

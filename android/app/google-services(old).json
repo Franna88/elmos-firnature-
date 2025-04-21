@@ -7,28 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1003855542467:android:c1720d9bdadf0c2739ca76",
-        "android_client_info": {
-          "package_name": "com.elmosfurniture.app.v2"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAOca-_DutliL7rCakkSEkRlrVuhZcnh0o"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:1003855542467:android:6cc838db42d3d8aa39ca76",
         "android_client_info": {
-          "package_name": "com.example.elmos_app"
+          "package_name": "com.elmosfurniture.app.v2"
         }
       },
       "oauth_client": [],
