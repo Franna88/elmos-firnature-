@@ -190,6 +190,16 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           ],
         ),
         actions: [
+          // Add Edit button if user is logged in and not in anonymous mode
+          if (!_isAnonymousAccess)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: 'Edit SOP',
+              onPressed: () {
+                // Navigate to the editor screen with the current SOP id
+                context.go('/mobile/editor/${widget.sopId}');
+              },
+            ),
           // Add Play Video button if SOP has a YouTube URL
           if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
             Padding(
@@ -457,6 +467,16 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             ),
         ],
       ),
+      // Add floating action button for quick edit access (only for logged in users)
+      floatingActionButton: !_isAnonymousAccess
+          ? FloatingActionButton(
+              onPressed: () {
+                context.go('/mobile/editor/${widget.sopId}');
+              },
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: const Icon(Icons.edit, color: Colors.white),
+            )
+          : null,
     );
   }
 
@@ -735,6 +755,18 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),
+          if (!_isAnonymousAccess)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                context.go('/mobile/editor/${widget.sopId}');
+              },
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              label: const Text(
+                'Edit',
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
           if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
             TextButton.icon(
               onPressed: () {
