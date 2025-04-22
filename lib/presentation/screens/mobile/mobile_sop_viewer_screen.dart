@@ -467,16 +467,6 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             ),
         ],
       ),
-      // Add floating action button for quick edit access (only for logged in users)
-      floatingActionButton: !_isAnonymousAccess
-          ? FloatingActionButton(
-              onPressed: () {
-                context.go('/mobile/editor/${widget.sopId}');
-              },
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              child: const Icon(Icons.edit, color: Colors.white),
-            )
-          : null,
     );
   }
 
