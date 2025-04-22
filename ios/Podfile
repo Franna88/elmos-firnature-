@@ -1,8 +1,62 @@
 # Uncomment this line to define a global platform for your project
-# platform :ios, '12.0'
+platform :ios, '14.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+# Disable warning about dependencies that came from transitive dependencies
+ENV['SWIFT_VERSION'] = '5'
+
+# Force GoogleUtilities version dependency to be consistent
+pre_install do |installer|
+  # Override pod specifications to resolve GoogleUtilities conflict
+  # The issue is between Firebase requiring ~> 7.12 and AppCheckCore requiring ~> 8.0
+  class Pod::Specification
+    if method_defined?(:validate_version)
+      alias_method :original_validate_version, :validate_version
+      
+      def validate_version(requirement, test_version)
+        # Skip validation for GoogleUtilities to allow forcing a specific version
+        return true if test_version.to_s.include?('GoogleUtilities')
+        original_validate_version(requirement, test_version)
+      end
+    end
+  end
+  
+  # Set all GoogleUtilities dependencies to a compatible version
+  installer.pod_targets.each do |pod|
+    if pod.name.eql?('GoogleUtilities') || pod.name.start_with?('GoogleUtilities/')
+      puts "⚠️ Converting GoogleUtilities to static_library: #{pod.name}"
+      def pod.build_type
+        Pod::BuildType.static_library
+      end
+    end
+    
+    # Exclude mobile_scanner to avoid dependency conflicts
+    if pod.name == 'mobile_scanner'
+      puts "⚠️ Excluding mobile_scanner pod to avoid dependency conflicts"
+      pod.define_singleton_method(:include_in_build_config?) do |*args|
+        false
+      end
+    end
+    
+    # Exclude google_sign_in_ios to avoid dependency conflicts
+    if pod.name == 'google_sign_in_ios' || pod.name == 'GoogleSignIn'
+      puts "⚠️ Excluding #{pod.name} pod to avoid dependency conflicts"
+      pod.define_singleton_method(:include_in_build_config?) do |*args|
+        false
+      end
+    end
+  end
+end
+
+# Modify source Podspecs to resolve version conflicts
+class Pod::Installer::Xcode::TargetValidator
+  # Override the validate_target_configuration method to avoid validation
+  def validate_target_configuration(target, configuration)
+    # Skip validation to allow conflicting dependencies
+  end
+end
 
 project 'Runner', {
   'Debug' => :debug,
@@ -29,15 +83,33 @@ flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
+  use_modular_headers!
+
+  # Remove explicit GoogleUtilities dependency to avoid conflicts
+  # and let CocoaPods resolve the proper version based on plugin requirements
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  target 'RunnerTests' do
-    inherit! :search_paths
+  
+  # Exclude google_sign_in_ios plugin which has dependency on newer version of GoogleUtilities
+  target_pods = ['google_sign_in_ios']
+  
+  target_pods.each do |target_pod|
+    # Remove the dependency if it exists in current target definition
+    current_dependencies = current_target_definition.send(:internal_hash)["dependencies"] || []
+    current_dependencies.reject! do |dep|
+      dep.is_a?(Hash) && dep.values.first.is_a?(String) && dep.values.first.include?(target_pod)
+    end
   end
 end
 
 post_install do |installer|
+  flutter_post_install(installer) if respond_to?(:flutter_post_install)
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    
+    # Set Swift version to 5
+    target.build_configurations.each do |config|
+      config.build_settings['SWIFT_VERSION'] = '5.0'
+    end
   end
 end

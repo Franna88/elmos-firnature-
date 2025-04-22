@@ -1,14 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService extends ChangeNotifier {
   // Firebase dependencies with nullable instantiation to handle initialization errors
   FirebaseAuth? _auth;
   FirebaseFirestore? _firestore;
-  GoogleSignIn? _googleSignIn;
 
   bool _isLoggedIn = false;
   String? _userId;
@@ -26,7 +24,7 @@ class AuthService extends ChangeNotifier {
   final ActionCodeSettings _actionCodeSettings = ActionCodeSettings(
     url: 'https://www.example.com/finishSignUp?cartId=1234',
     handleCodeInApp: true,
-    iOSBundleId: 'com.example.ios',
+    iOSBundleId: 'com.elmosfurniture.app',
     androidPackageName: 'com.example.android',
     androidInstallApp: true,
     androidMinimumVersion: '12',
@@ -87,7 +85,6 @@ class AuthService extends ChangeNotifier {
       try {
         _auth = FirebaseAuth.instance;
         _firestore = FirebaseFirestore.instance;
-        _googleSignIn = GoogleSignIn();
 
         // Test if Firebase is working
         await _auth!.authStateChanges().first;
@@ -310,61 +307,6 @@ class AuthService extends ChangeNotifier {
     }
 
     return false;
-  }
-
-  Future<bool> signInWithGoogle() async {
-    if (_usingLocalAuth) {
-      return _localGoogleSignIn();
-    }
-
-    try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn?.signIn();
-
-      if (googleUser == null) {
-        return false;
-      }
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final UserCredential userCredential =
-          await _auth!.signInWithCredential(credential);
-      return userCredential.user != null;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Google sign-in error: $e');
-        print('Falling back to local Google sign-in simulation');
-      }
-
-      _usingLocalAuth = true;
-      return _localGoogleSignIn();
-    }
-  }
-
-  Future<bool> _localGoogleSignIn() async {
-    const email = 'google@elmosfurniture.com';
-
-    if (!_localUsers.containsKey(email)) {
-      _localUsers[email] = {
-        'name': 'Elmo Woodcraft',
-        'password': 'google123',
-        'role': 'manager',
-      };
-    }
-
-    _isLoggedIn = true;
-    _userId = email;
-    _userEmail = email;
-    _userName = _localUsers[email]!['name'];
-    _userRole = _localUsers[email]!['role'];
-
-    await _saveToStorage();
-    notifyListeners();
-    return true;
   }
 
   Future<bool> register(String name, String email, String password) async {

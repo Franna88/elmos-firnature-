@@ -8,10 +8,11 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../data/services/qr_code_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/foundation.dart';
+import '../../../services/platform_specific/scanner_service.dart';
+import '../../../services/platform_specific/scanner_service_interface.dart';
 
 class MobileSOPsScreen extends StatefulWidget {
   const MobileSOPsScreen({super.key});
@@ -786,307 +787,61 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   void _showQRScanner(BuildContext context) {
     final sopService = Provider.of<SOPService>(context, listen: false);
     final qrService = sopService.qrCodeService;
-    bool isProcessingCode = false;
+    final scannerService = ScannerServiceFactory.getScannerService();
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => SizedBox(
-          height: MediaQuery.of(context).size.height * 0.9,
-          child: Stack(
-            children: [
-              // Scanner
-              Positioned.fill(
-                child: MobileScanner(
-                  controller: MobileScannerController(
-                    detectionSpeed: DetectionSpeed.normal,
-                    formats: [BarcodeFormat.qrCode],
-                    torchEnabled: false,
-                  ),
-                  onDetect: (capture) {
-                    if (isProcessingCode) return; // Prevent multiple scans
-
-                    final List<Barcode> barcodes = capture.barcodes;
-                    for (final barcode in barcodes) {
-                      final String? code = barcode.rawValue;
-                      if (code != null) {
-                        setState(() {
-                          isProcessingCode = true;
-                        });
-
-                        debugPrint('Scanned QR code data: $code');
-                        // Extract SOP ID from QR code
-                        final String? sopId =
-                            qrService.extractSOPIdFromQRData(code);
-
-                        if (sopId != null) {
-                          // Provide visual feedback
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.white),
-                                  SizedBox(width: 8),
-                                  Text('QR code detected! Opening SOP...'),
-                                ],
-                              ),
-                              backgroundColor: Colors.green,
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-
-                          // Close the scanner after a short delay for feedback
-                          Future.delayed(const Duration(milliseconds: 500), () {
-                            Navigator.pop(context);
-                            context.go('/mobile/sop/$sopId');
-                          });
-                        } else {
-                          setState(() {
-                            isProcessingCode = false;
-                          });
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(Icons.error, color: Colors.white),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Invalid QR code. This does not appear to be an Elmo\'s Furniture SOP code.',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.red,
-                              duration: Duration(seconds: 3),
-                            ),
-                          );
-                        }
-                      }
-                    }
-                  },
-                ),
-              ),
-
-              // Overlay with scanner cutout
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: QRScannerOverlay(),
-                ),
-              ),
-
-              // Top bar
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Scan SOP QR Code',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Bottom guidance
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.tips_and_updates,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text(
-                                'Point your camera at the SOP QR code printed on equipment or in documentation',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (isProcessingCode)
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Processing QR code...',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+    if (!scannerService.isScanningAvailable()) {
+      // Show a message that scanning is not available on this platform
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('QR scanning is not available on this platform'),
+          duration: Duration(seconds: 2),
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    scannerService.showQRScanner(context).then((scannedCode) {
+      if (scannedCode != null) {
+        final String? sopId = qrService.extractSOPIdFromQRData(scannedCode);
+
+        if (sopId != null) {
+          // Provide visual feedback
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('QR code detected! Opening SOP...'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 1),
+            ),
+          );
+
+          // Navigate to the SOP page
+          context.go('/mobile/sop/$sopId');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.error, color: Colors.white),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Invalid QR code. This does not appear to be an Elmo\'s Furniture SOP code.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    });
   }
-}
-
-// Custom painter for scanner overlay
-class QRScannerOverlay extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final width = size.width;
-    final height = size.height;
-    final scanAreaSize = width * 0.7;
-    final scanAreaLeft = (width - scanAreaSize) / 2;
-    final scanAreaTop = (height - scanAreaSize) / 2;
-    final scanAreaRight = scanAreaLeft + scanAreaSize;
-    final scanAreaBottom = scanAreaTop + scanAreaSize;
-
-    // Semi-transparent overlay
-    final backgroundPaint = Paint()
-      ..color = Colors.black.withOpacity(0.5)
-      ..style = PaintingStyle.fill;
-
-    // Scanner cutout
-    final cutoutPath = Path()
-      ..addRect(Rect.fromLTWH(0, 0, width, height))
-      ..addRect(
-          Rect.fromLTWH(scanAreaLeft, scanAreaTop, scanAreaSize, scanAreaSize)
-              .inflate(5))
-      ..fillType = PathFillType.evenOdd;
-
-    // Draw semi-transparent background with hole
-    canvas.drawPath(cutoutPath, backgroundPaint);
-
-    // Frame for scanner area
-    final framePaint = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    // Draw scanner frame
-    canvas.drawRect(
-        Rect.fromLTWH(scanAreaLeft - 5, scanAreaTop - 5, scanAreaSize + 10,
-            scanAreaSize + 10),
-        framePaint);
-
-    // Corner indicators
-    final cornerLength = scanAreaSize * 0.1;
-    final cornerPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5;
-
-    // Top left corner
-    canvas.drawLine(Offset(scanAreaLeft, scanAreaTop),
-        Offset(scanAreaLeft + cornerLength, scanAreaTop), cornerPaint);
-    canvas.drawLine(Offset(scanAreaLeft, scanAreaTop),
-        Offset(scanAreaLeft, scanAreaTop + cornerLength), cornerPaint);
-
-    // Top right corner
-    canvas.drawLine(Offset(scanAreaRight, scanAreaTop),
-        Offset(scanAreaRight - cornerLength, scanAreaTop), cornerPaint);
-    canvas.drawLine(Offset(scanAreaRight, scanAreaTop),
-        Offset(scanAreaRight, scanAreaTop + cornerLength), cornerPaint);
-
-    // Bottom left corner
-    canvas.drawLine(Offset(scanAreaLeft, scanAreaBottom),
-        Offset(scanAreaLeft + cornerLength, scanAreaBottom), cornerPaint);
-    canvas.drawLine(Offset(scanAreaLeft, scanAreaBottom),
-        Offset(scanAreaLeft, scanAreaBottom - cornerLength), cornerPaint);
-
-    // Bottom right corner
-    canvas.drawLine(Offset(scanAreaRight, scanAreaBottom),
-        Offset(scanAreaRight - cornerLength, scanAreaBottom), cornerPaint);
-    canvas.drawLine(Offset(scanAreaRight, scanAreaBottom),
-        Offset(scanAreaRight, scanAreaBottom - cornerLength), cornerPaint);
-
-    // Laser line animation (would be better with an actual animation)
-    final laserPaint = Paint()
-      ..color = Colors.red.withOpacity(0.7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    // Draw a horizontal laser line in the middle of scan area
-    final laserY = scanAreaTop + scanAreaSize / 2;
-    canvas.drawLine(Offset(scanAreaLeft, laserY), Offset(scanAreaRight, laserY),
-        laserPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

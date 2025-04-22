@@ -107,44 +107,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final analyticsService =
-          Provider.of<AnalyticsService>(context, listen: false);
-
-      final success = await authService.signInWithGoogle();
-
-      if (success) {
-        // Record login activity
-        await analyticsService.recordActivity(ActivityType.userLoggedIn);
-
-        if (mounted) {
-          context.go('/');
-        }
-      } else {
-        setState(() {
-          _errorMessage = 'Google sign-in failed';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Google sign-in error: $e');
-      }
-
-      setState(() {
-        _errorMessage = 'An error occurred during Google sign-in';
-        _isLoading = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
