@@ -1,2 +1,3 @@
-- Added Video to Play on SOP
-- Updated SOP Methogs 
+- Added Edit to SOP on Mobile
+- Cleaned up SOP Interface 
+- Bug Fixes
