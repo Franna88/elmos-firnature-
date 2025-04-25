@@ -182,17 +182,52 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
               ? const Center(
                   child: Text('No categories found'),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: categories.length,
-                  itemBuilder: (context, index) {
-                    final category = categories[index];
-                    final sopsInCategory = sopService.sops
-                        .where((sop) => sop.categoryName == category.name)
-                        .toList();
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Determine if we're on a tablet-sized screen
+                    final isTablet = constraints.maxWidth > 600;
 
-                    return _buildCategoryCard(
-                        context, category, sopsInCategory);
+                    // Calculate number of columns based on width
+                    final int crossAxisCount =
+                        isTablet ? (constraints.maxWidth > 900 ? 3 : 2) : 1;
+
+                    // Use grid for tablet, list for phone
+                    return crossAxisCount > 1
+                        ? GridView.builder(
+                            padding: const EdgeInsets.all(16.0),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              childAspectRatio: 1.5,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
+                            itemCount: categories.length,
+                            itemBuilder: (context, index) {
+                              final category = categories[index];
+                              final sopsInCategory = sopService.sops
+                                  .where((sop) =>
+                                      sop.categoryName == category.name)
+                                  .toList();
+
+                              return _buildCategoryCard(
+                                  context, category, sopsInCategory);
+                            },
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16.0),
+                            itemCount: categories.length,
+                            itemBuilder: (context, index) {
+                              final category = categories[index];
+                              final sopsInCategory = sopService.sops
+                                  .where((sop) =>
+                                      sop.categoryName == category.name)
+                                  .toList();
+
+                              return _buildCategoryCard(
+                                  context, category, sopsInCategory);
+                            },
+                          );
                   },
                 ),
     );

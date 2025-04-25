@@ -351,13 +351,43 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                         children: [
                           // Main SOP list
                           Expanded(
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(16.0),
-                              itemCount: filteredSOPs.length,
-                              itemBuilder: (context, index) {
-                                final sop = filteredSOPs[index];
-                                return _buildSOPCard(context, sop);
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                // Determine if we're on a tablet-sized screen
+                                final isTablet = constraints.maxWidth > 600;
+
+                                // Calculate number of columns based on width
+                                final int crossAxisCount = isTablet
+                                    ? (constraints.maxWidth > 900 ? 3 : 2)
+                                    : 1;
+
+                                // Use grid for tablet, list for phone
+                                return crossAxisCount > 1
+                                    ? GridView.builder(
+                                        controller: _scrollController,
+                                        padding: const EdgeInsets.all(16.0),
+                                        gridDelegate:
+                                            SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: crossAxisCount,
+                                          childAspectRatio: 1.4,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                        ),
+                                        itemCount: filteredSOPs.length,
+                                        itemBuilder: (context, index) {
+                                          final sop = filteredSOPs[index];
+                                          return _buildSOPCard(context, sop);
+                                        },
+                                      )
+                                    : ListView.builder(
+                                        controller: _scrollController,
+                                        padding: const EdgeInsets.all(16.0),
+                                        itemCount: filteredSOPs.length,
+                                        itemBuilder: (context, index) {
+                                          final sop = filteredSOPs[index];
+                                          return _buildSOPCard(context, sop);
+                                        },
+                                      );
                               },
                             ),
                           ),
@@ -484,6 +514,12 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     final Color categoryColor =
         _getCategoryColor(sop.categoryName ?? 'Unknown');
 
+    // Check if we're on a tablet
+    final bool isTablet = MediaQuery.of(context).size.width > 600;
+
+    // Adjust image height based on device type
+    final double imageHeight = isTablet ? 160.0 : 140.0;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0), // Slightly increased margin
       elevation: 3, // Increased elevation for more prominence
@@ -507,10 +543,10 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                     topRight: Radius.circular(12.0),
                   ),
                   child: imageUrl != null
-                      ? _buildImageFromUrl(imageUrl)
+                      ? _buildImageFromUrl(imageUrl, height: imageHeight)
                       : Container(
                           width: double.infinity,
-                          height: 140, // Increased height for better visibility
+                          height: imageHeight,
                           color: Colors.grey[200],
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -628,7 +664,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     );
   }
 
-  Widget _buildImageFromUrl(String url) {
+  Widget _buildImageFromUrl(String url, {double height = 140.0}) {
     // Check if this is a data URL
     if (url.startsWith('data:image/')) {
       try {
@@ -636,12 +672,12 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
         return Image.memory(
           bytes,
           width: double.infinity,
-          height: 140,
+          height: height,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return Container(
               width: double.infinity,
-              height: 140,
+              height: height,
               color: Colors.grey[200],
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -666,7 +702,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
         }
         return Container(
           width: double.infinity,
-          height: 140,
+          height: height,
           color: Colors.grey[200],
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -690,12 +726,12 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       return Image.asset(
         url,
         width: double.infinity,
-        height: 140,
+        height: height,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return Container(
             width: double.infinity,
-            height: 140,
+            height: height,
             color: Colors.grey[200],
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -718,12 +754,12 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       return Image.network(
         url,
         width: double.infinity,
-        height: 140,
+        height: height,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return Container(
             width: double.infinity,
-            height: 140,
+            height: height,
             color: Colors.grey[200],
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -745,7 +781,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
           if (loadingProgress == null) return child;
           return Container(
             width: double.infinity,
-            height: 140,
+            height: height,
             color: Colors.grey[200],
             child: Center(
               child: CircularProgressIndicator(

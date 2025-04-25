@@ -216,10 +216,15 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  // Helper method to detect if the current device is mobile
+  // Helper method to detect if the current device is mobile or tablet
   bool _isMobileDevice(BuildContext context) {
     final MediaQueryData mediaQuery = MediaQuery.of(context);
-    return mediaQuery.size.width < 600; // Common breakpoint for mobile devices
+    // Increased breakpoint to include tablets (up to 1024px is common for tablets)
+    // - Mobile phones: < 600px
+    // - Small tablets: 600px-900px
+    // - Large tablets: 900px-1024px
+    // - Desktop/Web: > 1024px
+    return mediaQuery.size.width <= 1024;
   }
 }
 

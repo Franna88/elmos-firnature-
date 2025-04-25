@@ -140,6 +140,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final bool isTablet = size.width > 600;
 
     if (_isLoading) {
       return Scaffold(
@@ -200,380 +201,298 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                 context.go('/mobile/editor/${widget.sopId}');
               },
             ),
-          // Add Play Video button if SOP has a YouTube URL
-          if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: TextButton.icon(
-                onPressed: _launchYoutubeVideo,
-                icon: const Icon(Icons.play_circle_fill, color: Colors.red),
-                label: const Text(
-                  'Play Video',
+        ],
+      ),
+      body: Column(
+        children: [
+          // Title section with fade-in animation for QR scans
+          AnimatedOpacity(
+            opacity: _isFromQRScan ? _animationController.value : 1.0,
+            duration: const Duration(milliseconds: 500),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 24.0 : 16.0,
+                vertical: isTablet ? 20.0 : 16.0,
+              ),
+              color: Colors.red[800],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    _sop.title,
+                    style: TextStyle(
+                      fontSize: isTablet ? 26.0 : 22.0,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Description
+                  Text(
+                    _sop.description,
+                    style: TextStyle(
+                      fontSize: isTablet ? 16.0 : 14.0,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // YouTube button if available
+                  if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
+                    ElevatedButton.icon(
+                      onPressed: _launchYoutubeVideo,
+                      icon: const Icon(Icons.play_circle_fill),
+                      label: const Text('Watch Video Tutorial'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.red[800],
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isTablet ? 16.0 : 12.0,
+                          vertical: isTablet ? 12.0 : 8.0,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          // Steps navigation row
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 16.0 : 8.0,
+              vertical: 8.0,
+            ),
+            color: Colors.grey[200],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Previous button
+                _currentStepIndex > 0
+                    ? IconButton(
+                        icon: const Icon(Icons.arrow_back_ios),
+                        onPressed: () {
+                          _pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      )
+                    : const SizedBox(width: 48),
+
+                // Step indicator
+                Text(
+                  'Step ${_currentStepIndex + 1} of ${_sop.steps.length}',
                   style: TextStyle(
-                    color: Colors.white,
                     fontWeight: FontWeight.bold,
+                    fontSize: isTablet ? 18.0 : 16.0,
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.red.shade800,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+
+                // Next button
+                _currentStepIndex < _sop.steps.length - 1
+                    ? IconButton(
+                        icon: const Icon(Icons.arrow_forward_ios),
+                        onPressed: () {
+                          _pageController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      )
+                    : const SizedBox(width: 48),
+              ],
             ),
-          if (_isAnonymousAccess)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Chip(
-                backgroundColor: Colors.blue,
-                label: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.public, color: Colors.white, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      'Public View',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-          if (_isFromQRScan)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Chip(
-                backgroundColor: Colors.green,
-                label: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.qr_code_scanner, color: Colors.white, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      'QR',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showSOPInfoDialog(context),
+          ),
+
+          // Main content with steps
+          Expanded(
+            child:
+                isTablet ? _buildTabletStepContent() : _buildPhoneStepContent(),
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Column(
+    );
+  }
+
+  // Tablet-optimized step content with side-by-side layout
+  Widget _buildTabletStepContent() {
+    return PageView.builder(
+      controller: _pageController,
+      itemCount: _sop.steps.length,
+      onPageChanged: (index) {
+        setState(() {
+          _currentStepIndex = index;
+        });
+      },
+      itemBuilder: (context, index) {
+        final step = _sop.steps[index];
+
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Display login banner for anonymous users
-              if (_isAnonymousAccess)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  color: Colors.blue.shade50,
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline,
-                          color: Colors.blue, size: 20),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'You\'re viewing this SOP in public mode. Sign in to access all features.',
-                          style: TextStyle(fontSize: 13),
+              // Image section (left side)
+              Expanded(
+                flex: 5,
+                child: step.imageUrl != null
+                    ? Column(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12.0),
+                              child: _buildStepImage(step.imageUrl!),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.image_not_supported,
+                              size: 80,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "No Image Available",
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      TextButton(
-                        onPressed: () => context.go('/login'),
-                        child: const Text('LOGIN'),
-                        style: TextButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          textStyle: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(width: 32.0),
+
+              // Instructions section (right side)
+              Expanded(
+                flex: 5,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        step.title,
+                        style: const TextStyle(
+                          fontSize: 22.0,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        step.instruction,
+                        style: const TextStyle(
+                          fontSize: 18.0,
+                          height: 1.5,
+                          color: Colors.black87,
                         ),
                       ),
                     ],
                   ),
                 ),
-
-              // Progress indicator
-              LinearProgressIndicator(
-                value: (_currentStepIndex + 1) / _sop.steps.length,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary),
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-              // Step counter
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Step ${_currentStepIndex + 1} of ${_sop.steps.length}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16.0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+  // Phone-optimized step content with vertical layout
+  Widget _buildPhoneStepContent() {
+    return PageView.builder(
+      controller: _pageController,
+      itemCount: _sop.steps.length,
+      onPageChanged: (index) {
+        setState(() {
+          _currentStepIndex = index;
+        });
+      },
+      itemBuilder: (context, index) {
+        final step = _sop.steps[index];
 
-              // Main content
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _sop.steps.length,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentStepIndex = index;
-                    });
-                  },
-                  itemBuilder: (context, index) {
-                    final step = _sop.steps[index];
-                    return _buildStepCard(step, index + 1);
-                  },
-                ),
-              ),
-
-              // Navigation buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _currentStepIndex > 0
-                          ? () {
-                              _pageController.previousPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          : null,
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Previous'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[300],
-                        foregroundColor: Colors.black87,
-                        disabledBackgroundColor: Colors.grey[200],
-                        disabledForegroundColor: Colors.grey[400],
-                      ),
-                    ),
-                    _currentStepIndex == _sop.steps.length - 1
-                        ? ElevatedButton.icon(
-                            onPressed: () {
-                              // Show completion message and return to SOPs screen or login
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('SOP completed successfully!'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                              _navigateBack();
-                            },
-                            icon: const Icon(Icons.check_circle),
-                            label: const Text('Complete'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                            ),
-                          )
-                        : ElevatedButton.icon(
-                            onPressed: _currentStepIndex < _sop.steps.length - 1
-                                ? () {
-                                    _pageController.nextPage(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  }
-                                : null,
-                            icon: const Icon(Icons.arrow_forward),
-                            label: const Text('Next'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: Colors.grey[200],
-                              disabledForegroundColor: Colors.grey[400],
-                            ),
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Step image
+              if (step.imageUrl != null)
+                SizedBox(
+                  width: double.infinity,
+                  height: 240,
+                  child: _buildStepImage(step.imageUrl!),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  height: 200,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.image_not_supported,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No Image Available",
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Step content
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Step title
+                    Text(
+                      step.title,
+                      style: const TextStyle(
+                        fontSize: 20.0,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Step description
+                    Text(
+                      step.instruction,
+                      style: const TextStyle(
+                        fontSize: 16.0,
+                        height: 1.5,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-
-          // QR code scan animation overlay
-          if (_isFromQRScan)
-            AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, child) {
-                // Show a fading overlay when the SOP is first loaded from QR
-                return _animationController.value < 1.0
-                    ? Positioned.fill(
-                        child: Container(
-                          color: Colors.green.withOpacity(
-                              0.3 * (1 - _animationController.value)),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.qr_code_scanner,
-                                  size: 100 *
-                                      (1 - _animationController.value * 0.8),
-                                  color: Colors.white,
-                                ),
-                                SizedBox(
-                                    height: 16 *
-                                        (1 - _animationController.value * 0.5)),
-                                Text(
-                                  'SOP Loaded Successfully',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20 *
-                                        (1 - _animationController.value * 0.5),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink();
-              },
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildStepCard(SOPStep step, int stepNumber) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Step title
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12.0),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    "$stepNumber",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    step.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Step image
-          if (step.imageUrl != null && step.imageUrl!.isNotEmpty)
-            Container(
-              width: double.infinity,
-              height: 200,
-              margin: const EdgeInsets.only(bottom: 16),
-              child: _buildImage(step.imageUrl!),
-            ),
-
-          // Instructions
-          const Text(
-            'Instructions:',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            step.instruction,
-            style: const TextStyle(fontSize: 15),
-          ),
-          const SizedBox(height: 24),
-
-          // Help Note (if available)
-          if (step.helpNote != null && step.helpNote!.isNotEmpty) ...[
-            const Text(
-              'Help Note:',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.yellow[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.yellow[700]!),
-              ),
-              child: Text(
-                step.helpNote!,
-                style: const TextStyle(fontSize: 15),
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImage(String imageUrl) {
+  Widget _buildStepImage(String imageUrl) {
     // Check if this is a data URL
     if (imageUrl.startsWith('data:image/')) {
       try {
