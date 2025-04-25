@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
+import '../../../data/models/category_model.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
@@ -39,14 +40,27 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
   // Current section of the SOP being edited
   int _currentSection = 0;
-  // Section titles
-  final List<String> _sectionTitles = [
+  // Section titles - these will be updated based on category settings
+  List<String> _sectionTitles = [
     'Basic Information',
     'Tools',
     'Safety Requirements',
     'Cautions',
     'Steps'
   ];
+
+  // Store section visibility based on category settings
+  Map<String, bool> _sectionVisibility = {
+    'tools': true,
+    'safety': true,
+    'cautions': true,
+  };
+
+  // Store custom sections from selected category
+  List<String> _customSections = [];
+
+  // Store custom section contents
+  Map<String, List<String>> _customSectionContent = {};
 
   // Form controllers
   late TextEditingController _titleController;
@@ -137,6 +151,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 _sopTools = [];
                 _sopSafetyRequirements = [];
                 _sopCautions = [];
+                _customSectionContent = {};
                 _thumbnailUrl =
                     null; // Initialize thumbnail URL to null for new SOPs
                 _youtubeUrl =
@@ -163,10 +178,14 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         _sopTools = List.from(_sop.tools);
         _sopSafetyRequirements = List.from(_sop.safetyRequirements);
         _sopCautions = List.from(_sop.cautions);
+        _customSectionContent = Map.from(_sop.customSectionContent);
         _thumbnailUrl =
             _sop.thumbnailUrl; // Initialize thumbnail URL from existing SOP
         _youtubeUrl =
             _sop.youtubeUrl; // Initialize YouTube URL from existing SOP
+
+        // Update sections for selected category
+        _updateSectionsForCategory(_sop.categoryId);
       }
 
       // Initialize controllers
@@ -196,41 +215,37 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
   /// Validates the current section's fields
   bool _validateCurrentSection() {
-    switch (_currentSection) {
-      case 0: // General Info
-        if (_titleController.text.isEmpty ||
-            _descriptionController.text.isEmpty ||
-            _sop.categoryId.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please fill all required fields in General Info'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return false;
-        }
-        break;
-      case 1: // Tools
-        // Tools are optional, no validation required
-        break;
-      case 2: // Safety Requirements
-        // Safety requirements are optional, no validation required
-        break;
-      case 3: // Cautions
-        // Cautions are optional, no validation required
-        break;
-      case 4: // Steps
-        if (_sop.steps.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please add at least one step'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return false;
-        }
-        break;
+    // Basic Information is always the first section
+    if (_currentSection == 0) {
+      if (_titleController.text.isEmpty ||
+          _descriptionController.text.isEmpty ||
+          _sop.categoryId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill all required fields in General Info'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+      return true;
     }
+
+    // Steps is always the last section
+    if (_currentSection == _sectionTitles.length - 1) {
+      if (_sop.steps.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please add at least one step'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+      return true;
+    }
+
+    // For all other sections (standard and custom), no validation is required as they're optional
     return true;
   }
 
@@ -249,6 +264,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         youtubeUrl: _youtubeUrlController.text.isEmpty
             ? null
             : _youtubeUrlController.text,
+        customSectionContent: _customSectionContent,
       );
     });
     // Return a completed future to allow chaining
@@ -795,20 +811,128 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
   // Method to build the content for the current section
   Widget _buildCurrentSectionContent() {
-    switch (_currentSection) {
-      case 0:
-        return _buildBasicInfoSection();
-      case 1:
-        return _buildToolsSection();
-      case 2:
-        return _buildSafetyRequirementsSection();
-      case 3:
-        return _buildCautionsSection();
-      case 4:
-        return _buildStepsSection();
-      default:
-        return const Center(child: Text('Unknown section'));
+    // Basic Information is always the first section
+    if (_currentSection == 0) {
+      return _buildBasicInfoSection();
     }
+
+    // Steps is always the last section
+    if (_currentSection == _sectionTitles.length - 1) {
+      return _buildStepsSection();
+    }
+
+    // Handle standard sections
+    final sectionTitle = _sectionTitles[_currentSection];
+
+    if (sectionTitle == 'Tools') {
+      return _buildToolsSection();
+    } else if (sectionTitle == 'Safety Requirements') {
+      return _buildSafetyRequirementsSection();
+    } else if (sectionTitle == 'Cautions') {
+      return _buildCautionsSection();
+    }
+
+    // If not a standard section, it must be a custom section
+    return _buildCustomSection(sectionTitle);
+  }
+
+  // Method to build a custom section UI
+  Widget _buildCustomSection(String sectionTitle) {
+    final TextEditingController itemController = TextEditingController();
+    final FocusNode itemFocusNode = FocusNode();
+
+    // Ensure section exists in content map
+    if (!_customSectionContent.containsKey(sectionTitle)) {
+      _customSectionContent[sectionTitle] = [];
+    }
+
+    List<String> sectionItems = _customSectionContent[sectionTitle] ?? [];
+
+    // Request focus when this section is built
+    Future.microtask(() => itemFocusNode.requestFocus());
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add items for "$sectionTitle" section (Optional)',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: itemController,
+                  focusNode: itemFocusNode,
+                  decoration: InputDecoration(
+                    labelText: 'Add $sectionTitle item',
+                    border: const OutlineInputBorder(),
+                    hintText: 'E.g., Required item or information',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add_circle),
+                color: Theme.of(context).primaryColor,
+                onPressed: () {
+                  if (itemController.text.isNotEmpty) {
+                    setState(() {
+                      if (!sectionItems.contains(itemController.text)) {
+                        sectionItems.add(itemController.text);
+                        _customSectionContent[sectionTitle] = sectionItems;
+                      }
+                    });
+                    itemController.clear();
+                    itemFocusNode.requestFocus();
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+          Text(
+            '$sectionTitle items added:',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: sectionItems.isEmpty
+                ? Center(
+                    child: Text(
+                      'No $sectionTitle items added yet. Add some using the field above.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: sectionItems.length,
+                    itemBuilder: (context, index) {
+                      final item = sectionItems[index];
+                      return _buildItemChip(
+                        item,
+                        onDelete: () {
+                          setState(() {
+                            sectionItems.remove(item);
+                            _customSectionContent[sectionTitle] = sectionItems;
+                          });
+                        },
+                        color: Colors.purple,
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 
   // SOP Build Step 1: Basic Information
@@ -1002,6 +1126,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                   setState(() {
                     _sop = _sop.copyWith(categoryId: value);
                   });
+
+                  // Update sections based on the selected category
+                  _updateSectionsForCategory(value);
                 }
               },
             ),
@@ -2226,6 +2353,80 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               size: height != null ? height / 4 : 48, color: Colors.grey),
         ),
       );
+    }
+  }
+
+  /// Updates the sections based on selected category
+  void _updateSectionsForCategory(String categoryId) {
+    final categoryService =
+        Provider.of<CategoryService>(context, listen: false);
+    final selectedCategory = categoryService.categories.firstWhere(
+      (cat) => cat.id == categoryId,
+      orElse: () => Category(
+        id: '',
+        name: '',
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    if (selectedCategory.id.isEmpty) return;
+
+    // Update section visibility based on category settings
+    setState(() {
+      // Reset section visibility to defaults
+      _sectionVisibility = {
+        'tools': true,
+        'safety': true,
+        'cautions': true,
+      };
+
+      // Apply category-specific settings
+      _sectionVisibility.addAll({
+        'tools': selectedCategory.categorySettings['tools'] ?? true,
+        'safety': selectedCategory.categorySettings['safety'] ?? true,
+        'cautions': selectedCategory.categorySettings['cautions'] ?? true,
+      });
+
+      // Update custom sections
+      _customSections = List.from(selectedCategory.customSections);
+
+      // Initialize or update custom section content
+      for (final section in _customSections) {
+        if (!_customSectionContent.containsKey(section)) {
+          _customSectionContent[section] = [];
+        }
+      }
+
+      // Rebuild section titles list
+      _rebuildSectionTitles();
+    });
+  }
+
+  /// Rebuilds the section titles list based on visibility settings
+  void _rebuildSectionTitles() {
+    _sectionTitles = ['Basic Information'];
+
+    if (_sectionVisibility['tools'] == true) {
+      _sectionTitles.add('Tools');
+    }
+
+    if (_sectionVisibility['safety'] == true) {
+      _sectionTitles.add('Safety Requirements');
+    }
+
+    if (_sectionVisibility['cautions'] == true) {
+      _sectionTitles.add('Cautions');
+    }
+
+    // Add custom sections
+    _sectionTitles.addAll(_customSections);
+
+    // Steps is always the last section
+    _sectionTitles.add('Steps');
+
+    // Ensure current section index is valid
+    if (_currentSection >= _sectionTitles.length) {
+      _currentSection = 0;
     }
   }
 }
