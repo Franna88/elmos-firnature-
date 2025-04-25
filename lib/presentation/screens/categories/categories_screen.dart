@@ -4,6 +4,7 @@ import '../../../data/services/sop_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../data/models/category_model.dart';
+import '../../../data/models/section_suggestion.dart';
 import '../../widgets/app_scaffold.dart';
 import 'package:go_router/go_router.dart';
 
@@ -184,11 +185,135 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                 ),
                 // Settings/gear icon for category settings
-                IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white),
-                  tooltip: 'Category Settings',
-                  onPressed: () =>
-                      _showCategorySettingsDialog(context, category),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  tooltip: 'Category Options',
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showCategorySettingsDialog(context, category);
+                    } else if (value == 'delete') {
+                      // Get SOPs for this category to check if it's in use
+                      final sopService =
+                          Provider.of<SOPService>(context, listen: false);
+                      final categorySOPs = sopService.sops
+                          .where((sop) => sop.categoryId == category.id)
+                          .toList();
+
+                      final hasSOPs = categorySOPs.isNotEmpty;
+
+                      // Show confirmation dialog before deleting
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: const Text('Delete Category'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    'Are you sure you want to delete the category "${category.name}"?'),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'This action cannot be undone.',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                if (hasSOPs) ...[
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                          color: Colors.amber.shade800),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.warning_amber,
+                                                color: Colors.amber.shade800),
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              'Warning',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                            'This category contains ${categorySOPs.length} SOP${categorySOPs.length == 1 ? '' : 's'}. '
+                                            'Deleting this category will remove the category assignment from these SOPs.'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('CANCEL'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  final categoryService =
+                                      Provider.of<CategoryService>(context,
+                                          listen: false);
+
+                                  // First dismiss the confirmation dialog
+                                  Navigator.pop(context);
+
+                                  // Delete the category
+                                  categoryService.deleteCategory(category.id);
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Category "${category.name}" deleted'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('DELETE'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 18),
+                          SizedBox(width: 8),
+                          Text('Edit Category'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red, size: 18),
+                          SizedBox(width: 8),
+                          Text('Delete Category',
+                              style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -450,119 +575,366 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void _showAddCategoryDialog(BuildContext context) {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController descriptionController = TextEditingController();
-    String selectedColor = '#4682B4'; // Default Steel Blue color
+    final TextEditingController customSectionController =
+        TextEditingController();
+    String selectedColor = '#4682B4'; // Default color
+    Map<String, bool> categorySettings = {};
+    List<String> customSections = [];
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setState) {
-        return AlertDialog(
-          title: const Text('Add New Category'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Category Name',
-                    hintText: 'Enter category name',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (Optional)',
-                    hintText: 'Describe this category',
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 24),
-                const Text('Category Color:'),
-                const SizedBox(height: 8),
-                // Basic color choices
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 600,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildColorChoice('#4682B4', 'Steel Blue', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#CD853F', 'Peru (Brown)', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#2E8B57', 'Sea Green', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#8B4513', 'Brown', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#4169E1', 'Royal Blue', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#800000', 'Maroon', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#9370DB', 'Medium Purple', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice(
-                        '#3CB371', 'Medium Sea Green', selectedColor, (color) {
-                      setState(() => selectedColor = color);
-                    }),
+                    Text(
+                      'Create Category',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Category Name',
+                        hintText: 'Enter a name for the category',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (Optional)',
+                        hintText: 'Enter a description for the category',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Category Color:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+
+                    // Use GridView instead of Wrap for consistent layout
+                    GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      childAspectRatio: 0.9,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        _buildColorChoice(
+                            '#4682B4', 'Steel Blue', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#CD853F', 'Peru (Brown)', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice('#2E8B57', 'Sea Green', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice('#8B4513', 'Brown', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#4169E1', 'Royal Blue', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice('#800000', 'Maroon', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#9370DB', 'Medium Purple', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#3CB371', 'Medium Sea Green', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+                    // Section toggles
+                    const Text('Standard Sections:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+
+                    const CheckboxListTile(
+                      title: Text('Steps Section'),
+                      subtitle: Text('Steps are always required'),
+                      value: true,
+                      onChanged: null, // Disabled - always required
+                    ),
+
+                    const SizedBox(height: 24),
+                    // Custom sections
+                    const Text('Custom Sections:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Add custom sections specific to this category:',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // List of selected custom sections
+                    if (customSections.isNotEmpty) ...[
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: customSections.length,
+                        itemBuilder: (context, index) {
+                          return ListTile(
+                            dense: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            title: Text(customSections[index]),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                setState(() {
+                                  customSections.removeAt(index);
+                                });
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Add new custom section
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: customSectionController,
+                            decoration: const InputDecoration(
+                              labelText: 'New Custom Section',
+                              hintText: 'Enter section name',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle),
+                          color: Theme.of(context).primaryColor,
+                          onPressed: () {
+                            final newSection =
+                                customSectionController.text.trim();
+                            if (newSection.isNotEmpty &&
+                                !customSections.contains(newSection)) {
+                              setState(() {
+                                customSections.add(newSection);
+                                customSectionController.clear();
+                              });
+                            } else if (customSections.contains(newSection)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('This section already exists'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Section suggestions
+                    const Text(
+                      'Suggested Sections:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Instead of using Wrap, let's use a more stable GridView for suggestions
+                    Builder(
+                      builder: (context) {
+                        final suggestions =
+                            commonSectionSuggestions.where((suggestion) {
+                          // Case insensitive check for existing sections
+                          final sectionNameLower =
+                              suggestion.name.toLowerCase();
+                          final hasCustomSection = customSections
+                              .any((s) => s.toLowerCase() == sectionNameLower);
+
+                          // Only filter out Steps and existing custom sections
+                          return !hasCustomSection &&
+                              suggestion.name != 'Steps';
+                        }).toList();
+
+                        if (suggestions.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.only(bottom: 8.0),
+                            child: Text(
+                              'No additional suggestions available',
+                              style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: suggestions.map((suggestion) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: InkWell(
+                                  onTap: () {
+                                    final sectionName = suggestion.name;
+                                    final sectionNameLower =
+                                        sectionName.toLowerCase();
+                                    final isDuplicate = customSections.any(
+                                        (s) =>
+                                            s.toLowerCase() ==
+                                            sectionNameLower);
+
+                                    if (!isDuplicate) {
+                                      setState(() {
+                                        customSections.add(sectionName);
+                                      });
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(4.0),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 6.0, horizontal: 8.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.add_circle_outline,
+                                            size: 16),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                suggestion.name,
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                              Text(
+                                                suggestion.description,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // Add back the action buttons
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('CANCEL'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            // Validate input
+                            if (nameController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text('Please enter a category name')),
+                              );
+                              return;
+                            }
+
+                            // Create the category
+                            final categoryService =
+                                Provider.of<CategoryService>(context,
+                                    listen: false);
+
+                            // Make sure 'steps' is always included in settings
+                            categorySettings['steps'] = true;
+
+                            // Filter out any empty section names
+                            final List<String> validSections = customSections
+                                .where((section) => section.trim().isNotEmpty)
+                                .toList();
+
+                            // Create the category with all settings in one go
+                            await categoryService.createCategory(
+                              nameController.text.trim(),
+                              description:
+                                  descriptionController.text.trim().isNotEmpty
+                                      ? descriptionController.text.trim()
+                                      : null,
+                              color: selectedColor,
+                              categorySettings: categorySettings,
+                              customSections: validSections,
+                            );
+
+                            Navigator.pop(context);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Category "${nameController.text.trim()}" created'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
+                          child: const Text('CREATE'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                // Validate input
-                if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Please enter a category name')),
-                  );
-                  return;
-                }
-
-                // Create the category
-                final categoryService =
-                    Provider.of<CategoryService>(context, listen: false);
-                categoryService.createCategory(
-                  nameController.text.trim(),
-                  description: descriptionController.text.trim().isNotEmpty
-                      ? descriptionController.text.trim()
-                      : null,
-                  color: selectedColor,
-                );
-
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Category "${nameController.text.trim()}" created'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text('CREATE'),
-            ),
-          ],
         );
       }),
     );
@@ -577,7 +949,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return InkWell(
       onTap: () => onSelect(colorCode),
       child: Container(
-        width: 70,
+        width: 80,
+        height: 90,
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.2),
@@ -585,13 +958,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             color: isSelected ? color : Colors.transparent,
             width: 2,
           ),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 24,
-              height: 24,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -599,15 +973,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               ),
               child: isSelected
                   ? const Center(
-                      child: Icon(Icons.check, color: Colors.white, size: 16),
+                      child: Icon(Icons.check, color: Colors.white, size: 20),
                     )
                   : null,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
               name,
-              style: TextStyle(fontSize: 10, color: Colors.black87),
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -620,139 +996,519 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     Map<String, bool> settings = Map.from(category.categorySettings);
     // Initialize with the current color
     String selectedColor = category.color ?? '#4682B4';
+    // Create a mutable copy of the custom sections
+    List<String> customSections = List.from(category.customSections);
+    // Text controller for adding new custom sections
+    final TextEditingController customSectionController =
+        TextEditingController();
+    // Text controller for editing category name
+    final TextEditingController nameController =
+        TextEditingController(text: category.name);
+    // Text controller for editing category description
+    final TextEditingController descriptionController =
+        TextEditingController(text: category.description ?? '');
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setState) {
-        return AlertDialog(
-          title: Text('Category Settings: ${category.name}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Configure which sections are required for SOPs in this category:',
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                // Color selector
-                const Text('Category Color:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-
-                // Color picker
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 600,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildColorChoice('#4682B4', 'Steel Blue', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#CD853F', 'Peru (Brown)', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#2E8B57', 'Sea Green', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#8B4513', 'Brown', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#4169E1', 'Royal Blue', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#800000', 'Maroon', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice('#9370DB', 'Medium Purple', selectedColor,
-                        (color) {
-                      setState(() => selectedColor = color);
-                    }),
-                    _buildColorChoice(
-                        '#3CB371', 'Medium Sea Green', selectedColor, (color) {
-                      setState(() => selectedColor = color);
-                    }),
+                    Text(
+                      'Category Settings',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Category Name and Description
+                    const Text('Basic Information:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Category Name',
+                        hintText: 'Enter category name',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (Optional)',
+                        hintText: 'Enter category description',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Color selector
+                    const Text('Category Color:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+
+                    // Use GridView instead of Wrap for consistent layout
+                    GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      childAspectRatio: 0.9,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        _buildColorChoice(
+                            '#4682B4', 'Steel Blue', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#CD853F', 'Peru (Brown)', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice('#2E8B57', 'Sea Green', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice('#8B4513', 'Brown', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#4169E1', 'Royal Blue', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice('#800000', 'Maroon', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#9370DB', 'Medium Purple', selectedColor, (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                        _buildColorChoice(
+                            '#3CB371', 'Medium Sea Green', selectedColor,
+                            (color) {
+                          setState(() => selectedColor = color);
+                        }),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+                    // Section toggles
+                    const Text('Standard Sections:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Only Steps section is required by default:',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+
+                    const CheckboxListTile(
+                      title: Text('Steps Section'),
+                      subtitle: Text('Steps are always required'),
+                      value: true,
+                      onChanged: null, // Disabled - always required
+                    ),
+
+                    const SizedBox(height: 24),
+                    // Custom sections
+                    const Text('Custom Sections:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Add custom sections specific to this category:',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // List of existing custom sections with delete buttons
+                    if (customSections.isNotEmpty) ...[
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: customSections.length,
+                        itemBuilder: (context, index) {
+                          return ListTile(
+                            dense: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            title: Text(customSections[index]),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                setState(() {
+                                  customSections.removeAt(index);
+                                });
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Add new custom section
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: customSectionController,
+                            decoration: const InputDecoration(
+                              labelText: 'New Custom Section',
+                              hintText: 'Enter section name',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle),
+                          color: Theme.of(context).primaryColor,
+                          onPressed: () {
+                            final newSection =
+                                customSectionController.text.trim();
+                            if (newSection.isNotEmpty &&
+                                !customSections.contains(newSection)) {
+                              setState(() {
+                                customSections.add(newSection);
+                                customSectionController.clear();
+                              });
+                            } else if (customSections.contains(newSection)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('This section already exists'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Section suggestions
+                    const Text(
+                      'Suggested Sections:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Instead of using Wrap, let's use a more stable GridView for suggestions
+                    Builder(
+                      builder: (context) {
+                        final suggestions =
+                            commonSectionSuggestions.where((suggestion) {
+                          // Case insensitive check for existing sections
+                          final sectionNameLower =
+                              suggestion.name.toLowerCase();
+                          final hasCustomSection = customSections
+                              .any((s) => s.toLowerCase() == sectionNameLower);
+
+                          // Only filter out Steps and existing custom sections
+                          return !hasCustomSection &&
+                              suggestion.name != 'Steps';
+                        }).toList();
+
+                        if (suggestions.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.only(bottom: 8.0),
+                            child: Text(
+                              'No additional suggestions available',
+                              style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: suggestions.map((suggestion) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: InkWell(
+                                  onTap: () {
+                                    final sectionName = suggestion.name;
+                                    final sectionNameLower =
+                                        sectionName.toLowerCase();
+                                    final isDuplicate = customSections.any(
+                                        (s) =>
+                                            s.toLowerCase() ==
+                                            sectionNameLower);
+
+                                    if (!isDuplicate) {
+                                      setState(() {
+                                        customSections.add(sectionName);
+                                      });
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(4.0),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 6.0, horizontal: 8.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.add_circle_outline,
+                                            size: 16),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                suggestion.name,
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                              Text(
+                                                suggestion.description,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Note: Custom sections will appear as additional tabs when editing SOPs in this category.',
+                      style:
+                          TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+
+                    // Add back the action buttons
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Delete button
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            // Show confirmation dialog before deleting
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                // Get SOPs for this category to check if it's in use
+                                final sopService = Provider.of<SOPService>(
+                                    context,
+                                    listen: false);
+                                final categorySOPs = sopService.sops
+                                    .where(
+                                        (sop) => sop.categoryId == category.id)
+                                    .toList();
+
+                                final hasSOPs = categorySOPs.isNotEmpty;
+
+                                return AlertDialog(
+                                  title: const Text('Delete Category'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                          'Are you sure you want to delete the category "${category.name}"?'),
+                                      const SizedBox(height: 8),
+                                      const Text(
+                                        'This action cannot be undone.',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      if (hasSOPs) ...[
+                                        const SizedBox(height: 16),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade100,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            border: Border.all(
+                                                color: Colors.amber.shade800),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.warning_amber,
+                                                      color: Colors
+                                                          .amber.shade800),
+                                                  const SizedBox(width: 8),
+                                                  const Text(
+                                                    'Warning',
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                  'This category contains ${categorySOPs.length} SOP${categorySOPs.length == 1 ? '' : 's'}. '
+                                                  'Deleting this category will remove the category assignment from these SOPs.'),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('CANCEL'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        final categoryService =
+                                            Provider.of<CategoryService>(
+                                                context,
+                                                listen: false);
+
+                                        // First dismiss the confirmation dialog
+                                        Navigator.pop(context);
+                                        // Then dismiss the settings dialog
+                                        Navigator.pop(context);
+
+                                        // Delete the category
+                                        categoryService
+                                            .deleteCategory(category.id);
+
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Category "${category.name}" deleted'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Text('DELETE'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          icon: const Icon(Icons.delete),
+                          label: const Text('DELETE CATEGORY'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('CANCEL'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                // Validate input
+                                if (nameController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('Category name cannot be empty'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                // Update the category
+                                final categoryService =
+                                    Provider.of<CategoryService>(context,
+                                        listen: false);
+
+                                // Make sure steps is always included
+                                settings['steps'] = true;
+
+                                // Filter out any empty section names
+                                final List<String> validSections =
+                                    customSections
+                                        .where((section) =>
+                                            section.trim().isNotEmpty)
+                                        .toList();
+
+                                final updatedCategory = category.copyWith(
+                                  name: nameController.text.trim(),
+                                  description: descriptionController.text
+                                          .trim()
+                                          .isNotEmpty
+                                      ? descriptionController.text.trim()
+                                      : null,
+                                  categorySettings: settings,
+                                  color: selectedColor,
+                                  customSections: validSections,
+                                );
+
+                                categoryService.updateCategory(updatedCategory);
+                                Navigator.pop(context);
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Category settings updated'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                              child: const Text('SAVE'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-
-                const SizedBox(height: 24),
-                // Section toggles
-                const Text('Required Sections:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  title: const Text('Tools Section'),
-                  subtitle: const Text('Enable tools requirement for SOPs'),
-                  value: settings['tools'] ?? true,
-                  onChanged: (value) {
-                    setState(() {
-                      settings['tools'] = value ?? true;
-                    });
-                  },
-                ),
-                CheckboxListTile(
-                  title: const Text('Safety Requirements'),
-                  subtitle: const Text('Enable safety requirements for SOPs'),
-                  value: settings['safety'] ?? true,
-                  onChanged: (value) {
-                    setState(() {
-                      settings['safety'] = value ?? true;
-                    });
-                  },
-                ),
-                CheckboxListTile(
-                  title: const Text('Cautions Section'),
-                  subtitle: const Text('Enable cautions for SOPs'),
-                  value: settings['cautions'] ?? true,
-                  onChanged: (value) {
-                    setState(() {
-                      settings['cautions'] = value ?? true;
-                    });
-                  },
-                ),
-                const CheckboxListTile(
-                  title: Text('Steps Section'),
-                  subtitle: Text('Steps are always required'),
-                  value: true,
-                  onChanged: null, // Disabled - always required
-                ),
-              ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                // Update the category
-                final categoryService =
-                    Provider.of<CategoryService>(context, listen: false);
-                final updatedCategory = category.copyWith(
-                  categorySettings: settings,
-                  color: selectedColor,
-                );
-
-                categoryService.updateCategory(updatedCategory);
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Category settings updated'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text('SAVE'),
-            ),
-          ],
         );
       }),
     );

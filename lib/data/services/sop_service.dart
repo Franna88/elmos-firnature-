@@ -264,6 +264,18 @@ class SOPService extends ChangeNotifier {
           }
         }
 
+        // Parse custom section content if exists
+        Map<String, List<String>> customSectionContent = {};
+        if (sopData['customSectionContent'] != null) {
+          final rawContent =
+              sopData['customSectionContent'] as Map<String, dynamic>;
+          rawContent.forEach((key, value) {
+            if (value is List) {
+              customSectionContent[key] = List<String>.from(value);
+            }
+          });
+        }
+
         loadedSOPs.add(SOP(
           id: doc.id,
           title: sopData['title'] ?? '',
@@ -284,6 +296,7 @@ class SOPService extends ChangeNotifier {
           qrCodeUrl: sopData['qrCodeUrl'],
           thumbnailUrl: sopData['thumbnailUrl'],
           youtubeUrl: sopData['youtubeUrl'],
+          customSectionContent: customSectionContent,
         ));
       }
 
@@ -380,6 +393,8 @@ class SOPService extends ChangeNotifier {
         'qrCodeUrl': qrCodeUrl, // Add QR code URL
         'thumbnailUrl': null, // Initialize thumbnail URL as null
         'youtubeUrl': null, // Initialize YouTube URL as null
+        'customSectionContent':
+            {}, // Initialize custom section content as empty
       };
 
       if (kDebugMode) {
@@ -435,6 +450,7 @@ class SOPService extends ChangeNotifier {
       qrCodeUrl: _qrCodeService.generateQRDataForSOP(sopId), // Add QR code URL
       thumbnailUrl: null, // Initialize with no thumbnail
       youtubeUrl: null, // No YouTube video initially
+      customSectionContent: {}, // Initialize custom section content as empty
     );
 
     // Add to the local list
@@ -529,6 +545,8 @@ class SOPService extends ChangeNotifier {
         'thumbnailUrl': updatedSop.thumbnailUrl, // Add thumbnail URL
         'youtubeUrl': updatedSop.youtubeUrl, // Add YouTube URL
         'steps': stepsData, // Store steps directly in the document
+        'customSectionContent':
+            updatedSop.customSectionContent, // Add custom section content
       };
 
       await _firestore!.collection('sops').doc(updatedSop.id).update(sopData);
@@ -705,6 +723,7 @@ class SOPService extends ChangeNotifier {
       qrCodeUrl: qrCodeUrl, // QR code for the SOP access
       thumbnailUrl: null, // No thumbnail initially
       youtubeUrl: null, // No YouTube video initially
+      customSectionContent: {}, // Initialize custom section content as empty
     );
 
     // Store in local changes
@@ -808,6 +827,8 @@ class SOPService extends ChangeNotifier {
         'thumbnailUrl': processedSop.thumbnailUrl,
         'youtubeUrl': processedSop.youtubeUrl,
         'steps': stepsData,
+        'customSectionContent':
+            processedSop.customSectionContent, // Add custom section content
       };
 
       // If this is a new document, let Firestore generate an ID

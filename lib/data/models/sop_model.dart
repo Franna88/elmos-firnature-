@@ -15,6 +15,7 @@ class SOP {
   final String? qrCodeUrl;
   final String? thumbnailUrl;
   final String? youtubeUrl;
+  final Map<String, List<String>> customSectionContent;
 
   SOP({
     required this.id,
@@ -33,7 +34,8 @@ class SOP {
     this.qrCodeUrl,
     this.thumbnailUrl,
     this.youtubeUrl,
-  });
+    Map<String, List<String>>? customSectionContent,
+  }) : customSectionContent = customSectionContent ?? {};
 
   SOP copyWith({
     String? id,
@@ -52,6 +54,7 @@ class SOP {
     String? qrCodeUrl,
     String? thumbnailUrl,
     String? youtubeUrl,
+    Map<String, List<String>>? customSectionContent,
   }) {
     return SOP(
       id: id ?? this.id,
@@ -70,6 +73,7 @@ class SOP {
       qrCodeUrl: qrCodeUrl ?? this.qrCodeUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       youtubeUrl: youtubeUrl ?? this.youtubeUrl,
+      customSectionContent: customSectionContent ?? this.customSectionContent,
     );
   }
 }

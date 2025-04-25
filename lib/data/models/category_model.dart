@@ -4,8 +4,8 @@ class Category {
   final String? description;
   final String? color; // optional color code for the category
   final DateTime createdAt;
-  final Map<String, bool>
-      categorySettings; // Store section requirements (tools, safety, cautions, etc.)
+  final Map<String, bool> categorySettings; // Store section requirements
+  final List<String> customSections; // New: Store custom section names
 
   Category({
     required this.id,
@@ -14,13 +14,9 @@ class Category {
     this.color,
     required this.createdAt,
     Map<String, bool>? categorySettings,
-  }) : categorySettings = categorySettings ??
-            {
-              'tools': true,
-              'safety': true,
-              'cautions': true,
-              'steps': true, // Steps are always required
-            };
+    List<String>? customSections,
+  })  : categorySettings = categorySettings ?? {},
+        customSections = customSections ?? [];
 
   Category copyWith({
     String? id,
@@ -29,6 +25,7 @@ class Category {
     String? color,
     DateTime? createdAt,
     Map<String, bool>? categorySettings,
+    List<String>? customSections,
   }) {
     return Category(
       id: id ?? this.id,
@@ -37,29 +34,36 @@ class Category {
       color: color ?? this.color,
       createdAt: createdAt ?? this.createdAt,
       categorySettings: categorySettings ?? this.categorySettings,
+      customSections: customSections ?? this.customSections,
     );
   }
 
   // Convert Category to a Map for Firestore
   Map<String, dynamic> toMap() {
+    // Ensure steps is always included in settings
+    final Map<String, bool> settings = {'steps': true};
+
+    // Keep only steps and any non-standard sections
+    categorySettings.forEach((key, value) {
+      if (key == 'steps' || !['tools', 'safety', 'cautions'].contains(key)) {
+        settings[key] = value;
+      }
+    });
+
     return {
       'name': name,
       'description': description,
       'color': color,
       'createdAt': createdAt,
-      'categorySettings': categorySettings,
+      'categorySettings': settings,
+      'customSections': customSections,
     };
   }
 
   // Create a Category from a Firestore document
   factory Category.fromMap(String id, Map<String, dynamic> map) {
     // Parse categorySettings if it exists
-    Map<String, bool> settings = {
-      'tools': true,
-      'safety': true,
-      'cautions': true,
-      'steps': true,
-    };
+    Map<String, bool> settings = {};
 
     if (map['categorySettings'] != null) {
       // Convert from Firestore map to Map<String, bool>
@@ -71,6 +75,12 @@ class Category {
       });
     }
 
+    // Parse customSections if it exists
+    List<String> customSections = [];
+    if (map['customSections'] != null) {
+      customSections = List<String>.from(map['customSections']);
+    }
+
     return Category(
       id: id,
       name: map['name'] ?? '',
@@ -78,6 +88,7 @@ class Category {
       color: map['color'],
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       categorySettings: settings,
+      customSections: customSections,
     );
   }
 }

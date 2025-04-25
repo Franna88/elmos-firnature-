@@ -922,667 +922,23 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
                 // Main content area
                 Expanded(
-                  child: DefaultTabController(
-                    length: 6,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TabBar(
-                          tabs: const [
-                            Tab(text: 'Thumbnail'),
-                            Tab(text: 'Video'),
-                            Tab(text: 'Description'),
-                            Tab(text: 'Tools'),
-                            Tab(text: 'Safety'),
-                            Tab(text: 'Cautions'),
-                          ],
-                          labelColor: Theme.of(context).colorScheme.primary,
-                          indicatorColor: Theme.of(context).colorScheme.primary,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TabBar(
+                        controller: _tabController,
+                        tabs: _tabs,
+                        isScrollable: true,
+                        labelColor: Theme.of(context).colorScheme.primary,
+                        indicatorColor: Theme.of(context).colorScheme.primary,
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: _buildTabViews(),
                         ),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              // Thumbnail Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'SOP Thumbnail',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      'Add an image that represents the end product or result of this SOP',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Center(
-                                      child: Column(
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () =>
-                                                _uploadSOPThumbnail(_sop.id),
-                                            child: Container(
-                                              width: 300,
-                                              height: 200,
-                                              constraints: BoxConstraints(
-                                                maxWidth: MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.8,
-                                                maxHeight: 200,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .outline,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .surfaceContainerLowest,
-                                              ),
-                                              child: _sop.thumbnailUrl != null
-                                                  ? ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              7),
-                                                      child: _displayImage(
-                                                        _sop.thumbnailUrl,
-                                                        fit: BoxFit.cover,
-                                                      ),
-                                                    )
-                                                  : _isLoading
-                                                      ? const Center(
-                                                          child:
-                                                              CircularProgressIndicator(),
-                                                        )
-                                                      : Column(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .center,
-                                                          children: [
-                                                            Icon(
-                                                              Icons
-                                                                  .add_photo_alternate,
-                                                              size: 64,
-                                                              color: Theme.of(
-                                                                      context)
-                                                                  .colorScheme
-                                                                  .outline,
-                                                            ),
-                                                            const SizedBox(
-                                                                height: 8),
-                                                            Text(
-                                                              'Click to add thumbnail',
-                                                              style: TextStyle(
-                                                                color: Theme.of(
-                                                                        context)
-                                                                    .colorScheme
-                                                                    .outline,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          ElevatedButton.icon(
-                                            icon: const Icon(Icons.upload_file),
-                                            label: Text(
-                                                _sop.thumbnailUrl != null
-                                                    ? 'Change Thumbnail'
-                                                    : 'Upload Thumbnail'),
-                                            onPressed: _isLoading
-                                                ? null
-                                                : () => _uploadSOPThumbnail(
-                                                    _sop.id),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Video Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'YouTube Video',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      'Add a YouTube video demonstration for this SOP',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    TextFormField(
-                                      controller: _youtubeUrlController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'YouTube Video URL',
-                                        hintText:
-                                            'https://youtube.com/watch?v=...',
-                                        helperText:
-                                            'Add a YouTube video demonstration link',
-                                        border: OutlineInputBorder(),
-                                        prefixIcon: Icon(Icons.video_library),
-                                      ),
-                                      onChanged: (value) {
-                                        // Force refresh to update QR code if needed
-                                        if (_youtubeUrlController
-                                            .text.isNotEmpty) {
-                                          setState(() {});
-                                        }
-                                        // Update SOP locally with the new YouTube URL
-                                        _updateSOPLocally();
-                                      },
-                                    ),
-                                    if (_youtubeUrlController
-                                        .text.isNotEmpty) ...[
-                                      const SizedBox(height: 24),
-                                      if (!_isValidYoutubeUrl(
-                                          _youtubeUrlController.text))
-                                        const Padding(
-                                          padding:
-                                              EdgeInsets.only(bottom: 16.0),
-                                          child: Text(
-                                            'Please enter a valid YouTube URL',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                        )
-                                      else
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'YouTube Video QR Code',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleSmall,
-                                            ),
-                                            const SizedBox(height: 16.0),
-                                            Center(
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.all(16.0),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                      color: Colors.grey),
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          8.0),
-                                                ),
-                                                child: _generateYouTubeQRCode(),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16.0),
-                                            const Center(
-                                              child: Text(
-                                                'This QR code will be displayed on the printable SOP',
-                                                style: TextStyle(
-                                                  fontStyle: FontStyle.italic,
-                                                  color: Colors.grey,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-
-                              // Description Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'SOP Description',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextFormField(
-                                      controller: _descriptionController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Description',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      maxLines: 5,
-                                    ),
-                                    const SizedBox(height: 24),
-                                    Text(
-                                      'Additional Information',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Card(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text(
-                                                        'Revision:',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      Text(_sop.revisionNumber
-                                                          .toString()),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text(
-                                                        'Created By:',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      Text(_sop.createdBy),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text(
-                                                        'Created:',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      Text(_formatDate(
-                                                          _sop.createdAt)),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text(
-                                                        'Last Updated:',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      Text(_formatDate(
-                                                          _sop.updatedAt)),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    if (_sop.steps.isNotEmpty) ...[
-                                      Text(
-                                        'Step Preview',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      _buildStepPreview(_sop.steps),
-                                    ],
-                                  ],
-                                ),
-                              ),
-
-                              // Tools Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Tools and Equipment',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium,
-                                        ),
-                                        TextButton.icon(
-                                          icon: const Icon(Icons.add, size: 18),
-                                          label: const Text('Add Tool'),
-                                          onPressed: () {
-                                            _showAddItemDialog('Tool', (item) {
-                                              setState(() {
-                                                final updatedTools =
-                                                    List<String>.from(
-                                                        _sop.tools)
-                                                      ..add(item);
-                                                _sop = _sop.copyWith(
-                                                    tools: updatedTools);
-                                              });
-                                            });
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Card(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: _sop.tools.isEmpty
-                                            ? const Center(
-                                                child: Text(
-                                                  'No tools or equipment specified. Add tools to complete your SOP.',
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              )
-                                            : Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  for (int i = 0;
-                                                      i < _sop.tools.length;
-                                                      i++)
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              bottom: 8),
-                                                      child: Row(
-                                                        children: [
-                                                          const Icon(
-                                                              Icons.build,
-                                                              size: 16),
-                                                          const SizedBox(
-                                                              width: 8),
-                                                          Expanded(
-                                                              child: Text(_sop
-                                                                  .tools[i])),
-                                                          IconButton(
-                                                            icon: const Icon(
-                                                                Icons.delete,
-                                                                size: 16),
-                                                            onPressed: () {
-                                                              setState(() {
-                                                                final updatedTools =
-                                                                    List<String>.from(
-                                                                        _sop
-                                                                            .tools)
-                                                                      ..removeAt(
-                                                                          i);
-                                                                _sop = _sop
-                                                                    .copyWith(
-                                                                        tools:
-                                                                            updatedTools);
-                                                              });
-                                                            },
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Safety Requirements Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Safety Requirements',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium,
-                                        ),
-                                        TextButton.icon(
-                                          icon: const Icon(Icons.add, size: 18),
-                                          label: const Text('Add Requirement'),
-                                          onPressed: () {
-                                            _showAddItemDialog(
-                                                'Safety Requirement', (item) {
-                                              setState(() {
-                                                final updatedSafety =
-                                                    List<String>.from(
-                                                        _sop.safetyRequirements)
-                                                      ..add(item);
-                                                _sop = _sop.copyWith(
-                                                    safetyRequirements:
-                                                        updatedSafety);
-                                              });
-                                            });
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Card(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: _sop.safetyRequirements.isEmpty
-                                            ? const Center(
-                                                child: Text(
-                                                  'No safety requirements specified. Add safety requirements to ensure safe operation.',
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              )
-                                            : Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  for (int i = 0;
-                                                      i <
-                                                          _sop.safetyRequirements
-                                                              .length;
-                                                      i++)
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              bottom: 8),
-                                                      child: Row(
-                                                        children: [
-                                                          const Icon(
-                                                              Icons.security,
-                                                              size: 16,
-                                                              color:
-                                                                  Colors.red),
-                                                          const SizedBox(
-                                                              width: 8),
-                                                          Expanded(
-                                                              child: Text(
-                                                                  _sop.safetyRequirements[
-                                                                      i])),
-                                                          IconButton(
-                                                            icon: const Icon(
-                                                                Icons.delete,
-                                                                size: 16),
-                                                            onPressed: () {
-                                                              setState(() {
-                                                                final updatedSafety = List<
-                                                                        String>.from(
-                                                                    _sop.safetyRequirements)
-                                                                  ..removeAt(i);
-                                                                _sop = _sop.copyWith(
-                                                                    safetyRequirements:
-                                                                        updatedSafety);
-                                                              });
-                                                            },
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Cautions Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Cautions and Limitations',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium,
-                                        ),
-                                        TextButton.icon(
-                                          icon: const Icon(Icons.add, size: 18),
-                                          label: const Text('Add Caution'),
-                                          onPressed: () {
-                                            _showAddItemDialog('Caution',
-                                                (item) {
-                                              setState(() {
-                                                final updatedCautions =
-                                                    List<String>.from(
-                                                        _sop.cautions)
-                                                      ..add(item);
-                                                _sop = _sop.copyWith(
-                                                    cautions: updatedCautions);
-                                              });
-                                            });
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Card(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: _sop.cautions.isEmpty
-                                            ? const Center(
-                                                child: Text(
-                                                  'No cautions or limitations specified. Add cautions to warn about potential issues.',
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              )
-                                            : Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  for (int i = 0;
-                                                      i < _sop.cautions.length;
-                                                      i++)
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              bottom: 8),
-                                                      child: Row(
-                                                        children: [
-                                                          const Icon(
-                                                              Icons.warning,
-                                                              size: 16,
-                                                              color: Colors
-                                                                  .orange),
-                                                          const SizedBox(
-                                                              width: 8),
-                                                          Expanded(
-                                                              child: Text(
-                                                                  _sop.cautions[
-                                                                      i])),
-                                                          IconButton(
-                                                            icon: const Icon(
-                                                                Icons.delete,
-                                                                size: 16),
-                                                            onPressed: () {
-                                                              setState(() {
-                                                                final updatedCautions = List<
-                                                                        String>.from(
-                                                                    _sop.cautions)
-                                                                  ..removeAt(i);
-                                                                _sop = _sop.copyWith(
-                                                                    cautions:
-                                                                        updatedCautions);
-                                                              });
-                                                            },
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -3842,6 +3198,11 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       newTabs.add(const Tab(text: 'Cautions'));
     }
 
+    // Add custom section tabs
+    for (final customSection in category.customSections) {
+      newTabs.add(Tab(text: customSection));
+    }
+
     // Steps tab is always included
     newTabs.add(const Tab(text: 'Steps'));
 
@@ -3931,5 +3292,832 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         },
       );
     }
+  }
+
+  // Helper method to build all tab views
+  List<Widget> _buildTabViews() {
+    List<Widget> tabViews = [
+      // Basic Info Tab
+      _buildBasicInfoTab(),
+
+      // Description Tab
+      _buildDescriptionTab(),
+    ];
+
+    // Add conditional tabs based on category settings
+    final categoryService =
+        Provider.of<CategoryService>(context, listen: false);
+    final category = categoryService.getCategoryById(_sop.categoryId);
+
+    if (category != null) {
+      // Add standard conditional tabs
+      if (category.categorySettings['tools'] == true) {
+        tabViews.add(_buildToolsTab());
+      }
+
+      if (category.categorySettings['safety'] == true) {
+        tabViews.add(_buildSafetyTab());
+      }
+
+      if (category.categorySettings['cautions'] == true) {
+        tabViews.add(_buildCautionsTab());
+      }
+
+      // Add custom section tabs
+      for (final customSection in category.customSections) {
+        tabViews.add(_buildCustomSectionTab(customSection));
+      }
+    }
+
+    // Steps Tab - always included
+    tabViews.add(_buildStepsTab());
+
+    return tabViews;
+  }
+
+  // Basic Info Tab
+  Widget _buildBasicInfoTab() {
+    final categoryService = Provider.of<CategoryService>(context);
+    final categories = categoryService.categories;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Basic Information',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+
+          // Category dropdown
+          DropdownButtonFormField<String>(
+            decoration: const InputDecoration(
+              labelText: 'Category',
+              border: OutlineInputBorder(),
+              helperText: 'Select the department or category for this SOP',
+            ),
+            value: _sop.categoryId.isEmpty ? null : _sop.categoryId,
+            items: categories.map((category) {
+              return DropdownMenuItem<String>(
+                value: category.id,
+                child: Text(category.name),
+              );
+            }).toList(),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select a category';
+              }
+              return null;
+            },
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  _sop = _sop.copyWith(categoryId: value);
+
+                  // Update categoryName as well
+                  final category = categoryService.getCategoryById(value);
+                  if (category != null) {
+                    _sop = _sop.copyWith(categoryName: category.name);
+
+                    // Update tab controller to match required sections
+                    _updateVisibleTabsForCategory(category);
+                  }
+                });
+              }
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // Title field
+          TextFormField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              labelText: 'SOP Title',
+              border: OutlineInputBorder(),
+              helperText: 'Enter a descriptive title for this SOP',
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a title';
+              }
+              return null;
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // SOP Thumbnail section
+          Text(
+            'SOP Thumbnail',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Add an image that represents the end product or result of this SOP',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+
+          // Thumbnail image or placeholder
+          Center(
+            child: GestureDetector(
+              onTap: () => _uploadSOPThumbnail(_sop.id),
+              child: Container(
+                width: 300,
+                height: 200,
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.8,
+                  maxHeight: 200,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                ),
+                child: _sop.thumbnailUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(7),
+                        child: _displayImage(
+                          _sop.thumbnailUrl,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image_outlined,
+                            size: 48,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Click to add thumbnail',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // YouTube URL field
+          Text(
+            'YouTube Video',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Add a link to a YouTube video related to this SOP',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _youtubeUrlController,
+            decoration: const InputDecoration(
+              labelText: 'YouTube URL',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.link),
+              helperText: 'Enter a YouTube URL (optional)',
+            ),
+          ),
+
+          // YouTube QR code preview
+          if (_generateYouTubeQRCode() != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: Column(
+                children: [
+                  const Text(
+                    'YouTube QR Code',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: _generateYouTubeQRCode(),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Scan to watch video',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Description Tab
+  Widget _buildDescriptionTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SOP Description',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _descriptionController,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              border: OutlineInputBorder(),
+              helperText: 'Provide a detailed description of this SOP',
+            ),
+            maxLines: 10,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tools Tab
+  Widget _buildToolsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tools & Equipment',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'List all tools and equipment required for this SOP',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+
+          // Add tool button
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Add Tool',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter tool name',
+                  ),
+                  onSubmitted: (value) {
+                    if (value.isNotEmpty) {
+                      setState(() {
+                        final updatedTools = List<String>.from(_sop.tools)
+                          ..add(value);
+                        _sop = _sop.copyWith(tools: updatedTools);
+                      });
+                      // Clear the text field by setting the value to empty
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Add Tool',
+                          border: OutlineInputBorder(),
+                          hintText: 'Enter tool name',
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+                onPressed: () {
+                  _showAddItemToListDialog('Tool', (item) {
+                    setState(() {
+                      final updatedTools = List<String>.from(_sop.tools)
+                        ..add(item);
+                      _sop = _sop.copyWith(tools: updatedTools);
+                    });
+                  });
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // List of tools
+          if (_sop.tools.isEmpty)
+            const Center(
+              child: Text(
+                'No tools added yet',
+                style:
+                    TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _sop.tools.length,
+              itemBuilder: (context, index) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.build),
+                    title: Text(_sop.tools[index]),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      color: Colors.red,
+                      onPressed: () {
+                        setState(() {
+                          final updatedTools = List<String>.from(_sop.tools)
+                            ..removeAt(index);
+                          _sop = _sop.copyWith(tools: updatedTools);
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Safety Tab
+  Widget _buildSafetyTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Safety Requirements',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'List all safety requirements and PPE needed for this SOP',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+
+          // Add safety requirement button
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Add Safety Requirement',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter safety requirement',
+                  ),
+                  onSubmitted: (value) {
+                    if (value.isNotEmpty) {
+                      setState(() {
+                        final updatedSafety =
+                            List<String>.from(_sop.safetyRequirements)
+                              ..add(value);
+                        _sop = _sop.copyWith(safetyRequirements: updatedSafety);
+                      });
+                      // Clear the text field
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Add Safety Requirement',
+                          border: OutlineInputBorder(),
+                          hintText: 'Enter safety requirement',
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+                onPressed: () {
+                  _showAddItemToListDialog('Safety Requirement', (item) {
+                    setState(() {
+                      final updatedSafety =
+                          List<String>.from(_sop.safetyRequirements)..add(item);
+                      _sop = _sop.copyWith(safetyRequirements: updatedSafety);
+                    });
+                  });
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // List of safety requirements
+          if (_sop.safetyRequirements.isEmpty)
+            const Center(
+              child: Text(
+                'No safety requirements added yet',
+                style:
+                    TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _sop.safetyRequirements.length,
+              itemBuilder: (context, index) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.security),
+                    title: Text(_sop.safetyRequirements[index]),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      color: Colors.red,
+                      onPressed: () {
+                        setState(() {
+                          final updatedSafety =
+                              List<String>.from(_sop.safetyRequirements)
+                                ..removeAt(index);
+                          _sop =
+                              _sop.copyWith(safetyRequirements: updatedSafety);
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Cautions Tab
+  Widget _buildCautionsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Cautions & Warnings',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'List all cautions and warnings for this SOP',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+
+          // Add caution button
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Add Caution',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter caution or warning',
+                  ),
+                  onSubmitted: (value) {
+                    if (value.isNotEmpty) {
+                      setState(() {
+                        final updatedCautions = List<String>.from(_sop.cautions)
+                          ..add(value);
+                        _sop = _sop.copyWith(cautions: updatedCautions);
+                      });
+                      // Clear the text field
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Add Caution',
+                          border: OutlineInputBorder(),
+                          hintText: 'Enter caution or warning',
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+                onPressed: () {
+                  _showAddItemToListDialog('Caution', (item) {
+                    setState(() {
+                      final updatedCautions = List<String>.from(_sop.cautions)
+                        ..add(item);
+                      _sop = _sop.copyWith(cautions: updatedCautions);
+                    });
+                  });
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // List of cautions
+          if (_sop.cautions.isEmpty)
+            const Center(
+              child: Text(
+                'No cautions added yet',
+                style:
+                    TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _sop.cautions.length,
+              itemBuilder: (context, index) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.warning, color: Colors.orange),
+                    title: Text(_sop.cautions[index]),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      color: Colors.red,
+                      onPressed: () {
+                        setState(() {
+                          final updatedCautions =
+                              List<String>.from(_sop.cautions)..removeAt(index);
+                          _sop = _sop.copyWith(cautions: updatedCautions);
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Steps Tab
+  Widget _buildStepsTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'SOP Steps',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Spacer(),
+              FilledButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Add Step'),
+                onPressed: _showAddStepDialog,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _sop.steps.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.format_list_numbered,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No steps added yet',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add First Step'),
+                          onPressed: _showAddStepDialog,
+                        ),
+                      ],
+                    ),
+                  )
+                : ReorderableListView.builder(
+                    padding: const EdgeInsets.only(top: 4),
+                    itemCount: _sop.steps.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (oldIndex < newIndex) {
+                          newIndex -= 1;
+                        }
+                        final SOPStep item = _sop.steps.removeAt(oldIndex);
+                        _sop.steps.insert(newIndex, item);
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      final step = _sop.steps[index];
+                      return Card(
+                        key: Key(step.id),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            foregroundColor:
+                                Theme.of(context).colorScheme.onPrimary,
+                            child: Text('${index + 1}'),
+                          ),
+                          title: Text(step.title),
+                          subtitle: Text(
+                            step.instruction,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (step.imageUrl != null)
+                                const Icon(Icons.image,
+                                    size: 16, color: Colors.blue),
+                              const SizedBox(width: 4),
+                              if (step.estimatedTime != null)
+                                Text(
+                                  _formatTime(step.estimatedTime!),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.blue),
+                                ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () =>
+                                    _showEditStepDialog(step, index),
+                              ),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  setState(() {
+                                    final updatedSteps =
+                                        List<SOPStep>.from(_sop.steps)
+                                          ..removeAt(index);
+                                    _sop = _sop.copyWith(steps: updatedSteps);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          onTap: () => _showEditStepDialog(step, index),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Custom section tab builder
+  Widget _buildCustomSectionTab(String sectionName) {
+    // Get the list of items for this custom section
+    List<String> items = _sop.customSectionContent[sectionName] ?? [];
+
+    // Controller for adding new items
+    final TextEditingController controller = TextEditingController();
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$sectionName:',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: 'Add $sectionName Item',
+                    hintText: 'Enter a new item',
+                    border: const OutlineInputBorder(),
+                  ),
+                  onSubmitted: (value) {
+                    if (value.isNotEmpty) {
+                      _addCustomSectionItem(sectionName, value);
+                      controller.clear();
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (controller.text.isNotEmpty) {
+                    _addCustomSectionItem(sectionName, controller.text);
+                    controller.clear();
+                  }
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: items.isEmpty
+                ? Center(
+                    child: Text(
+                      'No $sectionName items added yet',
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          title: Text(item),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () =>
+                                _removeCustomSectionItem(sectionName, item),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add item to custom section
+  void _addCustomSectionItem(String sectionName, String item) {
+    setState(() {
+      if (!_sop.customSectionContent.containsKey(sectionName)) {
+        _sop = _sop.copyWith(
+          customSectionContent: {
+            ..._sop.customSectionContent,
+            sectionName: [item],
+          },
+        );
+      } else {
+        final updatedItems =
+            List<String>.from(_sop.customSectionContent[sectionName]!);
+        updatedItems.add(item);
+
+        final updatedContent =
+            Map<String, List<String>>.from(_sop.customSectionContent);
+        updatedContent[sectionName] = updatedItems;
+
+        _sop = _sop.copyWith(customSectionContent: updatedContent);
+      }
+    });
+  }
+
+  // Remove item from custom section
+  void _removeCustomSectionItem(String sectionName, String item) {
+    setState(() {
+      if (_sop.customSectionContent.containsKey(sectionName)) {
+        final updatedItems =
+            List<String>.from(_sop.customSectionContent[sectionName]!);
+        updatedItems.remove(item);
+
+        final updatedContent =
+            Map<String, List<String>>.from(_sop.customSectionContent);
+        updatedContent[sectionName] = updatedItems;
+
+        _sop = _sop.copyWith(customSectionContent: updatedContent);
+      }
+    });
   }
 }

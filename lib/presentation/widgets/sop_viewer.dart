@@ -88,6 +88,17 @@ class _SOPViewerState extends State<SOPViewer> {
                         if (widget.sop.cautions.isNotEmpty)
                           _buildCautionsSection(context),
 
+                        // Custom sections
+                        if (widget.sop.customSectionContent.isNotEmpty) ...[
+                          for (final entry
+                              in widget.sop.customSectionContent.entries)
+                            if (entry.value.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              _buildCustomSection(
+                                  context, entry.key, entry.value),
+                            ],
+                        ],
+
                         const SizedBox(height: 24),
 
                         // QR Code section
@@ -883,6 +894,44 @@ class _SOPViewerState extends State<SOPViewer> {
           ],
         ),
       ),
+    );
+  }
+
+  // Add a new method to build custom sections
+  Widget _buildCustomSection(
+      BuildContext context, String sectionName, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          sectionName,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int i = 0; i < items.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.article,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(items[i])),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

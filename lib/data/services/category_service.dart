@@ -79,30 +79,40 @@ class CategoryService extends ChangeNotifier {
             'description': 'Procedures related to woodworking operations',
             'color': '#8B4513', // Brown
             'createdAt': Timestamp.now(),
+            'categorySettings': {},
+            'customSections': [],
           },
           {
             'name': 'Upholstery',
             'description': 'Procedures related to upholstery operations',
             'color': '#4169E1', // Royal Blue
             'createdAt': Timestamp.now(),
+            'categorySettings': {},
+            'customSections': [],
           },
           {
             'name': 'Finishing',
             'description': 'Procedures related to finishing operations',
             'color': '#2E8B57', // Sea Green
             'createdAt': Timestamp.now(),
+            'categorySettings': {},
+            'customSections': [],
           },
           {
             'name': 'Assembly',
             'description': 'Procedures related to furniture assembly',
             'color': '#CD853F', // Peru (brown)
             'createdAt': Timestamp.now(),
+            'categorySettings': {},
+            'customSections': [],
           },
           {
             'name': 'CNC Operations',
             'description': 'Procedures related to CNC machine operations',
             'color': '#4682B4', // Steel Blue
             'createdAt': Timestamp.now(),
+            'categorySettings': {},
+            'customSections': [],
           },
         ];
 
@@ -235,7 +245,10 @@ class CategoryService extends ChangeNotifier {
   }
 
   Future<models.Category> createCategory(String name,
-      {String? description, String? color}) async {
+      {String? description,
+      String? color,
+      Map<String, bool>? categorySettings,
+      List<String>? customSections}) async {
     final now = DateTime.now();
     final categoryId = const Uuid().v4();
 
@@ -245,12 +258,32 @@ class CategoryService extends ChangeNotifier {
           'Firebase connection status: ${!_usingLocalData ? "Connected" : "Not connected (local mode)"}');
     }
 
+    // Create basic category, always setting 'steps' to true since it's required
+    final Map<String, bool> initialSettings =
+        categorySettings ?? {'steps': true};
+    if (!initialSettings.containsKey('steps')) {
+      initialSettings['steps'] = true; // Ensure steps is always included
+    }
+
+    // Remove any standard sections except steps
+    final Map<String, bool> filteredSettings = {'steps': true};
+    initialSettings.forEach((key, value) {
+      // Keep steps and any non-standard sections the user added
+      if (key == 'steps' || !['tools', 'safety', 'cautions'].contains(key)) {
+        filteredSettings[key] = value;
+      }
+    });
+
+    final List<String> initialCustomSections = customSections ?? [];
+
     final category = models.Category(
       id: categoryId,
       name: name,
       description: description,
       color: color,
       createdAt: now,
+      categorySettings: filteredSettings,
+      customSections: initialCustomSections,
     );
 
     if (!_usingLocalData) {
@@ -265,6 +298,8 @@ class CategoryService extends ChangeNotifier {
           'description': description,
           'color': color,
           'createdAt': Timestamp.fromDate(now),
+          'categorySettings': category.categorySettings,
+          'customSections': category.customSections,
         };
 
         if (kDebugMode) {
@@ -315,24 +350,41 @@ class CategoryService extends ChangeNotifier {
 
   Future<void> updateCategory(models.Category category) async {
     try {
+      // Ensure steps is always included
+      final updatedSettings = Map<String, bool>.from(category.categorySettings);
+      updatedSettings['steps'] = true;
+
+      // Remove any standard sections except steps
+      final Map<String, bool> filteredSettings = {'steps': true};
+      updatedSettings.forEach((key, value) {
+        // Keep steps and any non-standard sections the user added
+        if (key == 'steps' || !['tools', 'safety', 'cautions'].contains(key)) {
+          filteredSettings[key] = value;
+        }
+      });
+
+      // Create a new category with the updated settings
+      final updatedCategory =
+          category.copyWith(categorySettings: filteredSettings);
+
       if (!_usingLocalData) {
         // Update the category document in Firestore
-        final categoryData = category.toMap();
+        final categoryData = updatedCategory.toMap();
 
         await _firestore!
             .collection('categories')
-            .doc(category.id)
+            .doc(updatedCategory.id)
             .update(categoryData);
 
         if (kDebugMode) {
-          print('Updated category in Firestore with ID: ${category.id}');
+          print('Updated category in Firestore with ID: ${updatedCategory.id}');
         }
       }
 
       // Update the local list
-      final index = _categories.indexWhere((c) => c.id == category.id);
+      final index = _categories.indexWhere((c) => c.id == updatedCategory.id);
       if (index >= 0) {
-        _categories[index] = category;
+        _categories[index] = updatedCategory;
         notifyListeners();
       }
     } catch (e) {
@@ -358,12 +410,41 @@ class CategoryService extends ChangeNotifier {
 
   Future<void> deleteCategory(String id) async {
     try {
+      // Get the category before deletion to record its name
+      final category = getCategoryById(id);
+      final categoryName = category?.name ?? '';
+
       if (!_usingLocalData) {
         // Delete the category document from Firestore
         await _firestore!.collection('categories').doc(id).delete();
 
         if (kDebugMode) {
           print('Deleted category with ID: $id from Firestore');
+        }
+
+        // Update any SOPs that are in this category
+        try {
+          // Get SOPs in this category
+          final sopsQuery = await _firestore!
+              .collection('sops')
+              .where('categoryId', isEqualTo: id)
+              .get();
+
+          // Update each SOP to remove the category
+          for (var doc in sopsQuery.docs) {
+            await _firestore!.collection('sops').doc(doc.id).update({
+              'categoryId': '',
+              'categoryName': 'Uncategorized',
+            });
+
+            if (kDebugMode) {
+              print('Updated SOP ${doc.id} to remove deleted category $id');
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('❌ Error updating SOPs after category deletion: $e');
+          }
         }
       }
 
@@ -383,6 +464,187 @@ class CategoryService extends ChangeNotifier {
       } else {
         throw Exception('Failed to delete category: $e');
       }
+    }
+  }
+
+  // Add a new section to a category
+  Future<void> addSectionToCategory(String categoryId, String sectionName,
+      {bool isRequired = false}) async {
+    try {
+      // Find the category in local list
+      final categoryIndex = _categories.indexWhere((c) => c.id == categoryId);
+      if (categoryIndex < 0) {
+        throw Exception('Category not found with ID: $categoryId');
+      }
+
+      final category = _categories[categoryIndex];
+
+      // Create updated maps for the category
+      final updatedSettings = Map<String, bool>.from(category.categorySettings);
+      updatedSettings[sectionName] = isRequired;
+
+      // Create updated category with the new section
+      final updatedCategory = category.copyWith(
+        categorySettings: updatedSettings,
+      );
+
+      if (!_usingLocalData) {
+        // Update in Firestore
+        await _firestore!.collection('categories').doc(categoryId).update({
+          'categorySettings': updatedSettings,
+        });
+
+        if (kDebugMode) {
+          print(
+              'Added section "$sectionName" to category $categoryId in Firestore');
+        }
+      }
+
+      // Update local list
+      _categories[categoryIndex] = updatedCategory;
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error adding section to category: $e');
+      }
+      throw Exception('Failed to add section to category: $e');
+    }
+  }
+
+  // Add a custom section to a category
+  Future<void> addCustomSectionToCategory(
+      String categoryId, String sectionName) async {
+    try {
+      // Find the category in local list
+      final categoryIndex = _categories.indexWhere((c) => c.id == categoryId);
+      if (categoryIndex < 0) {
+        throw Exception('Category not found with ID: $categoryId');
+      }
+
+      final category = _categories[categoryIndex];
+
+      // Prevent duplicates
+      if (category.customSections.contains(sectionName)) {
+        return;
+      }
+
+      // Create updated custom sections list
+      final updatedCustomSections = List<String>.from(category.customSections);
+      updatedCustomSections.add(sectionName);
+
+      // Create updated category with the new custom section
+      final updatedCategory = category.copyWith(
+        customSections: updatedCustomSections,
+      );
+
+      if (!_usingLocalData) {
+        // Update in Firestore
+        await _firestore!.collection('categories').doc(categoryId).update({
+          'customSections': updatedCustomSections,
+        });
+
+        if (kDebugMode) {
+          print(
+              'Added custom section "$sectionName" to category $categoryId in Firestore');
+        }
+      }
+
+      // Update local list
+      _categories[categoryIndex] = updatedCategory;
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error adding custom section to category: $e');
+      }
+      throw Exception('Failed to add custom section to category: $e');
+    }
+  }
+
+  // Remove a section from a category
+  Future<void> removeSectionFromCategory(
+      String categoryId, String sectionName) async {
+    try {
+      // Find the category in local list
+      final categoryIndex = _categories.indexWhere((c) => c.id == categoryId);
+      if (categoryIndex < 0) {
+        throw Exception('Category not found with ID: $categoryId');
+      }
+
+      final category = _categories[categoryIndex];
+
+      // Create updated maps for the category
+      final updatedSettings = Map<String, bool>.from(category.categorySettings);
+      updatedSettings.remove(sectionName);
+
+      // Create updated category without the section
+      final updatedCategory = category.copyWith(
+        categorySettings: updatedSettings,
+      );
+
+      if (!_usingLocalData) {
+        // Update in Firestore
+        await _firestore!.collection('categories').doc(categoryId).update({
+          'categorySettings': updatedSettings,
+        });
+
+        if (kDebugMode) {
+          print(
+              'Removed section "$sectionName" from category $categoryId in Firestore');
+        }
+      }
+
+      // Update local list
+      _categories[categoryIndex] = updatedCategory;
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error removing section from category: $e');
+      }
+      throw Exception('Failed to remove section from category: $e');
+    }
+  }
+
+  // Remove a custom section from a category
+  Future<void> removeCustomSectionFromCategory(
+      String categoryId, String sectionName) async {
+    try {
+      // Find the category in local list
+      final categoryIndex = _categories.indexWhere((c) => c.id == categoryId);
+      if (categoryIndex < 0) {
+        throw Exception('Category not found with ID: $categoryId');
+      }
+
+      final category = _categories[categoryIndex];
+
+      // Create updated custom sections list
+      final updatedCustomSections = List<String>.from(category.customSections);
+      updatedCustomSections.remove(sectionName);
+
+      // Create updated category without the custom section
+      final updatedCategory = category.copyWith(
+        customSections: updatedCustomSections,
+      );
+
+      if (!_usingLocalData) {
+        // Update in Firestore
+        await _firestore!.collection('categories').doc(categoryId).update({
+          'customSections': updatedCustomSections,
+        });
+
+        if (kDebugMode) {
+          print(
+              'Removed custom section "$sectionName" from category $categoryId in Firestore');
+        }
+      }
+
+      // Update local list
+      _categories[categoryIndex] = updatedCategory;
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error removing custom section from category: $e');
+      }
+      throw Exception('Failed to remove custom section from category: $e');
     }
   }
 }

@@ -737,6 +737,32 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                   );
                 }).toList(),
               ),
+
+              // Show custom sections
+              if (_sop.customSectionContent.isNotEmpty) ...[
+                for (final entry in _sop.customSectionContent.entries)
+                  if (entry.value.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${entry.key}:',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: entry.value.map((item) {
+                        return Chip(
+                          label: Text(item),
+                          backgroundColor: Colors.purple[50],
+                          labelStyle: TextStyle(
+                              fontSize: 12, color: Colors.purple[800]),
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
+                  ],
+              ],
             ],
           ),
         ),
