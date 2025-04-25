@@ -811,7 +811,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     }
   }
 
-  // Section 1: Basic Information
+  // SOP Build Step 1: Basic Information
   Widget _buildBasicInfoSection() {
     final categoryService = Provider.of<CategoryService>(context);
     final categories = categoryService.categories;
@@ -1036,7 +1036,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     return url.contains('youtube.com/') || url.contains('youtu.be/');
   }
 
-  // Section 2: Tools
+  // SOP Build Step 2: Tools
   Widget _buildToolsSection() {
     final TextEditingController toolController = TextEditingController();
 
@@ -1117,7 +1117,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     );
   }
 
-  // Section 3: Safety Requirements
+  // SOP Build Step 3: Safety Requirements
   Widget _buildSafetyRequirementsSection() {
     final TextEditingController requirementController = TextEditingController();
 
@@ -1199,7 +1199,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     );
   }
 
-  // Section 4: Cautions
+  // SOP Build Step 4: Cautions
   Widget _buildCautionsSection() {
     final TextEditingController cautionController = TextEditingController();
 
@@ -1280,7 +1280,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     );
   }
 
-  // Section 5: Steps with Tabbed View
+  // SOP Build Step 5: Steps with Tabbed View
   Widget _buildStepsSection() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -1733,7 +1733,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Section ${_currentSection + 1}/${_sectionTitles.length}: ',
+                  'SOP Build Step ${_currentSection + 1}/${_sectionTitles.length}: ',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,

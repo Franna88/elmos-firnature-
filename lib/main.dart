@@ -157,7 +157,9 @@ class MyApp extends StatelessWidget {
         // Mobile-specific routes
         GoRoute(
           path: '/mobile/sops',
-          builder: (context, state) => const MobileSOPsScreen(),
+          builder: (context, state) => MobileSOPsScreen(
+            extraParams: state.extra as Map<String, dynamic>?,
+          ),
         ),
         GoRoute(
           path: '/mobile/sop/:sopId',

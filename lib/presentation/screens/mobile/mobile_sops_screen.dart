@@ -15,7 +15,12 @@ import '../../../services/platform_specific/scanner_service.dart';
 import '../../../services/platform_specific/scanner_service_interface.dart';
 
 class MobileSOPsScreen extends StatefulWidget {
-  const MobileSOPsScreen({super.key});
+  final Map<String, dynamic>? extraParams;
+
+  const MobileSOPsScreen({
+    super.key,
+    this.extraParams,
+  });
 
   @override
   State<MobileSOPsScreen> createState() => _MobileSOPsScreenState();
@@ -62,6 +67,13 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Set initial category if provided in navigation params
+    if (widget.extraParams != null &&
+        widget.extraParams!.containsKey('category')) {
+      _selectedCategory = widget.extraParams!['category'] as String;
+    }
+
     _loadData();
   }
 
@@ -160,8 +172,24 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text("SOPs", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: _selectedCategory == 'All'
+            ? const Text("SOPs", style: TextStyle(fontWeight: FontWeight.bold))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("SOPs",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    _selectedCategory,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
         centerTitle: true,
         automaticallyImplyLeading: true,
         leading: Navigator.canPop(context)
@@ -310,34 +338,117 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
             ),
           ),
 
-          // Category filter
+          // Category filter - updated with more prominent UI
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Filter by Category:",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
                 ),
-                value: _selectedCategory,
-                items: categories.map((category) {
-                  return DropdownMenuItem<String>(
-                    value: category,
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedCategory = value;
-                    });
-                  }
-                },
-              ),
+                const SizedBox(height: 8.0),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10.0),
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade50,
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 0),
+                      border: InputBorder.none,
+                      prefixIcon: Icon(
+                        Icons.category,
+                        color: _selectedCategory != 'All'
+                            ? _getCategoryColor(_selectedCategory)
+                            : Colors.grey,
+                      ),
+                    ),
+                    value: _selectedCategory,
+                    items: categories.map((category) {
+                      return DropdownMenuItem<String>(
+                        value: category,
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            color: category != 'All'
+                                ? _getCategoryColor(category)
+                                : Colors.black,
+                            fontWeight: category == _selectedCategory
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedCategory = value;
+                          // Reset letter selection when category changes
+                          _selectedLetter = null;
+                        });
+                      }
+                    },
+                    dropdownColor: Colors.white,
+                    icon: Icon(
+                      Icons.arrow_drop_down_circle,
+                      color: _selectedCategory != 'All'
+                          ? _getCategoryColor(_selectedCategory)
+                          : Colors.grey,
+                    ),
+                  ),
+                ),
+                if (_selectedCategory != 'All')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _getCategoryColor(_selectedCategory)
+                                .withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "Showing only $_selectedCategory SOPs",
+                                style: TextStyle(
+                                  color: _getCategoryColor(_selectedCategory),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCategory = 'All';
+                                  });
+                                },
+                                child: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: _getCategoryColor(_selectedCategory),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
 

@@ -287,6 +287,26 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
                     ],
                   ),
                 ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Navigate to filtered SOPs view
+                    _navigateToFilteredSOPs(context, category.name);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: categoryColor,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12.0, vertical: 8.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                  ),
+                  child: const Text(
+                    'View All',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
               ],
             ),
           ),
@@ -304,7 +324,8 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
             ListView.separated(
               physics: const NeverScrollableScrollPhysics(),
               shrinkWrap: true,
-              itemCount: sops.length,
+              itemCount:
+                  sops.length > 3 ? 3 : sops.length, // Show only first 3 SOPs
               separatorBuilder: (context, index) => Divider(
                 height: 1,
                 color: Colors.grey[200],
@@ -332,9 +353,53 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
                 );
               },
             ),
+
+          // "Show more" button if there are more than 3 SOPs
+          if (sops.length > 3)
+            InkWell(
+              onTap: () {
+                _navigateToFilteredSOPs(context, category.name);
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(12.0),
+                    bottomRight: Radius.circular(12.0),
+                  ),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View ${sops.length - 3} more',
+                        style: TextStyle(
+                          color: categoryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 16.0,
+                        color: categoryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  // Method to navigate to the filtered SOPs view
+  void _navigateToFilteredSOPs(BuildContext context, String categoryName) {
+    // We'll use the mobile SOPs screen with the category pre-selected
+    context.go('/mobile/sops', extra: {'category': categoryName});
   }
 
   Color _getCategoryColor(String category) {
