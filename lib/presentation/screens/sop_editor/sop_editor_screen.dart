@@ -638,158 +638,26 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Basic info section in sidebar
+                      // Steps header with add button
                       Container(
                         padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextFormField(
-                              controller: _titleController,
-                              decoration: const InputDecoration(
-                                labelText: 'Title',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a title';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            // Replace this TextFormField with a Category dropdown
-                            Consumer<CategoryService>(
-                              builder: (context, categoryService, child) {
-                                final categories = categoryService.categories;
-
-                                // If there are no categories, display a message instead of dropdown
-                                if (categories.isEmpty) {
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Category',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          border:
-                                              Border.all(color: Colors.grey),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.warning,
-                                                size: 16, color: Colors.orange),
-                                            const SizedBox(width: 8),
-                                            const Expanded(
-                                              child: Text(
-                                                'No categories defined. Please add categories in Settings.',
-                                                style: TextStyle(
-                                                    color: Colors.grey),
-                                              ),
-                                            ),
-                                            TextButton(
-                                              onPressed: () {
-                                                context.go('/settings');
-                                              },
-                                              child:
-                                                  const Text('Go to Settings'),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }
-
-                                return DropdownButtonFormField<String>(
-                                  decoration: const InputDecoration(
-                                    labelText: 'Category',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  value: _sop.categoryId.isNotEmpty &&
-                                          categories.any(
-                                              (c) => c.id == _sop.categoryId)
-                                      ? _sop.categoryId
-                                      : null,
-                                  items: categories.map((category) {
-                                    return DropdownMenuItem<String>(
-                                      value: category.id,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 12,
-                                            height: 12,
-                                            decoration: BoxDecoration(
-                                              color: _getCategoryColor(
-                                                  category.color),
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(category.name),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please select a category';
-                                    }
-                                    return null;
-                                  },
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() {
-                                        _sop = _sop.copyWith(categoryId: value);
-
-                                        // Update categoryName as well
-                                        final category = categoryService
-                                            .getCategoryById(value);
-                                        if (category != null) {
-                                          _sop = _sop.copyWith(
-                                              categoryName: category.name);
-
-                                          // Update tab controller to match required sections
-                                          _updateVisibleTabsForCategory(
-                                              category);
-                                        }
-                                      });
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                          ],
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                                color: Theme.of(context).dividerColor),
+                          ),
                         ),
-                      ),
-
-                      // Steps header with add button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0, vertical: 8.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               'Steps',
-                              style: Theme.of(context).textTheme.titleMedium,
+                              style: Theme.of(context).textTheme.titleLarge,
                             ),
                             IconButton(
-                              icon: const Icon(Icons.add_circle, size: 20),
+                              icon: const Icon(Icons.add_circle),
                               tooltip: 'Add Step',
                               onPressed: _showAddStepDialog,
-                              visualDensity: VisualDensity.compact,
                             ),
                           ],
                         ),
