@@ -75,32 +75,80 @@ class PrintService {
           categoryColor.green / 255, categoryColor.blue / 255);
 
       debugPrint('Building PDF document...');
-      // Create a PDF document in landscape orientation
+
+      // Get summary section
+      final summarySection = _buildSummarySection(sop, pdfCategoryColor);
+
+      // Build steps in groups to avoid overwhelming the PDF renderer
+      final steps = sop.steps;
+      final int stepsCount = steps.length;
+      final int stepsPerPage = 6; // Show 6 steps per page
+
+      debugPrint(
+          'Generating PDF with ${stepsCount} steps across multiple pages');
+
+      // Add first page with summary and first set of steps
       pdf.addPage(
-        pw.MultiPage(
+        pw.Page(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          header: (pw.Context context) {
-            // Create a header that repeats on every page
-            return _buildPDFHeader(
-                sop, logoImage, qrCodeImage, pdfCategoryColor);
-          },
-          footer: (context) => _buildFooter(context, sop, qrCodeImage),
-          maxPages: 20, // Set reasonable limit for very large SOPs
           build: (pw.Context context) {
-            // Store steps and global info separately
-            final stepsWidget =
-                _buildStepsGrid(sop, stepImages, pdfCategoryColor);
-
-            // Collect all widgets
-            return [
-              _buildSummarySection(sop, pdfCategoryColor),
-              pw.SizedBox(height: 10),
-              stepsWidget,
-            ];
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildPDFHeader(sop, logoImage, qrCodeImage, pdfCategoryColor),
+                pw.SizedBox(height: 10),
+                summarySection,
+                pw.SizedBox(height: 15),
+                _buildGlobalInfoSection(sop),
+                pw.Spacer(),
+                _buildFooter(context, sop, qrCodeImage),
+              ],
+            );
           },
         ),
       );
+
+      // Add steps pages
+      int pagesCreated = 1;
+      for (int i = 0; i < stepsCount; i += stepsPerPage) {
+        final int endIndex =
+            i + stepsPerPage > stepsCount ? stepsCount : i + stepsPerPage;
+
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4.landscape,
+            margin: const pw.EdgeInsets.all(20),
+            build: (pw.Context context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _buildPDFHeader(
+                      sop, logoImage, qrCodeImage, pdfCategoryColor),
+                  pw.SizedBox(height: 20),
+                  pw.Text(
+                    pagesCreated == 1
+                        ? "Step-by-Step Procedure"
+                        : "Step-by-Step Procedure (continued)",
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.black,
+                    ),
+                  ),
+                  pw.Divider(color: PdfColors.grey300),
+                  pw.SizedBox(height: 10),
+                  _buildStepsSection(
+                      sop, stepImages, pdfCategoryColor, i, endIndex),
+                  pw.Spacer(),
+                  _buildFooter(context, sop, qrCodeImage),
+                ],
+              );
+            },
+          ),
+        );
+        pagesCreated++;
+      }
 
       debugPrint('Showing print dialog...');
       // Print the document using appropriate method based on platform
@@ -364,21 +412,16 @@ class PrintService {
     );
   }
 
-  // Build a grid of steps with 3 steps per row and limited to 6 steps per page
-  pw.Widget _buildStepsGrid(SOP sop, Map<String, pw.MemoryImage?> stepImages,
-      PdfColor categoryColor) {
+  // New method to build steps for a specific page range
+  pw.Widget _buildStepsSection(SOP sop, Map<String, pw.MemoryImage?> stepImages,
+      PdfColor categoryColor, int startIndex, int endIndex) {
     final steps = sop.steps;
     final List<pw.Widget> rows = [];
 
-    // Create rows with 3 steps per row (changed from 5)
-    // Calculate how many rows we need
-    final int stepsCount = steps.length;
-    final int maxStepsPerPage = 6; // Maximum 6 steps per page
-
-    // Create rows for current page (limited to 6 steps)
-    for (int i = 0; i < stepsCount && i < maxStepsPerPage; i += 3) {
-      final int endIndex = i + 3 > stepsCount ? stepsCount : i + 3;
-      final rowSteps = steps.sublist(i, endIndex);
+    // Create rows with 3 steps per row from the specified range
+    for (int i = startIndex; i < endIndex; i += 3) {
+      final int rowEndIndex = i + 3 > endIndex ? endIndex : i + 3;
+      final rowSteps = steps.sublist(i, rowEndIndex);
 
       // Create a row with up to 3 steps
       rows.add(
@@ -401,170 +444,31 @@ class PrintService {
       rows.add(pw.SizedBox(height: 10)); // Spacing between rows
     }
 
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // Left side - Steps grid (75% width)
-        pw.Expanded(
-          flex: 3,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                "Step-by-Step Procedure",
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.black,
-                ),
-              ),
-              pw.Divider(color: PdfColors.grey300),
-              pw.SizedBox(height: 8),
-              ...rows,
-            ],
+    // For the first page, include the header
+    if (startIndex == 0) {
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            "Step-by-Step Procedure",
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.black,
+            ),
           ),
-        ),
-
-        // Right side - Global SOP Information (25% width)
-        pw.SizedBox(width: 10),
-        pw.Container(
-          width: 150,
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.grey300),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-          ),
-          padding: const pw.EdgeInsets.all(8),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Container(
-                width: double.infinity,
-                color: PdfColors.grey200,
-                padding:
-                    const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                child: pw.Text(
-                  "GLOBAL SOP INFORMATION",
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.black,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-
-              // GLOBAL TOOLS SECTION
-              pw.Container(
-                padding:
-                    const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                color: PdfColors.blue100,
-                width: double.infinity,
-                margin: const pw.EdgeInsets.only(top: 10),
-                child: pw.Text(
-                  "GLOBAL TOOLS",
-                  style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 10,
-                    color: PdfColors.blue900,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-              pw.SizedBox(height: 5),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: sop.tools.map((tool) {
-                  return pw.Container(
-                    width: double.infinity,
-                    padding: const pw.EdgeInsets.fromLTRB(8, 3, 8, 3),
-                    margin: const pw.EdgeInsets.only(bottom: 2),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.blue50,
-                      border: pw.Border.all(color: PdfColors.blue200),
-                      borderRadius: pw.BorderRadius.circular(4),
-                    ),
-                    child:
-                        pw.Text(tool, style: const pw.TextStyle(fontSize: 8)),
-                  );
-                }).toList(),
-              ),
-
-              // GLOBAL SAFETY REQUIREMENTS SECTION
-              pw.Container(
-                padding:
-                    const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                color: PdfColors.red100,
-                width: double.infinity,
-                margin: const pw.EdgeInsets.only(top: 10),
-                child: pw.Text(
-                  "SAFETY REQUIREMENTS",
-                  style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 10,
-                    color: PdfColors.red900,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-              pw.SizedBox(height: 5),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: sop.safetyRequirements.map((safety) {
-                  return pw.Container(
-                    width: double.infinity,
-                    padding: const pw.EdgeInsets.fromLTRB(8, 3, 8, 3),
-                    margin: const pw.EdgeInsets.only(bottom: 2),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.red50,
-                      border: pw.Border.all(color: PdfColors.red200),
-                      borderRadius: pw.BorderRadius.circular(4),
-                    ),
-                    child:
-                        pw.Text(safety, style: const pw.TextStyle(fontSize: 8)),
-                  );
-                }).toList(),
-              ),
-
-              // GLOBAL CAUTIONS SECTION
-              pw.Container(
-                padding:
-                    const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                color: PdfColors.amber100,
-                width: double.infinity,
-                margin: const pw.EdgeInsets.only(top: 10),
-                child: pw.Text(
-                  "CAUTIONS & WARNINGS",
-                  style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 10,
-                    color: PdfColors.amber900,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-              pw.SizedBox(height: 5),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: sop.cautions.map((caution) {
-                  return pw.Container(
-                    width: double.infinity,
-                    padding: const pw.EdgeInsets.fromLTRB(8, 3, 8, 3),
-                    margin: const pw.EdgeInsets.only(bottom: 2),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.amber50,
-                      border: pw.Border.all(color: PdfColors.amber),
-                      borderRadius: pw.BorderRadius.circular(4),
-                    ),
-                    child: pw.Text(caution,
-                        style: const pw.TextStyle(fontSize: 8)),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+          pw.Divider(color: PdfColors.grey300),
+          pw.SizedBox(height: 8),
+          ...rows,
+        ],
+      );
+    } else {
+      // For continuation pages, just the rows
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: rows,
+      );
+    }
   }
 
   // Build an individual step card with consistent image size and text limited to 4 lines
@@ -760,5 +664,158 @@ class PrintService {
   // Helper method to format dates
   String _formatDate(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+  }
+
+  // New method to build global information section
+  pw.Widget _buildGlobalInfoSection(SOP sop) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+      ),
+      padding: const pw.EdgeInsets.all(15),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            "GLOBAL SOP INFORMATION",
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.black,
+            ),
+          ),
+          pw.Divider(color: PdfColors.grey300),
+          pw.SizedBox(height: 10),
+
+          // Three columns layout for global information
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // GLOBAL TOOLS SECTION
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 6),
+                      color: PdfColors.blue100,
+                      width: double.infinity,
+                      margin: const pw.EdgeInsets.only(bottom: 8),
+                      child: pw.Text(
+                        "GLOBAL TOOLS",
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 12,
+                          color: PdfColors.blue900,
+                        ),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                    ...sop.tools.map((tool) {
+                      return pw.Container(
+                        width: double.infinity,
+                        padding: const pw.EdgeInsets.fromLTRB(8, 5, 8, 5),
+                        margin: const pw.EdgeInsets.only(bottom: 4),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.blue50,
+                          border: pw.Border.all(color: PdfColors.blue200),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Text(tool,
+                            style: const pw.TextStyle(fontSize: 10)),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(width: 15),
+
+              // SAFETY REQUIREMENTS
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 6),
+                      color: PdfColors.red100,
+                      width: double.infinity,
+                      margin: const pw.EdgeInsets.only(bottom: 8),
+                      child: pw.Text(
+                        "SAFETY REQUIREMENTS",
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 12,
+                          color: PdfColors.red900,
+                        ),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                    ...sop.safetyRequirements.map((safety) {
+                      return pw.Container(
+                        width: double.infinity,
+                        padding: const pw.EdgeInsets.fromLTRB(8, 5, 8, 5),
+                        margin: const pw.EdgeInsets.only(bottom: 4),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.red50,
+                          border: pw.Border.all(color: PdfColors.red200),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Text(safety,
+                            style: const pw.TextStyle(fontSize: 10)),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(width: 15),
+
+              // CAUTIONS & WARNINGS
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 6),
+                      color: PdfColors.amber100,
+                      width: double.infinity,
+                      margin: const pw.EdgeInsets.only(bottom: 8),
+                      child: pw.Text(
+                        "CAUTIONS & WARNINGS",
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 12,
+                          color: PdfColors.amber900,
+                        ),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                    ...sop.cautions.map((caution) {
+                      return pw.Container(
+                        width: double.infinity,
+                        padding: const pw.EdgeInsets.fromLTRB(8, 5, 8, 5),
+                        margin: const pw.EdgeInsets.only(bottom: 4),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.amber50,
+                          border: pw.Border.all(color: PdfColors.amber),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Text(caution,
+                            style: const pw.TextStyle(fontSize: 10)),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
