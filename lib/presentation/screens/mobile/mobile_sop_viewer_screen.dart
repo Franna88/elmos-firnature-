@@ -453,8 +453,6 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                               ),
                             ],
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
 
                         // Compact additional info
@@ -475,8 +473,6 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                                       color: Colors.amber[900],
                                       fontStyle: FontStyle.italic,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -499,8 +495,6 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                                       fontSize: 12,
                                       color: Colors.blue[800],
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -696,8 +690,6 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                                           color: Colors.white,
                                           fontSize: 14,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 4),
                                       const Text(

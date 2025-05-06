@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "elmos-furniture"
-  }
+    "default": "elmos-furniture",
+    "staging": "elmos-furniture"
+  },
+  "targets": {},
+  "etags": {}
 }
