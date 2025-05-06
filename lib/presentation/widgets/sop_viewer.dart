@@ -98,11 +98,6 @@ class _SOPViewerState extends State<SOPViewer> {
                                   context, entry.key, entry.value),
                             ],
                         ],
-
-                        const SizedBox(height: 24),
-
-                        // QR Code section
-                        _buildQRCodeSection(context),
                       ],
                     ],
                   ),
@@ -169,6 +164,13 @@ class _SOPViewerState extends State<SOPViewer> {
                         onPressed: widget.onPrint,
                         icon: const Icon(Icons.print),
                         tooltip: 'Print SOP',
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    if (widget.onDownloadQRCode != null)
+                      IconButton(
+                        onPressed: widget.onDownloadQRCode,
+                        icon: const Icon(Icons.qr_code_2),
+                        tooltip: 'Download QR Code',
                         color: Theme.of(context).colorScheme.primary,
                       ),
                   ],
@@ -425,7 +427,7 @@ class _SOPViewerState extends State<SOPViewer> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: SizedBox(
-                            width: 150,
+                            width: 220,
                             child: _buildStepImage(step.imageUrl!, context),
                           ),
                         ),
@@ -686,7 +688,7 @@ class _SOPViewerState extends State<SOPViewer> {
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
-          height: 180,
+          height: 250,
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
         );
       } catch (e) {
@@ -698,7 +700,7 @@ class _SOPViewerState extends State<SOPViewer> {
       return Image.asset(
         imageUrl,
         fit: BoxFit.cover,
-        height: 180,
+        height: 250,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
     }
@@ -707,7 +709,7 @@ class _SOPViewerState extends State<SOPViewer> {
       return Image.network(
         imageUrl,
         fit: BoxFit.cover,
-        height: 180,
+        height: 250,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
     }
@@ -758,8 +760,8 @@ class _SOPViewerState extends State<SOPViewer> {
 
   Widget _buildImageError() {
     return SizedBox(
-      height: 120,
-      width: 120,
+      height: 200,
+      width: 200,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -767,13 +769,13 @@ class _SOPViewerState extends State<SOPViewer> {
             const Icon(
               Icons.broken_image,
               color: Colors.grey,
-              size: 32,
+              size: 48,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             const Text(
               'Image could not be loaded',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
           ],
         ),
@@ -967,22 +969,6 @@ class _SOPViewerState extends State<SOPViewer> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Button to download QR code
-                  if (widget.onDownloadQRCode != null)
-                    ElevatedButton.icon(
-                      onPressed: widget.onDownloadQRCode,
-                      icon: const Icon(Icons.download),
-                      label: const Text('Download QR Code for Printing'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFBB2222),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
