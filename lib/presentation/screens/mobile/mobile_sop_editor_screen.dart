@@ -156,6 +156,17 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                     null; // Initialize thumbnail URL to null for new SOPs
                 _youtubeUrl =
                     null; // Initialize YouTube URL to null for new SOPs
+
+                // Set default section visibility for new SOPs
+                _sectionVisibility = {
+                  'tools': true,
+                  'safety': true,
+                  'cautions': true,
+                };
+
+                // Initialize section titles
+                _rebuildSectionTitles();
+
                 _isLoading = false;
               },
             );
@@ -184,8 +195,18 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         _youtubeUrl =
             _sop.youtubeUrl; // Initialize YouTube URL from existing SOP
 
-        // Update sections for selected category
-        _updateSectionsForCategory(_sop.categoryId);
+        // Update sections for selected category if a category is set
+        if (_sop.categoryId.isNotEmpty) {
+          _updateSectionsForCategory(_sop.categoryId);
+        } else {
+          // Set default visibility and build section titles
+          _sectionVisibility = {
+            'tools': true,
+            'safety': true,
+            'cautions': true,
+          };
+          _rebuildSectionTitles();
+        }
       }
 
       // Initialize controllers
@@ -1123,8 +1144,18 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               },
               onChanged: (value) {
                 if (value != null) {
+                  // Get the category service to access the category details
+                  final categoryService =
+                      Provider.of<CategoryService>(context, listen: false);
+                  final selectedCategory =
+                      categoryService.getCategoryById(value);
+
                   setState(() {
-                    _sop = _sop.copyWith(categoryId: value);
+                    // Update both categoryId and categoryName in the SOP
+                    _sop = _sop.copyWith(
+                      categoryId: value,
+                      categoryName: selectedCategory?.name,
+                    );
                   });
 
                   // Update sections based on the selected category
@@ -2207,23 +2238,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              setState(() {
-                                _currentStepIndex = -1; // Go back to main form
-                              });
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[400],
-                        disabledBackgroundColor: Colors.grey[300],
-                      ),
-                      child: const Text('CANCEL'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
                       onPressed: _isLoading ? null : _saveStep,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red[700],
@@ -2360,16 +2374,15 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   void _updateSectionsForCategory(String categoryId) {
     final categoryService =
         Provider.of<CategoryService>(context, listen: false);
-    final selectedCategory = categoryService.categories.firstWhere(
-      (cat) => cat.id == categoryId,
-      orElse: () => Category(
-        id: '',
-        name: '',
-        createdAt: DateTime.now(),
-      ),
-    );
+    final selectedCategory = categoryService.getCategoryById(categoryId);
 
-    if (selectedCategory.id.isEmpty) return;
+    if (selectedCategory == null || selectedCategory.id.isEmpty) return;
+
+    if (kDebugMode) {
+      print('Updating sections for category: ${selectedCategory.name}');
+      print('Category settings: ${selectedCategory.categorySettings}');
+      print('Custom sections: ${selectedCategory.customSections}');
+    }
 
     // Update section visibility based on category settings
     setState(() {
@@ -2380,12 +2393,17 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         'cautions': true,
       };
 
-      // Apply category-specific settings
-      _sectionVisibility.addAll({
-        'tools': selectedCategory.categorySettings['tools'] ?? true,
-        'safety': selectedCategory.categorySettings['safety'] ?? true,
-        'cautions': selectedCategory.categorySettings['cautions'] ?? true,
-      });
+      // Apply category-specific settings for standard sections
+      _sectionVisibility['tools'] =
+          selectedCategory.categorySettings['tools'] ?? true;
+      _sectionVisibility['safety'] =
+          selectedCategory.categorySettings['safety'] ?? true;
+      _sectionVisibility['cautions'] =
+          selectedCategory.categorySettings['cautions'] ?? true;
+
+      if (kDebugMode) {
+        print('Updated section visibility: $_sectionVisibility');
+      }
 
       // Update custom sections
       _customSections = List.from(selectedCategory.customSections);
