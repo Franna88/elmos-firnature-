@@ -420,12 +420,64 @@ class _SOPViewerState extends State<SOPViewer> {
                 children: [
                   // Left column - Image (if available)
                   if (step.imageUrl != null) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: 150,
-                        child: _buildStepImage(step.imageUrl!, context),
-                      ),
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: SizedBox(
+                            width: 150,
+                            child: _buildStepImage(step.imageUrl!, context),
+                          ),
+                        ),
+                        Positioned(
+                          top: 5,
+                          right: 5,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.fullscreen,
+                                  color: Colors.white, size: 20),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'View full image',
+                              onPressed: () {
+                                // Show full-size image dialog
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => Dialog(
+                                    insetPadding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        AppBar(
+                                          title: Text(step.title),
+                                          leading: IconButton(
+                                            icon: const Icon(Icons.close),
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                          ),
+                                        ),
+                                        Flexible(
+                                          child: InteractiveViewer(
+                                            boundaryMargin:
+                                                const EdgeInsets.all(20),
+                                            minScale: 0.5,
+                                            maxScale: 4,
+                                            child: _buildFullScreenImage(
+                                                step.imageUrl!, context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(width: 16),
                   ],
@@ -657,6 +709,49 @@ class _SOPViewerState extends State<SOPViewer> {
         fit: BoxFit.cover,
         height: 180,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+  }
+
+  Widget _buildFullScreenImage(String imageUrl, BuildContext context) {
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',')[1]);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        );
+      } catch (e) {
+        return _buildImageError();
+      }
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
       );
     }
   }

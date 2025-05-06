@@ -724,6 +724,57 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                         trailing: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
+                                            if (step.imageUrl != null)
+                                              IconButton(
+                                                icon: const Icon(
+                                                    Icons.fullscreen,
+                                                    size: 18),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                tooltip: 'View full image',
+                                                onPressed: () {
+                                                  // Show full-size image dialog
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) =>
+                                                        Dialog(
+                                                      insetPadding:
+                                                          const EdgeInsets.all(
+                                                              16),
+                                                      child: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          AppBar(
+                                                            title: Text(
+                                                                step.title),
+                                                            leading: IconButton(
+                                                              icon: const Icon(
+                                                                  Icons.close),
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                      context),
+                                                            ),
+                                                          ),
+                                                          Flexible(
+                                                            child:
+                                                                InteractiveViewer(
+                                                              boundaryMargin:
+                                                                  const EdgeInsets
+                                                                      .all(20),
+                                                              minScale: 0.5,
+                                                              maxScale: 4,
+                                                              child: _buildStepImage(
+                                                                  step.imageUrl!,
+                                                                  context),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
                                             if (step.estimatedTime != null)
                                               Container(
                                                 padding:
