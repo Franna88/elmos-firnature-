@@ -63,185 +63,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
             context.go('/editor/new');
           },
         ),
-        IconButton(
-          icon: const Icon(Icons.delete_outline),
-          tooltip: 'Delete SOPs',
-          onPressed: () {
-            _showDeleteSOPDialog();
-          },
-        ),
       ],
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding:
-                  const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Welcome header with stats
+                  // Simplified header
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Welcome message
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Welcome back, ${authService.userName ?? 'User'}',
-                              style: Theme.of(context).textTheme.headlineMedium,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome back, ${authService.userName ?? 'User'}',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Manage your furniture manufacturing procedures efficiently.',
+                            style: TextStyle(
+                              color: AppColors.textMedium,
+                              fontSize: 14,
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Manage your furniture manufacturing procedures efficiently.',
-                              style: TextStyle(
-                                color: AppColors.textMedium,
-                                fontSize: 15,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      context.go('/editor/new');
-                                    },
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: const Text('Create SOP'),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    context.go('/analytics');
-                                  },
-                                  icon: const Icon(Icons.insights_outlined,
-                                      size: 18),
-                                  label: const Text('Analytics'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 16),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 48),
-                      // Quick stats
-                      Expanded(
-                        flex: 2,
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.cardBorder),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Your Activity',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textDark,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              _buildStatRow(
-                                Icons.description_outlined,
-                                '${sopService.sops.length} SOPs',
-                                'Created',
-                                AppColors.primaryRed,
-                              ),
-                              const SizedBox(height: 12),
-                              _buildStatRow(
-                                Icons.category_outlined,
-                                '${sopService.templates.length} Categories',
-                                'Available',
-                                AppColors.blueAccent,
-                              ),
-                              if (kDebugMode) const SizedBox(height: 12),
-                              if (kDebugMode)
-                                _buildStatRow(
-                                  Icons.person_outline,
-                                  'Admin',
-                                  'Role',
-                                  AppColors.greenAccent,
-                                ),
-                              if (kDebugMode) const SizedBox(height: 12),
-                              if (kDebugMode)
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    try {
-                                      final populator = FirebasePopulator(
-                                          FirebaseFirestore.instance);
-                                      await populator.populateChairSOPs();
-
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                                'Successfully added 5 chair SOPs to Firebase!'),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-
-                                        // Refresh SOP list
-                                        final sopService =
-                                            Provider.of<SOPService>(context,
-                                                listen: false);
-                                        // Force refresh by re-initializing data
-                                        await sopService.refreshSOPs();
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content:
-                                                Text('Error adding SOPs: $e'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  icon: const Icon(Icons.add_circle_outline),
-                                  label: const Text('Add Chair SOPs'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primaryRed,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          context.go('/editor/new');
+                        },
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Create SOP'),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 20),
 
-                  // Section title with action
+                  // Section title
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Recent SOPs',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        'Standard Operating Procedures',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
                       if (sopService.sops.length > 6)
                         TextButton.icon(
@@ -253,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // SOP cards grid
                   sopService.sops.isEmpty
@@ -264,12 +133,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
-                            childAspectRatio: 3.0,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
+                            childAspectRatio: 2.5,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
                           ),
-                          itemCount: sopService.sops.length > 6
-                              ? 6
+                          itemCount: sopService.sops.length > 9
+                              ? 9
                               : sopService.sops.length,
                           itemBuilder: (context, index) {
                             final sop = sopService.sops[index];
@@ -284,10 +153,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildEmptyState(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Column(
@@ -329,46 +198,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildStatRow(IconData icon, String value, String label, Color color) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 16,
-            color: color,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textLight,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildSOPCard(BuildContext context, SOP sop) {
     // Use the SOP thumbnail if available, otherwise fallback to first step image
     final String? imageUrl = sop.thumbnailUrl ??
@@ -382,11 +211,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      margin: const EdgeInsets.all(0),
+      elevation: 1,
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.cardBorder),
+        side: BorderSide(color: AppColors.cardBorder.withOpacity(0.5)),
       ),
       child: InkWell(
         onTap: () {
@@ -394,9 +223,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
         child: Row(
           children: [
-            // Image section (35% of width)
+            // Image section (30% of width)
             Expanded(
-              flex: 35,
+              flex: 30,
               child: Stack(
                 children: [
                   SizedBox(
@@ -405,20 +234,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   // Department badge
                   Positioned(
-                    top: 4,
-                    right: 4,
+                    top: 8,
+                    right: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: departmentColor.withOpacity(0.9),
+                        color: departmentColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         sop.categoryName ?? 'Unknown',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 7,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -428,15 +257,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Content section (65% of width)
+            // Content section (70% of width)
             Expanded(
-              flex: 65,
+              flex: 70,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     // Title with Rev number
                     Row(
@@ -446,7 +274,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             sop.title,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              fontSize: 11,
+                              fontSize: 14,
                               color: AppColors.textDark,
                             ),
                             maxLines: 1,
@@ -455,16 +283,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 1),
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(3),
+                            borderRadius: BorderRadius.circular(4),
+                            border:
+                                Border.all(color: Colors.grey.withOpacity(0.3)),
                           ),
                           child: Text(
                             'Rev ${sop.revisionNumber}',
                             style: TextStyle(
                               color: AppColors.textMedium,
-                              fontSize: 7,
+                              fontSize: 10,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -472,35 +302,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
 
+                    // Description (if available)
+                    if (sop.description.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        sop.description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMedium,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+
                     // Stats in a row
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Icon(
                           Icons.checklist,
-                          size: 10,
+                          size: 14,
                           color: AppColors.textLight,
                         ),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 4),
                         Text(
                           '${sop.steps.length} steps',
                           style: TextStyle(
                             color: AppColors.textLight,
-                            fontSize: 8,
+                            fontSize: 12,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         Icon(
                           Icons.calendar_today_outlined,
-                          size: 10,
+                          size: 14,
                           color: AppColors.textLight,
                         ),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 4),
                         Text(
                           "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}",
                           style: TextStyle(
                             color: AppColors.textLight,
-                            fontSize: 8,
+                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -540,7 +384,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Center(
           child: Icon(
             Icons.image_not_supported,
-            size: 14,
+            size: 20,
             color: AppColors.textLight.withOpacity(0.5),
           ),
         ),
@@ -592,7 +436,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Center(
         child: Icon(
           Icons.broken_image,
-          size: 14,
+          size: 20,
           color: AppColors.textLight.withOpacity(0.5),
         ),
       ),
