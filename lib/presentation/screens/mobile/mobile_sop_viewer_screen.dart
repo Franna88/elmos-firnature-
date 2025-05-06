@@ -390,103 +390,149 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       },
       itemBuilder: (context, index) {
         final step = _sop.steps[index];
+        final isLastStep = index == _sop.steps.length - 1;
 
         return Column(
           children: [
-            // Step title and description at the top
+            // Compact title and description in the same row
             Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 12.0),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Step title
-                  Text(
-                    step.title,
-                    style: const TextStyle(
-                      fontSize: 20.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                  // Step number indicator
+                  Container(
+                    width: 32,
+                    height: 32,
+                    margin: const EdgeInsets.only(right: 8, top: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red[800],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
 
-                  // Show help note inline if available
-                  if (step.helpNote != null && step.helpNote!.isNotEmpty) ...[
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.amber[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.amber.shade100),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.lightbulb_outline,
-                              color: Colors.amber[700], size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              step.helpNote!,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.amber[900],
-                                fontStyle: FontStyle.italic,
+                  // Step title and description
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Step title and instruction on same line with title in bold
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: step.title,
+                                style: const TextStyle(
+                                  fontSize: 16.0,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
                               ),
+                              const TextSpan(
+                                text: " - ",
+                                style: TextStyle(
+                                  fontSize: 14.0,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              TextSpan(
+                                text: step.instruction,
+                                style: const TextStyle(
+                                  fontSize: 14.0,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        // Compact additional info
+                        if (step.helpNote != null && step.helpNote!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(Icons.lightbulb_outline,
+                                    color: Colors.amber[700], size: 14),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    step.helpNote!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.amber[900],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
 
-                  // Show required tools if any
-                  if (step.stepTools.isNotEmpty) ...[
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade100),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.build, color: Colors.blue[700], size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              "Tools: ${step.stepTools.join(', ')}",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.blue[800],
-                              ),
+                        if (step.stepTools.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(Icons.build,
+                                    color: Colors.blue[800], size: 14),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    "Tools: ${step.stepTools.join(', ')}",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue[800],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ],
-
-                  // Step instruction (description) - more lines visible
-                  Text(
-                    step.instruction,
-                    style: const TextStyle(
-                      fontSize: 16.0,
-                      color: Colors.black87,
-                      height: 1.3,
-                    ),
-                    // Allow more lines to be shown but still not too many
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
 
-            // Image takes up all the remaining screen - no bottom card
+            // Complete button for the last step
+            if (isLastStep)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // Navigate back to main page
+                    context.go('/mobile/sops');
+                  },
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text('COMPLETE SOP'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 40),
+                  ),
+                ),
+              ),
+
+            // Image takes up all the remaining screen
             Expanded(
               child: GestureDetector(
                 onTap: () {
