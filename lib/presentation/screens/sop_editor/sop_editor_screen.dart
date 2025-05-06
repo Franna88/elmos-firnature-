@@ -2371,22 +2371,83 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   Widget _buildStepImage(String? imageUrl, BuildContext context) {
     if (imageUrl == null) return Container();
 
-    // Common image container with constraints
+    // Detect if we're on a mobile device
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Common image container with constraints, adjusted for mobile
     Widget buildConstrainedImage(Widget imageWidget) {
-      return Container(
-        constraints: const BoxConstraints(
-          maxHeight: 200,
-          minHeight: 120,
-        ),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+      return GestureDetector(
+        onTap: () {
+          // Show full-size image dialog optimized for mobile when tapped
+          showDialog(
+            context: context,
+            builder: (context) => Dialog(
+              insetPadding: EdgeInsets.zero, // Full screen dialog
+              backgroundColor: Colors.black.withOpacity(0.9),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Interactive image viewer for zooming and panning
+                  InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Center(
+                      child: imageWidget,
+                    ),
+                  ),
+                  // Close button positioned at the top
+                  Positioned(
+                    top: 40,
+                    right: 16,
+                    child: IconButton(
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 30),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: isMobile ? 300 : 200,
+            minHeight: 120,
+          ),
+          width: isMobile ? screenWidth * 0.95 : double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              imageWidget,
+              // Overlay icon to indicate the image can be expanded
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.fullscreen,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: imageWidget,
       );
     }
 
@@ -2397,7 +2458,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         return buildConstrainedImage(
           Image.memory(
             bytes,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => _buildImageError(),
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
               return frame != null ? child : _buildImageLoading();
@@ -2414,7 +2475,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       return buildConstrainedImage(
         Image.asset(
           imageUrl,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
             return frame != null ? child : _buildImageLoading();
@@ -2427,7 +2488,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       return buildConstrainedImage(
         Image.network(
           imageUrl,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => _buildImageError(),
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;

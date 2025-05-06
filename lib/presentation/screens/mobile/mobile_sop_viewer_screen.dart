@@ -205,58 +205,26 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       ),
       body: Column(
         children: [
-          // Title section with fade-in animation for QR scans
-          AnimatedOpacity(
-            opacity: _isFromQRScan ? _animationController.value : 1.0,
-            duration: const Duration(milliseconds: 500),
-            child: Container(
+          // Only show video button if available
+          if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
+            Container(
               width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 24.0 : 16.0,
-                vertical: isTablet ? 20.0 : 16.0,
-              ),
-              color: Colors.red[800],
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    _sop.title,
-                    style: TextStyle(
-                      fontSize: isTablet ? 26.0 : 22.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.red[50],
+              child: ElevatedButton.icon(
+                onPressed: _launchYoutubeVideo,
+                icon: const Icon(Icons.play_circle_fill),
+                label: const Text('Watch Video Tutorial'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red[800],
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 16.0 : 12.0,
+                    vertical: isTablet ? 12.0 : 8.0,
                   ),
-                  const SizedBox(height: 8),
-                  // Description
-                  Text(
-                    _sop.description,
-                    style: TextStyle(
-                      fontSize: isTablet ? 16.0 : 14.0,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // YouTube button if available
-                  if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
-                    ElevatedButton.icon(
-                      onPressed: _launchYoutubeVideo,
-                      icon: const Icon(Icons.play_circle_fill),
-                      label: const Text('Watch Video Tutorial'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.red[800],
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 16.0 : 12.0,
-                          vertical: isTablet ? 12.0 : 8.0,
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
-          ),
 
           // Steps navigation row
           Container(
@@ -407,8 +375,11 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     );
   }
 
-  // Phone-optimized step content with vertical layout
+  // Phone-optimized step content with vertical layout - description at top and image below
   Widget _buildPhoneStepContent() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return PageView.builder(
       controller: _pageController,
       itemCount: _sop.steps.length,
@@ -420,76 +391,391 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       itemBuilder: (context, index) {
         final step = _sop.steps[index];
 
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Step image
-              if (step.imageUrl != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: 240,
-                  child: _buildStepImage(step.imageUrl!),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  height: 200,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.image_not_supported,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "No Image Available",
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
+        return Column(
+          children: [
+            // Step title and description at the top
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Step title
+                  Text(
+                    step.title,
+                    style: const TextStyle(
+                      fontSize: 20.0,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
 
-              // Step content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Step title
-                    Text(
-                      step.title,
-                      style: const TextStyle(
-                        fontSize: 20.0,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                  // Show help note inline if available
+                  if (step.helpNote != null && step.helpNote!.isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.shade100),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Step description
-                    Text(
-                      step.instruction,
-                      style: const TextStyle(
-                        fontSize: 16.0,
-                        height: 1.5,
-                        color: Colors.black87,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.lightbulb_outline,
+                              color: Colors.amber[700], size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              step.helpNote!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.amber[900],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
+
+                  // Show required tools if any
+                  if (step.stepTools.isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.build, color: Colors.blue[700], size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Tools: ${step.stepTools.join(', ')}",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Step instruction (description) - more lines visible
+                  Text(
+                    step.instruction,
+                    style: const TextStyle(
+                      fontSize: 16.0,
+                      color: Colors.black87,
+                      height: 1.3,
+                    ),
+                    // Allow more lines to be shown but still not too many
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            // Image takes up all the remaining screen - no bottom card
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (step.imageUrl != null) {
+                    // Show fullscreen image view
+                    showDialog(
+                      context: context,
+                      builder: (context) => Dialog(
+                        insetPadding: EdgeInsets.zero, // Full screen dialog
+                        backgroundColor: Colors.black.withOpacity(0.9),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Interactive image viewer for zooming and panning
+                            InteractiveViewer(
+                              minScale: 0.5,
+                              maxScale: 4.0,
+                              child: Center(
+                                child:
+                                    _buildStepImageFullscreen(step.imageUrl!),
+                              ),
+                            ),
+                            // Close button positioned at the top
+                            Positioned(
+                              top: 40,
+                              right: 16,
+                              child: IconButton(
+                                icon: const Icon(Icons.close,
+                                    color: Colors.white, size: 30),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ),
+                            // Full instruction overlay at bottom that can be expanded
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  // Show full instruction dialog
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.white,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(16)),
+                                    ),
+                                    builder: (context) =>
+                                        DraggableScrollableSheet(
+                                      initialChildSize: 0.6,
+                                      minChildSize: 0.3,
+                                      maxChildSize: 0.9,
+                                      expand: false,
+                                      builder: (context, scrollController) =>
+                                          SingleChildScrollView(
+                                        controller: scrollController,
+                                        padding: const EdgeInsets.all(20),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              step.title,
+                                              style: const TextStyle(
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              step.instruction,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                height: 1.5,
+                                              ),
+                                            ),
+                                            if (step.helpNote != null) ...[
+                                              const SizedBox(height: 24),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amber[50],
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.lightbulb,
+                                                            color: Colors
+                                                                .amber[700]),
+                                                        const SizedBox(
+                                                            width: 8),
+                                                        const Text(
+                                                          "Helpful Tip",
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 16,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      step.helpNote!,
+                                                      style: TextStyle(
+                                                        fontSize: 15,
+                                                        color:
+                                                            Colors.amber[900],
+                                                        height: 1.4,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  color: Colors.black.withOpacity(0.7),
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              step.title,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                          const Icon(
+                                            Icons.keyboard_arrow_up,
+                                            color: Colors.white70,
+                                          )
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        step.instruction,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        "Tap for full instructions",
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 8.0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Main image that fills the container
+                      if (step.imageUrl != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(11),
+                          child: Container(
+                            width: double.infinity,
+                            height: double.infinity,
+                            color: Colors.grey[100],
+                            child: _buildStepImage(step.imageUrl!),
+                          ),
+                        )
+                      else
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_not_supported,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                "No Image Available",
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Fullscreen indicator
+                      if (step.imageUrl != null)
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.fullscreen,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
+  }
+
+  // Helper method for fullscreen image viewing
+  Widget _buildStepImageFullscreen(String imageUrl) {
+    // Check if this is a data URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final data = imageUrl.split(',')[1];
+        final bytes = base64Decode(data);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        );
+      } catch (e) {
+        debugPrint('Error displaying data URL image: $e');
+        return _buildImageError();
+      }
+    }
+    // Check if this is an asset image
+    else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+    // Otherwise, assume it's a network image
+    else {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
   }
 
   Widget _buildStepImage(String imageUrl) {
