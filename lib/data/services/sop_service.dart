@@ -225,51 +225,45 @@ class SOPService extends ChangeNotifier {
       for (var doc in snapshot.docs) {
         final sopData = doc.data();
 
+        // Debug thumbnail URLs
         if (kDebugMode) {
-          print(
-              'Processing SOP document ID: ${doc.id}, title: ${sopData['title']}');
+          print('SOP ID: ${doc.id}, Title: ${sopData['title']}');
+          print('  thumbnailUrl: ${sopData['thumbnailUrl']}');
+
+          // Check if any steps have images
+          final steps = sopData['steps'] as List<dynamic>? ?? [];
+          for (int i = 0; i < steps.length; i++) {
+            final step = steps[i] as Map<String, dynamic>;
+            print('  Step ${i + 1} imageUrl: ${step['imageUrl']}');
+          }
         }
 
-        // Extract steps directly from the SOP document
+        // Parse steps
+        final List<dynamic> stepsData =
+            sopData['steps'] as List<dynamic>? ?? [];
         final List<SOPStep> steps = [];
 
-        if (sopData['steps'] != null) {
-          // Process each step from the steps array in the document
-          final stepsList = sopData['steps'] as List<dynamic>;
-
-          if (kDebugMode) {
-            print('- Found ${stepsList.length} steps in SOP document');
-          }
-
-          for (var stepData in stepsList) {
-            steps.add(SOPStep(
-              id: stepData['id'] ?? '',
-              title: stepData['title'] ?? '',
-              instruction: stepData['instruction'] ?? '',
-              imageUrl: stepData['imageUrl'],
-              helpNote: stepData['helpNote'],
-              assignedTo: stepData['assignedTo'],
-              estimatedTime: stepData['estimatedTime'],
-              stepTools: stepData['stepTools'] != null
-                  ? List<String>.from(stepData['stepTools'])
-                  : [],
-              stepHazards: stepData['stepHazards'] != null
-                  ? List<String>.from(stepData['stepHazards'])
-                  : [],
-            ));
-          }
-        } else {
-          if (kDebugMode) {
-            print('❌ Warning: No steps array found in SOP document ${doc.id}');
-          }
+        for (var stepData in stepsData) {
+          final step = stepData as Map<String, dynamic>;
+          steps.add(SOPStep(
+            id: step['id'] ?? const Uuid().v4(),
+            title: step['title'] ?? '',
+            instruction: step['instruction'] ?? '',
+            imageUrl: step['imageUrl'],
+            helpNote: step['helpNote'],
+            estimatedTime: step['estimatedTime'],
+            assignedTo: step['assignedTo'],
+            stepTools: List<String>.from(step['stepTools'] ?? []),
+            stepHazards: List<String>.from(step['stepHazards'] ?? []),
+          ));
         }
 
-        // Parse custom section content if exists
+        // Parse custom section content (if exists)
         Map<String, List<String>> customSectionContent = {};
         if (sopData['customSectionContent'] != null) {
-          final rawContent =
+          final customSections =
               sopData['customSectionContent'] as Map<String, dynamic>;
-          rawContent.forEach((key, value) {
+          customSections.forEach((key, value) {
             if (value is List) {
               customSectionContent[key] = List<String>.from(value);
             }
@@ -497,71 +491,129 @@ class SOPService extends ChangeNotifier {
   }
 
   // Modified updateSop method to save to Firebase
-  Future<void> updateSop(SOP sop) async {
-    final DateTime now = DateTime.now();
-
-    // Ensure the SOP has a QR code URL
-    String qrCodeUrl =
-        sop.qrCodeUrl ?? _qrCodeService.generateQRDataForSOP(sop.id);
-    final updatedSop = sop.copyWith(updatedAt: now, qrCodeUrl: qrCodeUrl);
-
+  Future<void> updateSop(SOP updatedSop) async {
     try {
-      // Convert steps to a format suitable for Firestore
-      List<Map<String, dynamic>> stepsData = updatedSop.steps
-          .map((step) => {
-                'id': step.id,
-                'title': step.title,
-                'instruction': step.instruction,
-                'imageUrl': step.imageUrl,
-                'helpNote': step.helpNote,
-                'assignedTo': step.assignedTo,
-                'estimatedTime': step.estimatedTime,
-                'stepTools': step.stepTools,
-                'stepHazards': step.stepHazards,
-                'updatedAt': Timestamp.fromDate(now),
-              })
-          .toList();
+      final now = DateTime.now();
+
+      // Ensure we have a QR code URL
+      final qrCodeUrl = updatedSop.qrCodeUrl ??
+          _qrCodeService.generateQRDataForSOP(updatedSop.id);
 
       if (kDebugMode) {
-        print('Saving SOP to Firestore with ${stepsData.length} steps');
-        for (int i = 0; i < stepsData.length; i++) {
-          print(
-              'Step ${i + 1} - ID: ${stepsData[i]['id']}, imageUrl: ${stepsData[i]['imageUrl']}');
+        print('Updating SOP in Firestore with ID: ${updatedSop.id}');
+        print('Thumbnail URL: ${updatedSop.thumbnailUrl}');
+      }
+
+      // Process thumbnailUrl - upload to Firebase Storage if it's a data URL
+      String? finalThumbnailUrl = updatedSop.thumbnailUrl;
+      if (finalThumbnailUrl != null &&
+          finalThumbnailUrl.startsWith('data:image/')) {
+        if (kDebugMode) {
+          print('Thumbnail is a data URL, uploading to Firebase Storage');
+        }
+
+        try {
+          finalThumbnailUrl = await uploadImageFromDataUrl(
+              finalThumbnailUrl,
+              updatedSop.id,
+              'thumbnail-${DateTime.now().millisecondsSinceEpoch}');
+
+          if (kDebugMode) {
+            print('Thumbnail uploaded to Firebase Storage: $finalThumbnailUrl');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error uploading thumbnail: $e');
+          }
+          // Keep original URL if upload fails
         }
       }
 
-      // Update the SOP document with embedded steps
+      // Process all steps, uploading any data URL images to Firebase Storage
+      List<SOPStep> processedSteps = [];
+      for (final step in updatedSop.steps) {
+        String? finalStepImageUrl = step.imageUrl;
+
+        if (finalStepImageUrl != null &&
+            finalStepImageUrl.startsWith('data:image/')) {
+          if (kDebugMode) {
+            print('Step image is a data URL, uploading to Firebase Storage');
+          }
+
+          try {
+            finalStepImageUrl = await uploadImageFromDataUrl(
+                finalStepImageUrl, updatedSop.id, step.id);
+
+            if (kDebugMode) {
+              print(
+                  'Step image uploaded to Firebase Storage: $finalStepImageUrl');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error uploading step image: $e');
+            }
+            // Keep original URL if upload fails
+          }
+        }
+
+        // Add processed step to list
+        processedSteps.add(step.copyWith(imageUrl: finalStepImageUrl));
+      }
+
+      // Convert steps to a Firestore-friendly format
+      final stepsData = processedSteps.map((step) {
+        return {
+          'id': step.id,
+          'title': step.title,
+          'instruction': step.instruction,
+          'imageUrl': step.imageUrl,
+          'helpNote': step.helpNote,
+          'assignedTo': step.assignedTo,
+          'estimatedTime': step.estimatedTime,
+          'stepTools': step.stepTools,
+          'stepHazards': step.stepHazards,
+        };
+      }).toList();
+
+      // Create updated SOP object with processed images
+      final processedSop = updatedSop.copyWith(
+        thumbnailUrl: finalThumbnailUrl,
+        steps: processedSteps,
+        updatedAt: now,
+      );
+
       final sopData = {
-        'title': updatedSop.title,
-        'description': updatedSop.description,
-        'categoryId': updatedSop.categoryId,
-        'categoryName': updatedSop.categoryName,
-        'revisionNumber': updatedSop.revisionNumber,
+        'title': processedSop.title,
+        'description': processedSop.description,
+        'categoryId': processedSop.categoryId,
+        'categoryName': processedSop.categoryName,
+        'revisionNumber': processedSop.revisionNumber,
         'updatedAt': Timestamp.fromDate(now),
-        'tools': updatedSop.tools,
-        'safetyRequirements': updatedSop.safetyRequirements,
-        'cautions': updatedSop.cautions,
+        'tools': processedSop.tools,
+        'safetyRequirements': processedSop.safetyRequirements,
+        'cautions': processedSop.cautions,
         'qrCodeUrl': qrCodeUrl, // Add QR code URL
-        'thumbnailUrl': updatedSop.thumbnailUrl, // Add thumbnail URL
-        'youtubeUrl': updatedSop.youtubeUrl, // Add YouTube URL
+        'thumbnailUrl': finalThumbnailUrl, // Add processed thumbnail URL
+        'youtubeUrl': processedSop.youtubeUrl, // Add YouTube URL
         'steps': stepsData, // Store steps directly in the document
         'customSectionContent':
-            updatedSop.customSectionContent, // Add custom section content
+            processedSop.customSectionContent, // Add custom section content
       };
 
-      await _firestore!.collection('sops').doc(updatedSop.id).update(sopData);
+      await _firestore!.collection('sops').doc(processedSop.id).update(sopData);
 
       if (kDebugMode) {
-        print('Updated SOP in Firestore with ID: ${updatedSop.id}');
+        print('Updated SOP in Firestore with ID: ${processedSop.id}');
+        print('Final thumbnail URL: $finalThumbnailUrl');
       }
 
       // Clear from local changes map since it's now saved to Firebase
-      _localChanges.remove(updatedSop.id);
+      _localChanges.remove(processedSop.id);
 
       // Update the local list
-      final index = _sops.indexWhere((s) => s.id == updatedSop.id);
+      final index = _sops.indexWhere((s) => s.id == processedSop.id);
       if (index >= 0) {
-        _sops[index] = updatedSop;
+        _sops[index] = processedSop;
         notifyListeners();
       }
     } catch (e) {
@@ -620,6 +672,12 @@ class SOPService extends ChangeNotifier {
 
       // Get download URL
       final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      if (kDebugMode) {
+        print('Successfully uploaded image to Firebase Storage');
+        print('Image URL: $downloadUrl');
+      }
+
       return downloadUrl;
     } catch (e) {
       if (kDebugMode) {
@@ -659,6 +717,9 @@ class SOPService extends ChangeNotifier {
         return downloadUrl;
       } else {
         // If it's not a base64 data URL, return as is
+        if (kDebugMode) {
+          print('Not a base64 data URL, returning as is: $dataUrl');
+        }
         return dataUrl;
       }
     } catch (e) {

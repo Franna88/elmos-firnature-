@@ -47,6 +47,6 @@
     ]
   },
   "storage": {
-    "rules": "storage.rules"
+    "rules": "store.rules"
   }
 }

@@ -377,7 +377,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildImage(String? imageUrl) {
+    if (kDebugMode) {
+      print('Building image with URL: $imageUrl');
+    }
+
     if (imageUrl == null) {
+      if (kDebugMode) {
+        print('Image URL is null, displaying placeholder');
+      }
       return Container(
         color: Colors.grey[100],
         width: double.infinity,
@@ -393,6 +400,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // Check if this is a data URL
     if (imageUrl.startsWith('data:image/')) {
+      if (kDebugMode) {
+        print('Processing data URL image');
+      }
       try {
         final bytes = base64Decode(imageUrl.split(',')[1]);
         return Image.memory(
@@ -400,7 +410,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           width: double.infinity,
           height: double.infinity,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+          errorBuilder: (context, error, stackTrace) {
+            if (kDebugMode) {
+              print('Error displaying data URL image: $error');
+            }
+            return _buildImageError();
+          },
         );
       } catch (e) {
         debugPrint('Error displaying data URL image: $e');
@@ -409,22 +424,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     // Check if this is an asset image
     else if (imageUrl.startsWith('assets/')) {
+      if (kDebugMode) {
+        print('Processing asset image: $imageUrl');
+      }
       return Image.asset(
         imageUrl,
         width: double.infinity,
         height: double.infinity,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        errorBuilder: (context, error, stackTrace) {
+          if (kDebugMode) {
+            print('Error displaying asset image: $error');
+          }
+          return _buildImageError();
+        },
       );
     }
     // Otherwise, assume it's a network image
     else {
+      if (kDebugMode) {
+        print('Processing network image: $imageUrl');
+      }
       return Image.network(
         imageUrl,
         width: double.infinity,
         height: double.infinity,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        errorBuilder: (context, error, stackTrace) {
+          if (kDebugMode) {
+            print('Error displaying network image: $error');
+            print('Network error details: $error');
+          }
+          return _buildImageError();
+        },
       );
     }
   }

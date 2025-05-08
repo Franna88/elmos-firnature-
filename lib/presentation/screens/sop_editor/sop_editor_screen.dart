@@ -3100,6 +3100,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
   // Upload thumbnail image for the SOP
   Future<void> _uploadSOPThumbnail(String sopId) async {
+    if (kDebugMode) {
+      print('Starting thumbnail upload process for SOP: $sopId');
+    }
+
     try {
       // Use ImagePicker for web
       final ImagePicker picker = ImagePicker();
@@ -3111,16 +3115,33 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       );
 
       if (image != null) {
+        if (kDebugMode) {
+          print('Image selected, reading bytes...');
+        }
+
         setState(() {
           _isLoading = true;
         });
 
         final Uint8List imageBytes = await image.readAsBytes();
+        if (kDebugMode) {
+          print('Image bytes read: ${imageBytes.length} bytes');
+        }
 
         // For web, encode as a data URL
         if (kIsWeb) {
+          if (kDebugMode) {
+            print('Running in web mode, preparing data URL');
+          }
+
           final String imageUrl =
               'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+          if (kDebugMode) {
+            print('Data URL created, updating SOP with new thumbnail URL');
+            // Print first 50 characters to verify format
+            print('URL start: ${imageUrl.substring(0, 50)}...');
+          }
 
           // Update the SOP with the new thumbnail URL
           final updatedSop = _sop.copyWith(thumbnailUrl: imageUrl);
@@ -3134,9 +3155,17 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         }
         // For native platforms - just use a placeholder for now
         else {
+          if (kDebugMode) {
+            print('Running in native mode, using placeholder');
+          }
+
           final updatedSop =
               _sop.copyWith(thumbnailUrl: 'assets/images/placeholder.png');
           await _updateSOPLocally(updatedSop);
+        }
+      } else {
+        if (kDebugMode) {
+          print('No image selected by user');
         }
       }
 
@@ -3147,6 +3176,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       setState(() {
         _isLoading = false;
       });
+
+      if (kDebugMode) {
+        print('Error in thumbnail upload process: $e');
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error uploading thumbnail: $e')),
@@ -3225,16 +3258,29 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
   // Helper function to display images, handling different URL types properly
   Widget _displayImage(String? imageUrl, {BoxFit fit = BoxFit.contain}) {
+    if (kDebugMode) {
+      print('Displaying image with URL: $imageUrl');
+    }
+
     if (imageUrl == null) return Container();
 
     // Check if this is a data URL
     if (imageUrl.startsWith('data:image/')) {
+      if (kDebugMode) {
+        print('Displaying data URL image');
+      }
+
       try {
         final bytes = base64Decode(imageUrl.split(',')[1]);
         return Image.memory(
           bytes,
           fit: fit,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+          errorBuilder: (context, error, stackTrace) {
+            if (kDebugMode) {
+              print('Error displaying data URL image: $error');
+            }
+            return _buildImageError();
+          },
           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
             return frame != null ? child : _buildImageLoading();
           },
@@ -3246,10 +3292,19 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
     }
     // Check if this is an asset image
     else if (imageUrl.startsWith('assets/')) {
+      if (kDebugMode) {
+        print('Displaying asset image');
+      }
+
       return Image.asset(
         imageUrl,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        errorBuilder: (context, error, stackTrace) {
+          if (kDebugMode) {
+            print('Error displaying asset image: $error');
+          }
+          return _buildImageError();
+        },
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
           return frame != null ? child : _buildImageLoading();
         },
@@ -3257,10 +3312,19 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
     }
     // Otherwise, assume it's a network image
     else {
+      if (kDebugMode) {
+        print('Displaying network image: $imageUrl');
+      }
+
       return Image.network(
         imageUrl,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+        errorBuilder: (context, error, stackTrace) {
+          if (kDebugMode) {
+            print('Error displaying network image: $error');
+          }
+          return _buildImageError();
+        },
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return _buildImageLoading(
