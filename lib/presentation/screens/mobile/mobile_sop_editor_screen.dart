@@ -10,6 +10,7 @@ import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../data/models/category_model.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../widgets/cross_platform_image.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import '../../../utils/permission_handler.dart';
@@ -994,37 +995,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                   const SizedBox(height: 16),
 
                   // Thumbnail image or placeholder
-                  GestureDetector(
-                    onTap: _uploadSOPThumbnail,
-                    child: Container(
-                      width: 200,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                        color: Colors.grey[100],
-                      ),
-                      child: _thumbnailUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: _buildImage(_thumbnailUrl!,
-                                  fit: BoxFit.cover, width: 200, height: 150))
-                          : const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_photo_alternate,
-                                      size: 48, color: Colors.grey),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'Add Thumbnail',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
-                  ),
+                  _buildThumbnailDisplay(),
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
                     onPressed: _uploadSOPThumbnail,
@@ -1655,7 +1626,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                         margin: const EdgeInsets.only(bottom: 16),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: _buildImage(step.imageUrl!, fit: BoxFit.cover),
+                          child: _buildImageWidget(step.imageUrl),
                         ),
                       ),
 
@@ -2197,7 +2168,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                     border: Border.all(color: Colors.grey),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: _buildImage(imageUrl, fit: BoxFit.contain),
+                  child: _buildImageWidget(imageUrl),
                 )
               else
                 Container(
@@ -2315,59 +2286,107 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     );
   }
 
-  // Helper method to build an image widget based on URL type
-  Widget _buildImage(String imageUrl,
-      {BoxFit fit = BoxFit.cover, double? width, double? height}) {
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final bytes = base64Decode(imageUrl.split(',')[1]);
-        return Image.memory(
-          bytes,
-          fit: fit,
-          width: width,
-          height: height,
-          errorBuilder: (context, error, stackTrace) => Center(
-            child: Icon(Icons.broken_image,
-                size: height != null ? height / 4 : 48, color: Colors.grey),
-          ),
-        );
-      } catch (e) {
-        if (kDebugMode) {
-          print('Error decoding data URL: $e');
-        }
-        return Center(
-          child: Icon(Icons.broken_image,
-              size: height != null ? height / 4 : 48, color: Colors.grey),
-        );
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        fit: fit,
-        width: width,
-        height: height,
-        errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(Icons.broken_image,
-              size: height != null ? height / 4 : 48, color: Colors.grey),
+  // Update the _buildImageWidget method to use CrossPlatformImage
+  Widget _buildImageWidget(String? imageUrl) {
+    if (imageUrl == null) {
+      return Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(
+              'No Image',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
         ),
       );
     }
-    // Otherwise, assume it's a network image
-    else {
-      return Image.network(
-        imageUrl,
-        fit: fit,
-        width: width,
-        height: height,
-        errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(Icons.broken_image,
-              size: height != null ? height / 4 : 48, color: Colors.grey),
+
+    return CrossPlatformImage(
+      imageUrl: imageUrl,
+      width: double.infinity,
+      height: 200,
+      fit: BoxFit.contain,
+    );
+  }
+
+  // Update thumbnail display code
+  Widget _buildThumbnailDisplay() {
+    return GestureDetector(
+      onTap: () => _uploadSOPThumbnail(),
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
         ),
-      );
-    }
+        child: _thumbnailUrl != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: CrossPlatformImage(
+                  imageUrl: _thumbnailUrl!,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                ),
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate,
+                      size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add Thumbnail',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  // Update step image display code
+  Widget _buildStepImageDisplay(String? imageUrl) {
+    return Container(
+      width: double.infinity,
+      height: 200,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: imageUrl != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: CrossPlatformImage(
+                imageUrl: imageUrl,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.contain,
+              ),
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_photo_alternate,
+                    size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 8),
+                Text(
+                  'No Image',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+    );
   }
 
   /// Updates the sections based on selected category

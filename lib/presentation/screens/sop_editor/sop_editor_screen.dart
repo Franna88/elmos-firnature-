@@ -18,6 +18,7 @@ import '../../../data/models/category_model.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/sop_viewer.dart';
+import '../../widgets/cross_platform_image.dart'; // Import CrossPlatformImage
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/services.dart';
 
@@ -734,45 +735,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                 tooltip: 'View full image',
                                                 onPressed: () {
                                                   // Show full-size image dialog
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (context) =>
-                                                        Dialog(
-                                                      insetPadding:
-                                                          const EdgeInsets.all(
-                                                              16),
-                                                      child: Column(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          AppBar(
-                                                            title: Text(
-                                                                step.title),
-                                                            leading: IconButton(
-                                                              icon: const Icon(
-                                                                  Icons.close),
-                                                              onPressed: () =>
-                                                                  Navigator.pop(
-                                                                      context),
-                                                            ),
-                                                          ),
-                                                          Flexible(
-                                                            child:
-                                                                InteractiveViewer(
-                                                              boundaryMargin:
-                                                                  const EdgeInsets
-                                                                      .all(20),
-                                                              minScale: 0.5,
-                                                              maxScale: 4,
-                                                              child: _buildStepImage(
-                                                                  step.imageUrl!,
-                                                                  context),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  );
+                                                  _showFullSizeImageDialog(
+                                                      context, step.imageUrl!);
                                                 },
                                               ),
                                             if (step.estimatedTime != null)
@@ -1097,7 +1061,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                               ),
                               child: _displayImage(
                                 imageUrl,
-                                fit: BoxFit.contain,
                               ),
                             )
                           else
@@ -1805,40 +1768,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                               size: 20),
                                                           onPressed: () {
                                                             // Show full-size image dialog
-                                                            showDialog(
-                                                              context: context,
-                                                              builder:
-                                                                  (context) =>
-                                                                      Dialog(
-                                                                child: Column(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .min,
-                                                                  children: [
-                                                                    AppBar(
-                                                                      title: const Text(
-                                                                          'Image Preview'),
-                                                                      leading:
-                                                                          IconButton(
-                                                                        icon: const Icon(
-                                                                            Icons.close),
-                                                                        onPressed:
-                                                                            () =>
-                                                                                Navigator.pop(context),
-                                                                      ),
-                                                                    ),
-                                                                    Flexible(
-                                                                      child:
-                                                                          InteractiveViewer(
-                                                                        child: _buildStepImage(
-                                                                            imageUrl,
-                                                                            context),
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            );
+                                                            _showFullSizeImageDialog(
+                                                                context,
+                                                                imageUrl);
                                                           },
                                                           iconSize: 20,
                                                           padding:
@@ -2371,188 +2303,90 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   Widget _buildStepImage(String? imageUrl, BuildContext context) {
     if (imageUrl == null) return Container();
 
-    // Detect if we're on a mobile device
-    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    final screenWidth = MediaQuery.of(context).size.width;
-
     // Common image container with constraints, adjusted for mobile
     Widget buildConstrainedImage(Widget imageWidget) {
       return GestureDetector(
         onTap: () {
           // Show full-size image dialog optimized for mobile when tapped
-          showDialog(
-            context: context,
-            builder: (context) => Dialog(
-              insetPadding: EdgeInsets.zero, // Full screen dialog
-              backgroundColor: Colors.black.withOpacity(0.9),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Interactive image viewer for zooming and panning
-                  InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Center(
-                      child: imageWidget,
-                    ),
-                  ),
-                  // Close button positioned at the top
-                  Positioned(
-                    top: 40,
-                    right: 16,
-                    child: IconButton(
-                      icon: const Icon(Icons.close,
-                          color: Colors.white, size: 30),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+          _showFullSizeImageDialog(context, imageUrl);
         },
         child: Container(
           constraints: BoxConstraints(
-            maxHeight: isMobile ? 300 : 200,
-            minHeight: 120,
+            maxWidth: 500,
+            minHeight: 100,
+            maxHeight: 300,
           ),
-          width: isMobile ? screenWidth * 0.95 : double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              imageWidget,
-              // Overlay icon to indicate the image can be expanded
-              Positioned(
-                right: 8,
-                bottom: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.fullscreen,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: imageWidget,
         ),
       );
     }
 
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final bytes = base64Decode(imageUrl.split(',')[1]);
-        return buildConstrainedImage(
-          Image.memory(
-            bytes,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => _buildImageError(),
-            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-              return frame != null ? child : _buildImageLoading();
-            },
-          ),
-        );
-      } catch (e) {
-        debugPrint('Error displaying data URL image: $e');
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return buildConstrainedImage(
-        Image.asset(
-          imageUrl,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            return frame != null ? child : _buildImageLoading();
-          },
-        ),
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      return buildConstrainedImage(
-        Image.network(
-          imageUrl,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return _buildImageLoading(
-              progress: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-            );
-          },
-        ),
-      );
-    }
+    // Use CrossPlatformImage for all image types
+    return buildConstrainedImage(
+      CrossPlatformImage(
+        imageUrl: imageUrl,
+        width: 500,
+        height: 300,
+        fit: BoxFit.contain,
+      ),
+    );
   }
 
   Widget _buildImageError() {
     return Container(
-      height: 120,
+      width: 200,
+      height: 150,
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
+        color: Colors.grey[200],
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.broken_image,
-              size: 36,
-              color: Colors.grey,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.broken_image,
+            size: 48,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Image could not be loaded',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
             ),
-            SizedBox(height: 8),
-            Text(
-              'Image could not be loaded',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildImageLoading({double? progress}) {
     return Container(
-      height: 120,
+      width: 200,
+      height: 150,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Colors.grey[200],
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (progress != null)
-              CircularProgressIndicator(value: progress)
-            else
-              const CircularProgressIndicator(),
-            const SizedBox(height: 8),
-            const Text(
-              'Loading image...',
-              style: TextStyle(color: Colors.grey),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: progress,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).primaryColor,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Loading image...',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2885,7 +2719,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                               ),
                               child: _displayImage(
                                 imageUrl,
-                                fit: BoxFit.contain,
                               ),
                             )
                           else
@@ -3257,85 +3090,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   }
 
   // Helper function to display images, handling different URL types properly
-  Widget _displayImage(String? imageUrl, {BoxFit fit = BoxFit.contain}) {
-    if (kDebugMode) {
-      print('Displaying image with URL: $imageUrl');
-    }
-
+  Widget _displayImage(String? imageUrl, {double? width, double? height}) {
     if (imageUrl == null) return Container();
 
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      if (kDebugMode) {
-        print('Displaying data URL image');
-      }
-
-      try {
-        final bytes = base64Decode(imageUrl.split(',')[1]);
-        return Image.memory(
-          bytes,
-          fit: fit,
-          errorBuilder: (context, error, stackTrace) {
-            if (kDebugMode) {
-              print('Error displaying data URL image: $error');
-            }
-            return _buildImageError();
-          },
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            return frame != null ? child : _buildImageLoading();
-          },
-        );
-      } catch (e) {
-        debugPrint('Error displaying data URL image: $e');
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      if (kDebugMode) {
-        print('Displaying asset image');
-      }
-
-      return Image.asset(
-        imageUrl,
-        fit: fit,
-        errorBuilder: (context, error, stackTrace) {
-          if (kDebugMode) {
-            print('Error displaying asset image: $error');
-          }
-          return _buildImageError();
-        },
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          return frame != null ? child : _buildImageLoading();
-        },
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      if (kDebugMode) {
-        print('Displaying network image: $imageUrl');
-      }
-
-      return Image.network(
-        imageUrl,
-        fit: fit,
-        errorBuilder: (context, error, stackTrace) {
-          if (kDebugMode) {
-            print('Error displaying network image: $error');
-          }
-          return _buildImageError();
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _buildImageLoading(
-            progress: loadingProgress.expectedTotalBytes != null
-                ? loadingProgress.cumulativeBytesLoaded /
-                    loadingProgress.expectedTotalBytes!
-                : null,
-          );
-        },
-      );
-    }
+    return CrossPlatformImage(
+      imageUrl: imageUrl,
+      width: width ?? 200,
+      height: height ?? 150,
+      fit: BoxFit.cover,
+    );
   }
 
   // Helper method to build all tab views
@@ -3488,7 +3251,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                         borderRadius: BorderRadius.circular(7),
                         child: _displayImage(
                           _sop.thumbnailUrl,
-                          fit: BoxFit.cover,
                         ),
                       )
                     : Column(
@@ -4163,5 +3925,46 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         _sop = _sop.copyWith(customSectionContent: updatedContent);
       }
     });
+  }
+
+  // Fix the error by ensuring imageUrl is non-null
+  void _showFullSizeImageDialog(BuildContext context, String? imageUrl) {
+    if (imageUrl == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Align(
+              alignment: Alignment.topRight,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 30,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Flexible(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: CrossPlatformImage(
+                  imageUrl: imageUrl,
+                  width: MediaQuery.of(context).size.width * 0.9,
+                  height: MediaQuery.of(context).size.height * 0.8,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
