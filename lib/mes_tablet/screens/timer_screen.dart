@@ -250,6 +250,15 @@ class _TimerScreenState extends State<TimerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Building: ${_selectedItem.name}'),
+        backgroundColor: _timer.mode == ProductionTimerMode.running
+            ? const Color(0xFF4CAF50) // Green for productive
+            : _timer.mode == ProductionTimerMode.interrupted
+                ? const Color(0xFFEB281E) // Red for non-productive
+                : null, // Default for paused/not started
+        foregroundColor: _timer.mode == ProductionTimerMode.running ||
+                _timer.mode == ProductionTimerMode.interrupted
+            ? Colors.white
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -459,6 +468,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                     style: TextStyle(
                                       fontSize: isNarrow ? 22 : 28,
                                       fontWeight: FontWeight.bold,
+                                      color: _getStatusColor(),
                                     ),
                                   ),
                                   SizedBox(height: isNarrow ? 8 : 12),
@@ -485,7 +495,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                               vertical: isNarrow ? 8 : 12,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.grey[200],
+                                              color: _getStatusColor(),
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
@@ -502,7 +512,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                                       fontWeight:
                                                           FontWeight.bold,
                                                       fontFamily: 'monospace',
-                                                      color: Colors.black87,
+                                                      color: Colors.white,
                                                       height: 1.0,
                                                     ),
                                                   ),
@@ -533,7 +543,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                               vertical: isNarrow ? 12 : 16,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.grey[200],
+                                              color: _getStatusColor()
+                                                  .withOpacity(0.8),
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
@@ -544,7 +555,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                                   fontSize: isNarrow ? 48 : 64,
                                                   fontWeight: FontWeight.bold,
                                                   fontFamily: 'monospace',
-                                                  color: _getTimerColor(),
+                                                  color: Colors.white,
                                                   height: 1.0,
                                                 ),
                                               ),
@@ -740,8 +751,9 @@ class _TimerScreenState extends State<TimerScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF5F5),
+            color: Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -764,9 +776,9 @@ class _TimerScreenState extends State<TimerScreen> {
                       padding: const EdgeInsets.symmetric(
                           vertical: 2, horizontal: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.green.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(color: Colors.green[300]!),
                       ),
                       child: Text(
                         _formatTimeForStatistics(_timer.getProductionTime()),
@@ -774,7 +786,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFEB281E),
+                          color: Colors.green,
                         ),
                       ),
                     ),
@@ -800,9 +812,9 @@ class _TimerScreenState extends State<TimerScreen> {
                       padding: const EdgeInsets.symmetric(
                           vertical: 2, horizontal: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.red.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(color: Colors.red[300]!),
                       ),
                       child: Text(
                         _formatTimeForStatistics(
@@ -811,7 +823,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFEB281E),
+                          color: Colors.red,
                         ),
                       ),
                     ),
@@ -837,9 +849,9 @@ class _TimerScreenState extends State<TimerScreen> {
                       padding: const EdgeInsets.symmetric(
                           vertical: 2, horizontal: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.blue.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(color: Colors.blue[300]!),
                       ),
                       child: Text(
                         _formatTimeForStatistics(_timer.getTotalTime()),
@@ -847,7 +859,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFEB281E),
+                          color: Color(0xFF1976D2),
                         ),
                       ),
                     ),
@@ -1087,5 +1099,16 @@ class _TimerScreenState extends State<TimerScreen> {
     final remainingSeconds = seconds % 60;
 
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  Color _getStatusColor() {
+    switch (_timer.mode) {
+      case ProductionTimerMode.running:
+        return Colors.green;
+      case ProductionTimerMode.interrupted:
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 }

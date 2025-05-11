@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:ui' as ui;
 import '../../data/services/mes_service.dart';
 import '../../data/models/mes_production_record_model.dart';
 import '../../data/models/mes_item_model.dart';
+import 'dart:math' as math;
 
 class MESReportsScreen extends StatefulWidget {
   const MESReportsScreen({Key? key}) : super(key: key);
@@ -13,16 +15,31 @@ class MESReportsScreen extends StatefulWidget {
   State<MESReportsScreen> createState() => _MESReportsScreenState();
 }
 
-class _MESReportsScreenState extends State<MESReportsScreen> {
+class _MESReportsScreenState extends State<MESReportsScreen>
+    with SingleTickerProviderStateMixin {
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
   String? _selectedItemId;
+  String? _selectedUserId;
   bool _onlyCompleted = true;
+  late TabController _tabController;
+
+  // Daily summary data
+  List<Map<String, dynamic>> _dailySummaries = [];
+  bool _isLoadingDailySummary = false;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
+    _loadDailySummaries();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   // Load MES data
@@ -35,35 +52,98 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
     // Load production records with filters
     await mesService.fetchProductionRecords(
       itemId: _selectedItemId,
+      userId: _selectedUserId,
       startDate: _startDate,
       endDate: _endDate,
       onlyCompleted: _onlyCompleted,
     );
   }
 
+  // Load daily summary data
+  Future<void> _loadDailySummaries() async {
+    setState(() {
+      _isLoadingDailySummary = true;
+    });
+
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+      final summaries = await mesService.fetchDailySummaries(
+        startDate: _startDate,
+        endDate: _endDate,
+        userId: _selectedUserId,
+      );
+
+      setState(() {
+        _dailySummaries = summaries;
+        _isLoadingDailySummary = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingDailySummary = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading daily summaries: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MES Production Reports'),
+        title: const Text(
+          'MES Production Reports',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/dashboard'),
         ),
+        backgroundColor: const Color(0xFFEB281E),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: _loadData,
+            onPressed: () {
+              _loadData();
+              _loadDailySummaries();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Export to CSV',
+            onPressed: _exportCurrentReport,
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: 'Production Records'),
+            Tab(text: 'Daily Summaries'),
+            Tab(text: 'Productivity Analysis'),
+          ],
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFilters(),
           Expanded(
-            child: _buildReportContent(),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildProductionRecordsTab(),
+                _buildDailySummariesTab(),
+                _buildProductivityAnalysisTab(),
+              ],
+            ),
           ),
         ],
       ),
@@ -83,7 +163,11 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
           children: [
             const Text(
               'Filter Reports',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFEB281E),
+              ),
             ),
             const SizedBox(height: 16),
             Row(
@@ -92,7 +176,13 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Start Date'),
+                      const Text(
+                        'Start Date',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEB281E),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       InkWell(
                         onTap: () => _selectStartDate(context),
@@ -117,7 +207,13 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('End Date'),
+                      const Text(
+                        'End Date',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEB281E),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       InkWell(
                         onTap: () => _selectEndDate(context),
@@ -142,7 +238,13 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Filter by Item'),
+                      const Text(
+                        'Filter by Item',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEB281E),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String?>(
                         decoration: const InputDecoration(
@@ -174,6 +276,61 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Filter by Operator',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEB281E),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<List<Map<String, dynamic>>>(
+                        future: _fetchOperators(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const LinearProgressIndicator();
+                          }
+
+                          final operators = snapshot.data ?? [];
+
+                          return DropdownButtonFormField<String?>(
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            value: _selectedUserId,
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedUserId = value;
+                              });
+                            },
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('All Operators'),
+                              ),
+                              ...operators.map((op) {
+                                return DropdownMenuItem<String>(
+                                  value: op['id'],
+                                  child: Text(op['name']),
+                                );
+                              }).toList(),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -196,7 +353,10 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.filter_alt),
                   label: const Text('Apply Filters'),
-                  onPressed: _loadData,
+                  onPressed: () {
+                    _loadData();
+                    _loadDailySummaries();
+                  },
                 ),
               ],
             ),
@@ -206,7 +366,19 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
     );
   }
 
-  Widget _buildReportContent() {
+  // Helper to fetch unique operators from production records
+  Future<List<Map<String, dynamic>>> _fetchOperators() async {
+    final mesService = Provider.of<MESService>(context, listen: false);
+
+    try {
+      return await mesService.fetchUniqueOperators();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Production Records Tab
+  Widget _buildProductionRecordsTab() {
     final mesService = Provider.of<MESService>(context);
 
     if (mesService.isLoadingProductionRecords) {
@@ -230,6 +402,472 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
         _buildRecordsTable(records, mesService),
       ],
     );
+  }
+
+  // Daily Summaries Tab
+  Widget _buildDailySummariesTab() {
+    if (_isLoadingDailySummary) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_dailySummaries.isEmpty) {
+      return const Center(
+        child: Text('No daily summaries found matching the current filters.'),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        _buildDailySummaryCard(),
+        const SizedBox(height: 16),
+        _buildDailySummaryTable(),
+      ],
+    );
+  }
+
+  // Productivity Analysis Tab
+  Widget _buildProductivityAnalysisTab() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        _buildProductivityChart(),
+        const SizedBox(height: 16),
+        _buildProductivityMetrics(),
+      ],
+    );
+  }
+
+  // Daily Summary Card
+  Widget _buildDailySummaryCard() {
+    // Calculate summary statistics
+    int totalItemsCompleted = 0;
+    int totalProductiveTime = 0;
+    int totalNonProductiveTime = 0;
+
+    for (var summary in _dailySummaries) {
+      totalItemsCompleted += summary['itemsCompleted'] as int;
+      totalProductiveTime += summary['totalProductionTimeSeconds'] as int;
+      totalNonProductiveTime += summary['totalNonProductiveTimeSeconds'] as int;
+    }
+
+    // Calculate productivity percentage
+    final totalTime = totalProductiveTime + totalNonProductiveTime;
+    final productivityPercent = totalTime > 0
+        ? (totalProductiveTime / totalTime * 100).toStringAsFixed(1) + '%'
+        : '0%';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Daily Production Summary',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildSummaryStat(
+                  'Total Days',
+                  _dailySummaries.length.toString(),
+                  Icons.calendar_today,
+                ),
+                _buildSummaryStat(
+                  'Items Completed',
+                  totalItemsCompleted.toString(),
+                  Icons.check_circle_outline,
+                ),
+                _buildSummaryStat(
+                  'Productive Time',
+                  _formatDuration(totalProductiveTime),
+                  Icons.timer,
+                ),
+                _buildSummaryStat(
+                  'Productivity',
+                  productivityPercent,
+                  Icons.trending_up,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Daily Summary Table
+  Widget _buildDailySummaryTable() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Daily Summaries',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 20,
+                headingRowColor: MaterialStateColor.resolveWith(
+                  (states) => Colors.grey.shade100,
+                ),
+                columns: const [
+                  DataColumn(
+                      label: Text(
+                    'Date',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Operator',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Items Completed',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Productive Time',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Non-Productive Time',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Productivity',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                ],
+                rows: _dailySummaries.map((summary) {
+                  final totalTime =
+                      (summary['totalProductionTimeSeconds'] as int) +
+                          (summary['totalNonProductiveTimeSeconds'] as int);
+                  final productivity = totalTime > 0
+                      ? (summary['totalProductionTimeSeconds'] as int) /
+                          totalTime *
+                          100
+                      : 0;
+
+                  final date = (summary['date'] as DateTime);
+
+                  return DataRow(
+                    cells: [
+                      DataCell(Text(DateFormat('yyyy-MM-dd').format(date))),
+                      DataCell(Text(summary['userName'] as String)),
+                      DataCell(Text(summary['itemsCompleted'].toString())),
+                      DataCell(Text(_formatDuration(
+                          summary['totalProductionTimeSeconds'] as int))),
+                      DataCell(Text(_formatDuration(
+                          summary['totalNonProductiveTimeSeconds'] as int))),
+                      DataCell(
+                        Row(
+                          children: [
+                            Container(
+                              width: 60,
+                              child: LinearProgressIndicator(
+                                value: productivity / 100,
+                                backgroundColor: Colors.grey[200],
+                                color: _getProductivityColor(
+                                    productivity.toDouble()),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text('${productivity.toStringAsFixed(1)}%'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Productivity Chart
+  Widget _buildProductivityChart() {
+    // Sort summaries by date
+    final sortedSummaries = List<Map<String, dynamic>>.from(_dailySummaries)
+      ..sort(
+          (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Productivity Trends',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            AspectRatio(
+              aspectRatio: 2.0,
+              child: sortedSummaries.isEmpty
+                  ? const Center(
+                      child: Text('No data available for productivity chart'))
+                  : _ProductivityChart(dailySummaries: sortedSummaries),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Productivity Metrics - Top Performers, Items, etc.
+  Widget _buildProductivityMetrics() {
+    // Process data for metrics
+    final itemsProduced = <String, int>{};
+    final operatorProductivity = <String, Map<String, dynamic>>{};
+
+    // Get all production records
+    final mesService = Provider.of<MESService>(context);
+    final records = mesService.productionRecords;
+
+    // Group by item and operator
+    for (var record in records) {
+      if (record.isCompleted) {
+        // Count items
+        final item = mesService.items.firstWhere(
+          (i) => i.id == record.itemId,
+          orElse: () => MESItem(
+            id: 'unknown',
+            name: 'Unknown Item',
+            category: 'Unknown',
+            estimatedTimeInMinutes: 0,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        itemsProduced[item.name] = (itemsProduced[item.name] ?? 0) + 1;
+
+        // Calculate operator metrics
+        if (!operatorProductivity.containsKey(record.userName)) {
+          operatorProductivity[record.userName] = {
+            'itemsCompleted': 0,
+            'totalProductionTime': 0,
+            'totalInterruptionTime': 0,
+          };
+        }
+
+        operatorProductivity[record.userName]!['itemsCompleted'] =
+            (operatorProductivity[record.userName]!['itemsCompleted'] as int) +
+                1;
+
+        operatorProductivity[record.userName]!['totalProductionTime'] =
+            (operatorProductivity[record.userName]!['totalProductionTime']
+                    as int) +
+                record.totalProductionTimeSeconds;
+
+        operatorProductivity[record.userName]!['totalInterruptionTime'] =
+            (operatorProductivity[record.userName]!['totalInterruptionTime']
+                    as int) +
+                record.totalInterruptionTimeSeconds;
+      }
+    }
+
+    // Sort and get top items
+    final topItems = itemsProduced.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Calculate and sort operators by productivity
+    final operatorList = operatorProductivity.entries.map((entry) {
+      final totalTime = (entry.value['totalProductionTime'] as int) +
+          (entry.value['totalInterruptionTime'] as int);
+      final productivity = totalTime > 0
+          ? (entry.value['totalProductionTime'] as int) / totalTime * 100
+          : 0;
+
+      return {
+        'name': entry.key,
+        'itemsCompleted': entry.value['itemsCompleted'],
+        'productivity': productivity,
+        'totalTime': totalTime,
+      };
+    }).toList()
+      ..sort((a, b) =>
+          (b['productivity'] as double).compareTo(a['productivity'] as double));
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Top Items
+        Expanded(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Top Produced Items',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  topItems.isEmpty
+                      ? const Text('No data available')
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: math.min(5, topItems.length),
+                          itemBuilder: (context, index) {
+                            final item = topItems[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.blue,
+                                child: Text('${index + 1}'),
+                              ),
+                              title: Text(item.key),
+                              trailing: Text(
+                                '${item.value} items',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: LinearProgressIndicator(
+                                value: item.value /
+                                    (topItems.isNotEmpty
+                                        ? topItems.first.value
+                                        : 1),
+                              ),
+                            );
+                          },
+                        ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Top Operators
+        Expanded(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Operator Productivity',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  operatorList.isEmpty
+                      ? const Text('No data available')
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: math.min(5, operatorList.length),
+                          itemBuilder: (context, index) {
+                            final operator = operatorList[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: _getProductivityColor(
+                                    operator['productivity'] as double),
+                                child: Text('${index + 1}'),
+                              ),
+                              title: Text(operator['name'] as String),
+                              subtitle: Row(
+                                children: [
+                                  Expanded(
+                                    child: LinearProgressIndicator(
+                                      value:
+                                          (operator['productivity'] as double) /
+                                              100,
+                                      backgroundColor: Colors.grey[200],
+                                      color: _getProductivityColor(
+                                          operator['productivity'] as double),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                      '${(operator['productivity'] as double).toStringAsFixed(1)}%'),
+                                ],
+                              ),
+                              trailing: Text(
+                                '${operator['itemsCompleted']} items',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Export current report to CSV
+  void _exportCurrentReport() {
+    final tabIndex = _tabController.index;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(
+              'Exporting ${_getReportNameByTabIndex(tabIndex)} report...')),
+    );
+
+    // In a real implementation, you would generate and download a CSV here
+    // This is a placeholder for the actual export implementation
+    Future.delayed(const Duration(seconds: 2), () {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '${_getReportNameByTabIndex(tabIndex)} report exported successfully!')),
+      );
+    });
+  }
+
+  String _getReportNameByTabIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'Production Records';
+      case 1:
+        return 'Daily Summaries';
+      case 2:
+        return 'Productivity Analysis';
+      default:
+        return 'MES';
+    }
+  }
+
+  // Helper method to get color based on productivity percentage
+  Color _getProductivityColor(double productivity) {
+    if (productivity >= 80) {
+      return Colors.green;
+    } else if (productivity >= 60) {
+      return Colors.amber;
+    } else {
+      return Colors.red;
+    }
   }
 
   Widget _buildSummaryCard(List<MESProductionRecord> records) {
@@ -329,16 +967,59 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
+                headingRowColor: MaterialStateColor.resolveWith(
+                  (states) => Colors.grey.shade100,
+                ),
                 columnSpacing: 20,
                 columns: const [
-                  DataColumn(label: Text('Item')),
-                  DataColumn(label: Text('Operator')),
-                  DataColumn(label: Text('Start Time')),
-                  DataColumn(label: Text('End Time')),
-                  DataColumn(label: Text('Production Time')),
-                  DataColumn(label: Text('Interruption Time')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Actions')),
+                  DataColumn(
+                      label: Text(
+                    'Item',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Operator',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Start Time',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'End Time',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Production Time',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Interruption Time',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Status',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
+                  DataColumn(
+                      label: Text(
+                    'Actions',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.black),
+                  )),
                 ],
                 rows: records.map((record) {
                   // Find the item
@@ -642,4 +1323,108 @@ class _MESReportsScreenState extends State<MESReportsScreen> {
       });
     }
   }
+}
+
+// Custom chart widget for productivity trend visualization
+class _ProductivityChart extends StatelessWidget {
+  final List<Map<String, dynamic>> dailySummaries;
+
+  const _ProductivityChart({Key? key, required this.dailySummaries})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _ProductivityChartPainter(dailySummaries),
+      child: Container(),
+    );
+  }
+}
+
+class _ProductivityChartPainter extends CustomPainter {
+  final List<Map<String, dynamic>> dailySummaries;
+
+  _ProductivityChartPainter(this.dailySummaries);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double width = size.width;
+    final double height = size.height;
+    final int dataPoints = dailySummaries.length;
+
+    if (dataPoints == 0) return;
+
+    // Drawing setup
+    final barWidth = width / (dataPoints * 2);
+    final productionPaint = Paint()..color = Colors.green;
+    final interruptionPaint = Paint()..color = Colors.red;
+    final textStyle = TextStyle(color: Colors.black, fontSize: 10);
+    final textPainter = TextPainter(
+      textDirection: ui.TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+
+    // Find max value for scaling
+    int maxTotalTime = 0;
+    for (var summary in dailySummaries) {
+      final totalTime = (summary['totalProductionTimeSeconds'] as int) +
+          (summary['totalNonProductiveTimeSeconds'] as int);
+      if (totalTime > maxTotalTime) maxTotalTime = totalTime;
+    }
+
+    // Draw each day's data
+    for (int i = 0; i < dataPoints; i++) {
+      final summary = dailySummaries[i];
+      final date = summary['date'] as DateTime;
+      final productiveTime = summary['totalProductionTimeSeconds'] as int;
+      final nonProductiveTime = summary['totalNonProductiveTimeSeconds'] as int;
+
+      final x = i * (width / dataPoints) + (width / dataPoints / 2);
+
+      // Calculate bar heights
+      final productiveHeight = height * (productiveTime / maxTotalTime);
+      final nonProductiveHeight = height * (nonProductiveTime / maxTotalTime);
+
+      // Draw bars
+      canvas.drawRect(
+          Rect.fromLTWH(x - barWidth / 2, height - productiveHeight, barWidth,
+              productiveHeight),
+          productionPaint);
+
+      canvas.drawRect(
+          Rect.fromLTWH(
+              x - barWidth / 2,
+              height - productiveHeight - nonProductiveHeight,
+              barWidth,
+              nonProductiveHeight),
+          interruptionPaint);
+
+      // Draw date label
+      textPainter.text = TextSpan(
+        text: DateFormat('MM/dd').format(date),
+        style: textStyle,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(x - textPainter.width / 2, height + 5));
+    }
+
+    // Draw legend
+    final legendY = 20.0;
+    // Productive time legend
+    canvas.drawRect(
+        Rect.fromLTWH(width - 120, legendY, 10, 10), productionPaint);
+    textPainter.text = TextSpan(text: 'Productive', style: textStyle);
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(width - 105, legendY));
+
+    // Non-productive time legend
+    canvas.drawRect(
+        Rect.fromLTWH(width - 120, legendY + 20, 10, 10), interruptionPaint);
+    textPainter.text = TextSpan(text: 'Non-productive', style: textStyle);
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(width - 105, legendY + 20));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

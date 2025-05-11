@@ -524,4 +524,115 @@ class MESService extends ChangeNotifier {
   List<MESItem> getItemsByCategory(String category) {
     return _items.where((item) => item.category == category).toList();
   }
+
+  // Fetch all unique operators from production records
+  Future<List<Map<String, dynamic>>> fetchUniqueOperators() async {
+    try {
+      // Use a set to track unique user IDs
+      final Set<String> uniqueUserIds = {};
+      final List<Map<String, dynamic>> operators = [];
+
+      // If we already have production records loaded, use them
+      if (_productionRecords.isNotEmpty) {
+        for (var record in _productionRecords) {
+          if (!uniqueUserIds.contains(record.userId)) {
+            uniqueUserIds.add(record.userId);
+            operators.add({
+              'id': record.userId,
+              'name': record.userName,
+            });
+          }
+        }
+      } else {
+        // Otherwise fetch from Firestore
+        final snapshot = await _productionRecordsCollection.get();
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final userId = data['userId'] as String;
+          final userName = data['userName'] as String;
+
+          if (!uniqueUserIds.contains(userId)) {
+            uniqueUserIds.add(userId);
+            operators.add({
+              'id': userId,
+              'name': userName,
+            });
+          }
+        }
+      }
+
+      // Sort by name
+      operators
+          .sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+
+      return operators;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Fetch daily production summaries
+  Future<List<Map<String, dynamic>>> fetchDailySummaries({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? userId,
+  }) async {
+    try {
+      // Make sure we have production records
+      await fetchProductionRecords(
+        userId: userId,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      // Group records by date and user
+      final Map<String, Map<String, dynamic>> dailySummaries = {};
+
+      for (var record in _productionRecords) {
+        // Skip non-completed records
+        if (!record.isCompleted) continue;
+
+        // Create date key (yyyy-MM-dd)
+        final date = DateTime(
+          record.startTime.year,
+          record.startTime.month,
+          record.startTime.day,
+        );
+        final dateStr = date.toIso8601String().split('T')[0];
+        final key = '${dateStr}_${record.userId}';
+
+        if (!dailySummaries.containsKey(key)) {
+          dailySummaries[key] = {
+            'date': date,
+            'userId': record.userId,
+            'userName': record.userName,
+            'itemsCompleted': 0,
+            'totalProductionTimeSeconds': 0,
+            'totalNonProductiveTimeSeconds': 0,
+          };
+        }
+
+        // Update summary
+        dailySummaries[key]!['itemsCompleted'] =
+            (dailySummaries[key]!['itemsCompleted'] as int) + 1;
+
+        dailySummaries[key]!['totalProductionTimeSeconds'] =
+            (dailySummaries[key]!['totalProductionTimeSeconds'] as int) +
+                record.totalProductionTimeSeconds;
+
+        dailySummaries[key]!['totalNonProductiveTimeSeconds'] =
+            (dailySummaries[key]!['totalNonProductiveTimeSeconds'] as int) +
+                record.totalInterruptionTimeSeconds;
+      }
+
+      // Convert to list and sort by date (newest first)
+      final result = dailySummaries.values.toList()
+        ..sort(
+            (a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
