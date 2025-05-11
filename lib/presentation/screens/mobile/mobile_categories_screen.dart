@@ -131,6 +131,14 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
                 Navigator.pop(context);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.factory_outlined),
+              title: const Text('Factory MES'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/mes');
+              },
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),
