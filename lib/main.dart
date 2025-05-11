@@ -31,6 +31,7 @@ import 'presentation/screens/mobile/mobile_sops_screen.dart';
 import 'presentation/screens/mobile/mobile_login_screen.dart';
 import 'presentation/screens/mobile/mobile_sop_editor_screen.dart';
 import 'presentation/screens/image_upload_test_screen.dart';
+import 'presentation/screens/mes/mes_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -208,6 +209,11 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/sops',
           builder: (context, state) => const SOPsScreen(),
+        ),
+        // MES route
+        GoRoute(
+          path: '/mes',
+          builder: (context, state) => const MESScreen(),
         ),
         // Test screen for base64 image upload
         GoRoute(
