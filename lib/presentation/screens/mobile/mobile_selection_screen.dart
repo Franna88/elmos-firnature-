@@ -14,11 +14,12 @@ class MobileSelectionScreen extends StatelessWidget {
     final Size screenSize = MediaQuery.of(context).size;
     final bool isLandscape = screenSize.width > screenSize.height;
     final bool isTablet = screenSize.width > 600;
+    final bool isLargeTablet = screenSize.width > 900;
     final authService = Provider.of<AuthService>(context);
-    final _scaffoldKey = GlobalKey<ScaffoldState>();
+    final scaffoldKey = GlobalKey<ScaffoldState>();
 
     return Scaffold(
-      key: _scaffoldKey,
+      key: scaffoldKey,
       appBar: AppBar(
         title: const Text("Elmo's Furniture"),
         centerTitle: true,
@@ -27,7 +28,7 @@ class MobileSelectionScreen extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.menu),
           onPressed: () {
-            _scaffoldKey.currentState!.openDrawer();
+            scaffoldKey.currentState!.openDrawer();
           },
         ),
       ),
@@ -46,7 +47,7 @@ class MobileSelectionScreen extends StatelessWidget {
                     'assets/images/elmos_logo.png',
                     height: 40,
                     color: Colors.white,
-                    errorBuilder: (context, error, stackTrace) => Icon(
+                    errorBuilder: (context, error, stackTrace) => const Icon(
                       Icons.business,
                       size: 40,
                       color: Colors.white,
@@ -120,7 +121,7 @@ class MobileSelectionScreen extends StatelessWidget {
               builder: (context, snapshot) {
                 String version = "Version: ";
                 if (snapshot.hasData) {
-                  version += "${snapshot.data!.version}";
+                  version += snapshot.data!.version;
                 } else {
                   version += "Loading...";
                 }
@@ -148,79 +149,150 @@ class MobileSelectionScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: Container(
-        padding: EdgeInsets.all(isTablet ? 32 : 24),
-        color: Colors.grey[100],
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Header
-            Padding(
-              padding: EdgeInsets.only(bottom: isTablet ? 48 : 32),
-              child: Column(
+      body: SafeArea(
+        child: Container(
+          color: Colors.grey[100],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
                 children: [
-                  Image.asset(
-                    'assets/images/logo.png',
-                    height: isTablet ? 140 : 100,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      Icons.business,
-                      size: isTablet ? 140 : 100,
-                      color: AppColors.primaryRed,
-                    ),
-                  ),
-                  SizedBox(height: isTablet ? 32 : 24),
-                  Text(
-                    'Welcome to Elmo\'s Furniture',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                          fontSize: isTablet ? 28 : 24,
+                  // Header - Fixed height with flex to occupy proportional space
+                  Flexible(
+                    flex: isLandscape ? 2 : 3,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 24.0 : 16.0,
+                        vertical: isLandscape ? 8.0 : 16.0,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Logo with maximum height to ensure it doesn't overflow
+                            Flexible(
+                              child: Center(
+                                child: Image.asset(
+                                  'assets/images/elmos_logo_icon.png',
+                                  height: isLargeTablet
+                                      ? 60.0
+                                      : isTablet
+                                          ? 50.0
+                                          : 40.0,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Icon(
+                                    Icons.business_outlined,
+                                    size: isLargeTablet
+                                        ? 60.0
+                                        : isTablet
+                                            ? 50.0
+                                            : 40.0,
+                                    color: AppColors.primaryRed,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Welcome Text
+                            Padding(
+                              padding: EdgeInsets.only(
+                                  top: isLandscape ? 16.0 : 24.0),
+                              child: Text(
+                                'Welcome to Elmo\'s Furniture',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey[800],
+                                      fontSize: isLargeTablet
+                                          ? 32.0
+                                          : isTablet
+                                              ? 28.0
+                                              : isLandscape
+                                                  ? 20.0
+                                                  : 24.0,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+
+                            // Subtitle
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                'Please select your workspace',
+                                style: TextStyle(
+                                  fontSize: isLargeTablet
+                                      ? 20.0
+                                      : isTablet
+                                          ? 18.0
+                                          : isLandscape
+                                              ? 14.0
+                                              : 16.0,
+                                  color: Colors.blueGrey[600],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
                         ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Please select your workspace',
-                    style: TextStyle(
-                      fontSize: isTablet ? 18 : 16,
-                      color: AppColors.textMedium,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
+
+                  // Cards section - Takes available space while ensuring all content fits
+                  Flexible(
+                    flex: isLandscape ? 3 : 4,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 32.0 : 16.0,
+                        vertical: isLandscape ? 8.0 : 16.0,
+                      ),
+                      child: isLandscape
+                          ? _buildLandscapeCards(
+                              context, isTablet, isLargeTablet)
+                          : _buildPortraitCards(
+                              context, isTablet, isLargeTablet),
+                    ),
+                  ),
+
+                  // Debug info
+                  if (kDebugMode)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12.0,
+                          vertical: 6.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(16.0),
+                        ),
+                        child: Text(
+                          'Screen: ${screenSize.width.toStringAsFixed(1)} × ${screenSize.height.toStringAsFixed(1)} - ${isLandscape ? "Landscape" : "Portrait"}${isTablet ? " - Tablet" : ""}${isLargeTablet ? " - Large" : ""}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.0,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
-              ),
-            ),
-
-            // Selection cards
-            isLandscape
-                ? _buildLandscapeCards(context, isTablet)
-                : _buildPortraitCards(context, isTablet),
-
-            // Debug dimensions display
-            if (kDebugMode)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    'Screen: ${screenSize.width.toStringAsFixed(1)} × ${screenSize.height.toStringAsFixed(1)} - ${isLandscape ? "Landscape" : "Portrait"}${isTablet ? " - Tablet" : ""}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
-              ),
-          ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
   // Landscape layout with side-by-side cards
-  Widget _buildLandscapeCards(BuildContext context, bool isTablet) {
+  Widget _buildLandscapeCards(
+    BuildContext context,
+    bool isTablet,
+    bool isLargeTablet,
+  ) {
     return Row(
       children: [
         // SOP Card
@@ -236,9 +308,16 @@ class MobileSelectionScreen extends StatelessWidget {
               context.go('/mobile/sops');
             },
             isTablet: isTablet,
+            isLargeTablet: isLargeTablet,
+            isLandscape: true,
           ),
         ),
-        SizedBox(width: isTablet ? 24 : 16),
+        SizedBox(
+            width: isLargeTablet
+                ? 32.0
+                : isTablet
+                    ? 24.0
+                    : 16.0),
         // Factory (MES) Card
         Expanded(
           child: _buildSelectionCard(
@@ -252,6 +331,8 @@ class MobileSelectionScreen extends StatelessWidget {
               context.go('/mes');
             },
             isTablet: isTablet,
+            isLargeTablet: isLargeTablet,
+            isLandscape: true,
           ),
         ),
       ],
@@ -259,34 +340,52 @@ class MobileSelectionScreen extends StatelessWidget {
   }
 
   // Portrait layout with stacked cards
-  Widget _buildPortraitCards(BuildContext context, bool isTablet) {
+  Widget _buildPortraitCards(
+    BuildContext context,
+    bool isTablet,
+    bool isLargeTablet,
+  ) {
     return Column(
       children: [
         // SOP Card
-        _buildSelectionCard(
-          context,
-          title: 'SOP Manager',
-          description:
-              'Standard Operating Procedures for furniture manufacturing',
-          icon: Icons.description_outlined,
-          color: AppColors.primaryRed,
-          onTap: () {
-            context.go('/mobile/sops');
-          },
-          isTablet: isTablet,
+        Expanded(
+          child: _buildSelectionCard(
+            context,
+            title: 'SOP Manager',
+            description:
+                'Standard Operating Procedures for furniture manufacturing',
+            icon: Icons.description_outlined,
+            color: AppColors.primaryRed,
+            onTap: () {
+              context.go('/mobile/sops');
+            },
+            isTablet: isTablet,
+            isLargeTablet: isLargeTablet,
+            isLandscape: false,
+          ),
         ),
-        SizedBox(height: isTablet ? 24 : 16),
+        SizedBox(
+            height: isLargeTablet
+                ? 24.0
+                : isTablet
+                    ? 16.0
+                    : 12.0),
         // Factory (MES) Card
-        _buildSelectionCard(
-          context,
-          title: 'Factory MES',
-          description: 'Manufacturing Execution System for production tracking',
-          icon: Icons.factory_outlined,
-          color: AppColors.blueAccent,
-          onTap: () {
-            context.go('/mes');
-          },
-          isTablet: isTablet,
+        Expanded(
+          child: _buildSelectionCard(
+            context,
+            title: 'Factory MES',
+            description:
+                'Manufacturing Execution System for production tracking',
+            icon: Icons.factory_outlined,
+            color: AppColors.blueAccent,
+            onTap: () {
+              context.go('/mes');
+            },
+            isTablet: isTablet,
+            isLargeTablet: isLargeTablet,
+            isLandscape: false,
+          ),
         ),
       ],
     );
@@ -300,45 +399,116 @@ class MobileSelectionScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
     required bool isTablet,
+    required bool isLargeTablet,
+    required bool isLandscape,
   }) {
+    // Optimized sizes for different screen configurations - reduced by 50%
+    final double iconSize = isLandscape
+        ? (isLargeTablet
+            ? 32.0
+            : isTablet
+                ? 28.0
+                : 24.0)
+        : (isLargeTablet
+            ? 36.0
+            : isTablet
+                ? 32.0
+                : 24.0);
+
+    // Text sizes unchanged
+    final double titleSize = isLandscape
+        ? (isLargeTablet
+            ? 24.0
+            : isTablet
+                ? 22.0
+                : 18.0)
+        : (isLargeTablet
+            ? 28.0
+            : isTablet
+                ? 24.0
+                : 20.0);
+
+    final double descriptionSize = isLandscape
+        ? (isLargeTablet
+            ? 16.0
+            : isTablet
+                ? 14.0
+                : 12.0)
+        : (isLargeTablet
+            ? 18.0
+            : isTablet
+                ? 16.0
+                : 14.0);
+
+    // Use custom icons for SOP and MES
+    Widget iconWidget;
+    if (title == 'SOP Manager') {
+      iconWidget = Icon(
+        Icons.article_outlined,
+        size: iconSize,
+        color: color,
+      );
+    } else if (title == 'Factory MES') {
+      iconWidget = Icon(
+        Icons.factory_outlined,
+        size: iconSize,
+        color: color,
+      );
+    } else {
+      iconWidget = Icon(
+        icon,
+        size: iconSize,
+        color: color,
+      );
+    }
+
     return Card(
-      elevation: 4,
+      elevation: 2,
+      margin: const EdgeInsets.all(0),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: EdgeInsets.all(isTablet ? 32 : 24),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: EdgeInsets.all(isLandscape
+              ? (isLargeTablet
+                  ? 24.0
+                  : isTablet
+                      ? 16.0
+                      : 12.0)
+              : (isLargeTablet
+                  ? 32.0
+                  : isTablet
+                      ? 24.0
+                      : 16.0)),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: isTablet ? 80 : 64,
-                color: color,
-              ),
-              SizedBox(height: isTablet ? 32 : 24),
+              iconWidget,
+              const Spacer(flex: 1),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: isTablet ? 26 : 22,
+                  fontSize: titleSize,
                   fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey[800],
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8.0),
               Text(
                 description,
                 style: TextStyle(
-                  fontSize: isTablet ? 16 : 14,
-                  color: AppColors.textMedium,
+                  fontSize: descriptionSize,
+                  color: Colors.blueGrey[600],
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+              const Spacer(flex: 1),
             ],
           ),
         ),

@@ -261,6 +261,11 @@ class _TimerScreenState extends State<TimerScreen> {
       );
     }
 
+    // Get screen dimensions to make more responsive calculations
+    final screenSize = MediaQuery.of(context).size;
+    final isLandscape = screenSize.width > screenSize.height;
+    final isNarrow = screenSize.width < 900;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Building: ${_selectedItem.name}'),
@@ -306,403 +311,426 @@ class _TimerScreenState extends State<TimerScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Left panel - Item info and completed count
-            Expanded(
-              flex: 2,
-              child: Card(
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Item info
-                      Row(
-                        children: [
-                          // Placeholder for actual image
-                          Container(
-                            width: 70,
-                            height: 70,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                _getIconForCategory(_selectedItem.category),
-                                size: 36,
-                                color: Colors.grey[600],
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(isNarrow ? 12.0 : 20.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left panel - Item info and completed count
+              Expanded(
+                flex: 2,
+                child: Card(
+                  elevation: 4,
+                  child: Padding(
+                    padding: EdgeInsets.all(isNarrow ? 12.0 : 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Item info
+                        Row(
+                          children: [
+                            // Placeholder for actual image
+                            Container(
+                              width: isNarrow ? 60 : 70,
+                              height: isNarrow ? 60 : 70,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  _getIconForCategory(_selectedItem.category),
+                                  size: isNarrow ? 30 : 36,
+                                  color: Colors.grey[600],
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
+                            SizedBox(width: isNarrow ? 12 : 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedItem.name,
+                                    style: TextStyle(
+                                      fontSize: isNarrow ? 18 : 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Category: ${_selectedItem.category}',
+                                    style: TextStyle(
+                                      fontSize: isNarrow ? 13 : 14,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Est. time: ${_selectedItem.estimatedTimeInMinutes} min',
+                                    style: TextStyle(
+                                      fontSize: isNarrow ? 13 : 14,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const Divider(height: 30),
+
+                        // Completed count
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: isNarrow ? 24 : 28,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            SizedBox(width: isNarrow ? 8 : 12),
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _selectedItem.name,
-                                  style: const TextStyle(
-                                    fontSize: 20,
+                                  'Completed Items',
+                                  style: TextStyle(
+                                    fontSize: isNarrow ? 14 : 16,
                                     fontWeight: FontWeight.bold,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  'Category: ${_selectedItem.category}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[700],
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isNarrow ? 16 : 20,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${_selectedItem.completedCount}',
+                                    style: TextStyle(
+                                      fontSize: isNarrow ? 20 : 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                              ],
+                            ),
+                          ],
+                        ),
+
+                        const Spacer(),
+
+                        // Stats
+                        Text(
+                          'Session Statistics',
+                          style: TextStyle(
+                            fontSize: isNarrow ? 14 : 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F5F5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFE0E0E0),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              _buildStatRow(
+                                  'Production time:',
+                                  ProductionTimer.formatDuration(
+                                      _timer.getProductionTime())),
+                              const SizedBox(height: 8),
+                              _buildStatRow(
+                                  'Interruption time:',
+                                  ProductionTimer.formatDuration(
+                                      _timer.getTotalInterruptionTime())),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              SizedBox(width: isNarrow ? 12 : 16),
+
+              // Center panel - Timer and main controls
+              Expanded(
+                flex: 4,
+                child: Card(
+                  elevation: 4,
+                  child: Padding(
+                    padding: EdgeInsets.all(isNarrow ? 16.0 : 20.0),
+                    child: Column(
+                      children: [
+                        // Timer display
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Status
                                 Text(
-                                  'Est. time: ${_selectedItem.estimatedTimeInMinutes} min',
+                                  _getStatusText(),
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[700],
+                                    fontSize: isNarrow ? 20 : 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: isNarrow ? 20 : 30),
+
+                                // Clock - Vertical layout for smaller screens
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // Current time
+                                    Column(
+                                      children: [
+                                        Text(
+                                          'Current Time',
+                                          style: TextStyle(
+                                            fontSize: isNarrow ? 16 : 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Container(
+                                          width: isNarrow ? 240 : 280,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: isNarrow ? 16 : 24,
+                                            vertical: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _timer.mode ==
+                                                    ProductionTimerMode.running
+                                                ? Colors.green.withOpacity(0.2)
+                                                : Colors.grey.withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            ProductionTimer.formatDuration(
+                                                _timer.getProductionTime()),
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: isNarrow ? 38 : 48,
+                                              fontWeight: FontWeight.bold,
+                                              fontFamily: 'monospace',
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    SizedBox(height: isNarrow ? 16 : 25),
+
+                                    // Estimated time remaining
+                                    Column(
+                                      children: [
+                                        Text(
+                                          'Time Remaining',
+                                          style: TextStyle(
+                                            fontSize: isNarrow ? 16 : 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Container(
+                                          width: isNarrow ? 240 : 280,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: isNarrow ? 16 : 24,
+                                            vertical: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _getTimerColor()
+                                                .withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            _formatTimeRemaining(),
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: isNarrow ? 38 : 48,
+                                              fontWeight: FontWeight.bold,
+                                              fontFamily: 'monospace',
+                                              color: _getTimerColor(),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const Divider(height: 32),
+
+                        // Main controls - Start/Pause and Complete
+                        SizedBox(
+                          height: isNarrow ? 70 : 80,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Start/Pause
+                                Expanded(
+                                  child: _buildControlButton(
+                                    icon: _timer.mode ==
+                                            ProductionTimerMode.running
+                                        ? Icons.pause
+                                        : Icons.play_arrow,
+                                    label: _timer.mode ==
+                                            ProductionTimerMode.running
+                                        ? 'Pause'
+                                        : 'Start',
+                                    color: _timer.mode ==
+                                            ProductionTimerMode.running
+                                        ? const Color(0xFF2C2C2C)
+                                        : const Color(0xFFEB281E),
+                                    onPressed: _timer.mode ==
+                                            ProductionTimerMode.running
+                                        ? _pauseTimer
+                                        : _startTimer,
+                                    isNarrow: isNarrow,
+                                  ),
+                                ),
+                                SizedBox(width: isNarrow ? 12 : 16),
+                                // Complete
+                                Expanded(
+                                  child: _buildControlButton(
+                                    icon: Icons.check,
+                                    label: 'Complete',
+                                    color: const Color(0xFF2C2C2C),
+                                    onPressed: _completeItem,
+                                    isNarrow: isNarrow,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-
-                      const Divider(height: 30),
-
-                      // Completed count
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 28,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Completed Items',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  '${_selectedItem.completedCount}',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      const Spacer(),
-
-                      // Stats
-                      const Text(
-                        'Session Statistics',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFFE0E0E0),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            _buildStatRow(
-                                'Production time:',
-                                ProductionTimer.formatDuration(
-                                    _timer.getProductionTime())),
-                            const SizedBox(height: 8),
-                            _buildStatRow(
-                                'Interruption time:',
-                                ProductionTimer.formatDuration(
-                                    _timer.getTotalInterruptionTime())),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            const SizedBox(width: 16),
+              SizedBox(width: isNarrow ? 12 : 16),
 
-            // Center panel - Timer and main controls
-            Expanded(
-              flex: 4,
-              child: Card(
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      // Timer display
-                      Expanded(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+              // Right panel - Additional controls
+              Expanded(
+                flex: 2,
+                child: Card(
+                  elevation: 4,
+                  child: Padding(
+                    padding: EdgeInsets.all(isNarrow ? 12.0 : 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Additional Controls',
+                          style: TextStyle(
+                            fontSize: isNarrow ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: isNarrow ? 16 : 20),
+                        Expanded(
+                          child: ListView(
+                            // Use ListView instead of Column to handle potential overflow
                             children: [
-                              // Status
-                              Text(
-                                _getStatusText(),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              // Break button
+                              _buildFullWidthButton(
+                                icon: Icons.coffee,
+                                label: 'Take a Break',
+                                color:
+                                    _timer.mode == ProductionTimerMode.running
+                                        ? const Color(0xFF2C2C2C)
+                                        : Colors.grey,
+                                onPressed: () {
+                                  if (_interruptionTypes.isNotEmpty) {
+                                    _startInterruption(_interruptionTypes[0]);
+                                  }
+                                },
+                                description: 'Pause production for a break',
+                                isNarrow: isNarrow,
                               ),
-                              const SizedBox(height: 30),
+                              SizedBox(height: isNarrow ? 8 : 12),
 
-                              // Clock - Vertical layout for smaller screens
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // Current time
-                                  Column(
-                                    children: [
-                                      const Text(
-                                        'Current Time',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Container(
-                                        width: 280,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 16,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _timer.mode ==
-                                                  ProductionTimerMode.running
-                                              ? Colors.green.withOpacity(0.2)
-                                              : Colors.grey.withOpacity(0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          ProductionTimer.formatDuration(
-                                              _timer.getProductionTime()),
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(
-                                            fontSize: 48,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'monospace',
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              // Maintenance button
+                              _buildFullWidthButton(
+                                icon: Icons.build,
+                                label: 'Maintenance',
+                                color:
+                                    _timer.mode == ProductionTimerMode.running
+                                        ? const Color(0xFF2C2C2C)
+                                        : Colors.grey,
+                                onPressed: () {
+                                  if (_interruptionTypes.length > 1) {
+                                    _startInterruption(_interruptionTypes[1]);
+                                  }
+                                },
+                                description: 'Record equipment maintenance',
+                                isNarrow: isNarrow,
+                              ),
+                              SizedBox(height: isNarrow ? 8 : 12),
 
-                                  const SizedBox(height: 25),
+                              // Prep button
+                              _buildFullWidthButton(
+                                icon: Icons.assignment,
+                                label: 'Prep Time',
+                                color: const Color(0xFF2196F3),
+                                onPressed: () {
+                                  if (_interruptionTypes.length > 2) {
+                                    _startInterruption(_interruptionTypes[2]);
+                                  }
+                                },
+                                description: 'Track material preparation',
+                                isNarrow: isNarrow,
+                              ),
+                              SizedBox(height: isNarrow ? 8 : 12),
 
-                                  // Estimated time remaining
-                                  Column(
-                                    children: [
-                                      const Text(
-                                        'Time Remaining',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Container(
-                                        width: 280,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 16,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              _getTimerColor().withOpacity(0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          _formatTimeRemaining(),
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 48,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'monospace',
-                                            color: _getTimerColor(),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                              // Help button
+                              _buildFullWidthButton(
+                                icon: Icons.help_outline,
+                                label: 'Help',
+                                color: const Color(0xFFEB281E),
+                                onPressed: _requestHelp,
+                                description: 'Call supervisor for assistance',
+                                isNarrow: isNarrow,
                               ),
                             ],
                           ),
                         ),
-                      ),
-
-                      const Divider(height: 32),
-
-                      // Main controls - Start/Pause and Complete
-                      SizedBox(
-                        height: 80,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Start/Pause
-                              Expanded(
-                                child: _buildControlButton(
-                                  icon:
-                                      _timer.mode == ProductionTimerMode.running
-                                          ? Icons.pause
-                                          : Icons.play_arrow,
-                                  label:
-                                      _timer.mode == ProductionTimerMode.running
-                                          ? 'Pause'
-                                          : 'Start',
-                                  color:
-                                      _timer.mode == ProductionTimerMode.running
-                                          ? const Color(0xFF2C2C2C)
-                                          : const Color(0xFFEB281E),
-                                  onPressed:
-                                      _timer.mode == ProductionTimerMode.running
-                                          ? _pauseTimer
-                                          : _startTimer,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Complete
-                              Expanded(
-                                child: _buildControlButton(
-                                  icon: Icons.check,
-                                  label: 'Complete',
-                                  color: const Color(0xFF2C2C2C),
-                                  onPressed: _completeItem,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-
-            const SizedBox(width: 16),
-
-            // Right panel - Additional controls
-            Expanded(
-              flex: 2,
-              child: Card(
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Additional Controls',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            // Break button
-                            _buildFullWidthButton(
-                              icon: Icons.coffee,
-                              label: 'Take a Break',
-                              color: _timer.mode == ProductionTimerMode.running
-                                  ? const Color(0xFF2C2C2C)
-                                  : Colors.grey,
-                              onPressed: () =>
-                                  _startInterruption(_interruptionTypes[0]),
-                              description: 'Pause production for a break',
-                            ),
-
-                            // Maintenance button
-                            _buildFullWidthButton(
-                              icon: Icons.build,
-                              label: 'Maintenance',
-                              color: _timer.mode == ProductionTimerMode.running
-                                  ? const Color(0xFF2C2C2C)
-                                  : Colors.grey,
-                              onPressed: () =>
-                                  _startInterruption(_interruptionTypes[1]),
-                              description: 'Record equipment maintenance',
-                            ),
-
-                            // Prep button
-                            _buildFullWidthButton(
-                              icon: Icons.assignment,
-                              label: 'Prep Time',
-                              color: const Color(0xFF2196F3),
-                              onPressed: () =>
-                                  _startInterruption(_interruptionTypes[2]),
-                              description: 'Track material preparation',
-                            ),
-
-                            // Help button
-                            _buildFullWidthButton(
-                              icon: Icons.help_outline,
-                              label: 'Request Help',
-                              color: const Color(0xFFEB281E),
-                              onPressed: _requestHelp,
-                              description: 'Call supervisor for assistance',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -712,17 +740,20 @@ class _TimerScreenState extends State<TimerScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[700],
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+            ),
           ),
         ),
+        const SizedBox(width: 8),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: Color(0xFFEB281E),
           ),
@@ -736,17 +767,18 @@ class _TimerScreenState extends State<TimerScreen> {
     required String label,
     required Color color,
     required VoidCallback onPressed,
+    required bool isNarrow,
   }) {
     return SizedBox(
-      height: 70,
+      height: isNarrow ? 60 : 70,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(
-            vertical: 8,
-            horizontal: 8,
+          padding: EdgeInsets.symmetric(
+            vertical: isNarrow ? 6 : 8,
+            horizontal: isNarrow ? 6 : 8,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -756,7 +788,7 @@ class _TimerScreenState extends State<TimerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 26),
+            Icon(icon, size: isNarrow ? 22 : 26),
             const SizedBox(height: 4),
             FittedBox(
               fit: BoxFit.scaleDown,
@@ -764,8 +796,8 @@ class _TimerScreenState extends State<TimerScreen> {
                 label,
                 textAlign: TextAlign.center,
                 maxLines: 1,
-                style: const TextStyle(
-                  fontSize: 14,
+                style: TextStyle(
+                  fontSize: isNarrow ? 12 : 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -811,11 +843,13 @@ class _TimerScreenState extends State<TimerScreen> {
     required String description,
     required Color color,
     required VoidCallback onPressed,
+    required bool isNarrow,
   }) {
     return SizedBox(
       width: double.infinity,
       child: Card(
         elevation: 2,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(
@@ -827,7 +861,8 @@ class _TimerScreenState extends State<TimerScreen> {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            padding: EdgeInsets.symmetric(
+                vertical: isNarrow ? 12 : 16, horizontal: isNarrow ? 10 : 12),
             child: Row(
               children: [
                 Container(
@@ -839,10 +874,10 @@ class _TimerScreenState extends State<TimerScreen> {
                   child: Icon(
                     icon,
                     color: color,
-                    size: 24,
+                    size: isNarrow ? 20 : 24,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: isNarrow ? 8 : 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -850,16 +885,16 @@ class _TimerScreenState extends State<TimerScreen> {
                       Text(
                         label,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: isNarrow ? 14 : 16,
                           fontWeight: FontWeight.bold,
                           color: color,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: isNarrow ? 2 : 4),
                       Text(
                         description,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: isNarrow ? 10 : 12,
                           color: Colors.grey[600],
                         ),
                       ),
