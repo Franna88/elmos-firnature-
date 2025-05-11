@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/furniture_item.dart';
 import '../models/production_timer.dart';
+import '../models/user.dart';
+import '../../data/services/mes_service.dart';
+import '../../data/models/mes_interruption_model.dart';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({Key? key}) : super(key: key);
@@ -12,9 +16,13 @@ class TimerScreen extends StatefulWidget {
 
 class _TimerScreenState extends State<TimerScreen> {
   late FurnitureItem _selectedItem;
+  late User _user;
+  late String _recordId;
   late ProductionTimer _timer;
   late int _secondsRemaining;
-  
+  List<MESInterruptionType> _interruptionTypes = [];
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -23,123 +31,177 @@ class _TimerScreenState extends State<TimerScreen> {
       if (mounted) {
         setState(() {
           // Update remaining time when timer is running
-          if (_timer.mode == ProductionTimerMode.running && _secondsRemaining > 0) {
+          if (_timer.mode == ProductionTimerMode.running &&
+              _secondsRemaining > 0) {
             _secondsRemaining--;
           }
         });
       }
     });
   }
-  
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Get the selected item from the arguments
-    _selectedItem = ModalRoute.of(context)!.settings.arguments as FurnitureItem;
-    
-    // Initialize remaining time
-    _secondsRemaining = _selectedItem.estimatedTimeInMinutes * 60;
+    _loadData();
   }
-  
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get the arguments
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      _selectedItem = args['item'] as FurnitureItem;
+      _user = args['user'] as User;
+      _recordId = args['recordId'] as String;
+
+      // Initialize remaining time
+      _secondsRemaining = _selectedItem.estimatedTimeInMinutes * 60;
+
+      // Load interruption types
+      final mesService = Provider.of<MESService>(context, listen: false);
+      await mesService.fetchInterruptionTypes(onlyActive: true);
+      _interruptionTypes = mesService.interruptionTypes;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     // Clean up timer resources
     _timer.dispose();
     super.dispose();
   }
-  
+
   // Start or resume production
-  void _startTimer() {
+  void _startTimer() async {
     setState(() {
       _timer.startProduction();
     });
+
+    // If this is the first time starting, no need to update the record
+    if (_timer.productionStartCount == 1) return;
+
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+      await mesService.updateProductionRecord(
+        await mesService.getProductionRecord(_recordId).then(
+              (record) => record.copyWith(
+                totalProductionTimeSeconds: _timer.getProductionTime(),
+                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+              ),
+            ),
+      );
+    } catch (e) {
+      // Silent error - we'll try again later
+    }
   }
-  
+
   // Pause production
   void _pauseTimer() {
     setState(() {
       _timer.pauseProduction();
     });
   }
-  
-  // Start a break
-  void _startBreak() {
-    // Only allow starting a break from running state
+
+  // Start an interruption (generic handler)
+  Future<void> _startInterruption(MESInterruptionType type) async {
+    // Only allow starting an interruption from running state
     if (_timer.mode == ProductionTimerMode.running) {
       setState(() {
-        _timer.startBreak();
+        _timer.startInterruption();
       });
-      
-      _showBreakDialog();
+
+      // Show appropriate dialog based on type
+      String? notes = await _showInterruptionDialog(type);
+
+      // Record the interruption in Firebase
+      try {
+        final mesService = Provider.of<MESService>(context, listen: false);
+        final now = DateTime.now();
+
+        await mesService.addInterruptionToRecord(
+          _recordId,
+          type.id,
+          type.name,
+          now,
+          notes: notes,
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error recording interruption: $e')),
+        );
+      }
     } else {
       // If not running, show message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You must start the timer before taking a break'),
+          content:
+              Text('You must start the timer before recording an interruption'),
           duration: Duration(seconds: 2),
         ),
       );
     }
   }
-  
-  // Start maintenance
-  void _startMaintenance() {
-    // Only allow starting maintenance from running state
-    if (_timer.mode == ProductionTimerMode.running) {
-      setState(() {
-        _timer.startMaintenance();
-      });
-      
-      _showMaintenanceDialog();
-    } else {
-      // If not running, show message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You must start the timer before recording maintenance'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-  
-  // Start prep time
-  void _startPrep() {
-    setState(() {
-      _timer.startPrep();
-    });
-    
-    _showPrepDialog();
-  }
-  
+
   // Complete current item
-  void _completeItem() {
+  Future<void> _completeItem() async {
     setState(() {
       _timer.completeItem();
       _selectedItem.completedCount++;
-      
-      // Reset the remaining time for the next item
-      _secondsRemaining = _selectedItem.estimatedTimeInMinutes * 60;
-      
-      // Reset the timer for the next item
-      _timer.resetForNewItem();
-      
+    });
+
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+
+      // Complete the production record in Firebase
+      await mesService.completeProductionRecord(
+        _recordId,
+        _timer.getProductionTime(),
+      );
+
       // Show a confirmation message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Item completed! Ready for next item.'),
+          content: Text('Item completed successfully!'),
           duration: Duration(seconds: 2),
         ),
       );
-    });
+
+      // Go back to item selection
+      if (mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/item_selection',
+          arguments: _user,
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error completing item: $e')),
+      );
+    }
   }
-  
+
   // Show help request dialog
   void _requestHelp() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Help Request'),
-        content: const Text('Your help request has been sent to the supervisor.'),
+        content:
+            const Text('Your help request has been sent to the supervisor.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -149,116 +211,100 @@ class _TimerScreenState extends State<TimerScreen> {
       ),
     );
   }
-  
-  // Show break dialog
-  void _showBreakDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _BreakDialog(
-        onResume: () {
-          setState(() {
-            _timer.startProduction();
-          });
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-  
-  // Show maintenance dialog
-  void _showMaintenanceDialog() {
+
+  // Show interruption dialog
+  Future<String?> _showInterruptionDialog(MESInterruptionType type) async {
     final notesController = TextEditingController();
-    final partsController = TextEditingController();
-    
-    showDialog(
+
+    return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => _MaintenanceDialog(
-        onComplete: () {
-          setState(() {
-            _timer.startProduction();
-            
-            // Here we can save the maintenance information
-            final maintenanceNotes = notesController.text;
-            final replacedParts = partsController.text;
-            
-            // Show what was recorded (in real app, you'd save this to a database)
-            if (maintenanceNotes.isNotEmpty || replacedParts.isNotEmpty) {
-              Future.delayed(const Duration(milliseconds: 500), () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Maintenance recorded: ${replacedParts.isNotEmpty ? 'Parts replaced: $replacedParts' : ''}'
-                      '${maintenanceNotes.isNotEmpty ? ' Notes: $maintenanceNotes' : ''}',
-                    ),
-                    duration: const Duration(seconds: 4),
-                  ),
-                );
-              });
-            }
-          });
-          Navigator.pop(context);
-        },
-        notesController: notesController,
-        partsController: partsController,
+      builder: (context) => AlertDialog(
+        title: Text('${type.name} in Progress'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('You have started a ${type.name.toLowerCase()}. '
+                'Please add any notes below if needed.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: notesController,
+              decoration: InputDecoration(
+                labelText: 'Notes (Optional)',
+                hintText:
+                    'Enter any details about this ${type.name.toLowerCase()}',
+                border: const OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _timer.startProduction();
+              Navigator.pop(context, notesController.text);
+            },
+            child: const Text('Resume Production'),
+          ),
+        ],
       ),
     );
   }
-  
-  // Show prep time dialog
-  void _showPrepDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _PrepDialog(
-        onComplete: () {
-          setState(() {
-            _timer.startProduction();
-          });
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-  
-  // Format remaining time
-  String _formatTimeRemaining() {
-    final duration = Duration(seconds: _secondsRemaining);
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-  
-  // Get color for timer based on remaining time
-  Color _getTimerColor() {
-    final percent = _secondsRemaining / (_selectedItem.estimatedTimeInMinutes * 60);
-    if (percent > 0.5) {
-      return Colors.green;
-    } else if (percent > 0.25) {
-      return Colors.orange;
-    } else {
-      return Colors.red;
-    }
-  }
-  
+
   @override
   Widget build(BuildContext context) {
-    // Get formatted time strings for display
-    final productionFormatted = ProductionTimer.formatTime(_timer.getProductionTime());
-    final breakFormatted = ProductionTimer.formatTime(_timer.getBreakTime());
-    final maintenanceFormatted = ProductionTimer.formatTime(_timer.getMaintenanceTime());
-    final prepFormatted = ProductionTimer.formatTime(_timer.getPrepTime());
-    
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Loading...')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Building: ${_selectedItem.name}'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/item_selection');
-          },
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Request Help',
+            onPressed: _requestHelp,
+          ),
+          IconButton(
+            icon: const Icon(Icons.exit_to_app),
+            tooltip: 'Exit',
+            onPressed: () {
+              // Show confirmation dialog
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Exit Production'),
+                  content: const Text(
+                    'Are you sure you want to exit? Your progress will be saved, '
+                    'but the item will be marked as incomplete.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Close dialog
+                        Navigator.pushReplacementNamed(
+                          context,
+                          '/item_selection',
+                          arguments: _user,
+                        );
+                      },
+                      child: const Text('Exit'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -329,9 +375,9 @@ class _TimerScreenState extends State<TimerScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const Divider(height: 30),
-                      
+
                       // Completed count
                       Row(
                         children: [
@@ -358,7 +404,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primaryContainer,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -373,9 +421,9 @@ class _TimerScreenState extends State<TimerScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const Spacer(),
-                      
+
                       // Stats
                       const Text(
                         'Session Statistics',
@@ -396,13 +444,15 @@ class _TimerScreenState extends State<TimerScreen> {
                         ),
                         child: Column(
                           children: [
-                            _buildStatRow('Production time:', productionFormatted),
+                            _buildStatRow(
+                                'Production time:',
+                                ProductionTimer.formatDuration(
+                                    _timer.getProductionTime())),
                             const SizedBox(height: 8),
-                            _buildStatRow('Break time:', breakFormatted),
-                            const SizedBox(height: 8),
-                            _buildStatRow('Maintenance time:', maintenanceFormatted),
-                            const SizedBox(height: 8),
-                            _buildStatRow('Preparation time:', prepFormatted),
+                            _buildStatRow(
+                                'Interruption time:',
+                                ProductionTimer.formatDuration(
+                                    _timer.getTotalInterruptionTime())),
                           ],
                         ),
                       ),
@@ -411,9 +461,9 @@ class _TimerScreenState extends State<TimerScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(width: 16),
-            
+
             // Center panel - Timer and main controls
             Expanded(
               flex: 4,
@@ -438,7 +488,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                 ),
                               ),
                               const SizedBox(height: 30),
-                              
+
                               // Clock - Vertical layout for smaller screens
                               Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -461,13 +511,16 @@ class _TimerScreenState extends State<TimerScreen> {
                                           vertical: 16,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: _timer.mode == ProductionTimerMode.running
+                                          color: _timer.mode ==
+                                                  ProductionTimerMode.running
                                               ? Colors.green.withOpacity(0.2)
                                               : Colors.grey.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Text(
-                                          productionFormatted,
+                                          ProductionTimer.formatDuration(
+                                              _timer.getProductionTime()),
                                           textAlign: TextAlign.center,
                                           style: const TextStyle(
                                             fontSize: 48,
@@ -478,9 +531,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                       ),
                                     ],
                                   ),
-                                  
+
                                   const SizedBox(height: 25),
-                                  
+
                                   // Estimated time remaining
                                   Column(
                                     children: [
@@ -499,8 +552,10 @@ class _TimerScreenState extends State<TimerScreen> {
                                           vertical: 16,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: _getTimerColor().withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color:
+                                              _getTimerColor().withOpacity(0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Text(
                                           _formatTimeRemaining(),
@@ -521,9 +576,9 @@ class _TimerScreenState extends State<TimerScreen> {
                           ),
                         ),
                       ),
-                      
+
                       const Divider(height: 32),
-                      
+
                       // Main controls - Start/Pause and Complete
                       SizedBox(
                         height: 80,
@@ -535,18 +590,22 @@ class _TimerScreenState extends State<TimerScreen> {
                               // Start/Pause
                               Expanded(
                                 child: _buildControlButton(
-                                  icon: _timer.mode == ProductionTimerMode.running
-                                      ? Icons.pause
-                                      : Icons.play_arrow,
-                                  label: _timer.mode == ProductionTimerMode.running
-                                      ? 'Pause'
-                                      : 'Start',
-                                  color: _timer.mode == ProductionTimerMode.running
-                                      ? const Color(0xFF2C2C2C)
-                                      : const Color(0xFFEB281E),
-                                  onPressed: _timer.mode == ProductionTimerMode.running
-                                      ? _pauseTimer
-                                      : _startTimer,
+                                  icon:
+                                      _timer.mode == ProductionTimerMode.running
+                                          ? Icons.pause
+                                          : Icons.play_arrow,
+                                  label:
+                                      _timer.mode == ProductionTimerMode.running
+                                          ? 'Pause'
+                                          : 'Start',
+                                  color:
+                                      _timer.mode == ProductionTimerMode.running
+                                          ? const Color(0xFF2C2C2C)
+                                          : const Color(0xFFEB281E),
+                                  onPressed:
+                                      _timer.mode == ProductionTimerMode.running
+                                          ? _pauseTimer
+                                          : _startTimer,
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -568,9 +627,9 @@ class _TimerScreenState extends State<TimerScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(width: 16),
-            
+
             // Right panel - Additional controls
             Expanded(
               flex: 2,
@@ -589,7 +648,6 @@ class _TimerScreenState extends State<TimerScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -598,33 +656,36 @@ class _TimerScreenState extends State<TimerScreen> {
                             _buildFullWidthButton(
                               icon: Icons.coffee,
                               label: 'Take a Break',
-                              color: _timer.mode == ProductionTimerMode.running 
+                              color: _timer.mode == ProductionTimerMode.running
                                   ? const Color(0xFF2C2C2C)
                                   : Colors.grey,
-                              onPressed: _startBreak,
+                              onPressed: () =>
+                                  _startInterruption(_interruptionTypes[0]),
                               description: 'Pause production for a break',
                             ),
-                            
+
                             // Maintenance button
                             _buildFullWidthButton(
                               icon: Icons.build,
                               label: 'Maintenance',
-                              color: _timer.mode == ProductionTimerMode.running 
+                              color: _timer.mode == ProductionTimerMode.running
                                   ? const Color(0xFF2C2C2C)
                                   : Colors.grey,
-                              onPressed: _startMaintenance,
+                              onPressed: () =>
+                                  _startInterruption(_interruptionTypes[1]),
                               description: 'Record equipment maintenance',
                             ),
-                            
+
                             // Prep button
                             _buildFullWidthButton(
                               icon: Icons.assignment,
                               label: 'Prep Time',
                               color: const Color(0xFF2196F3),
-                              onPressed: _startPrep,
+                              onPressed: () =>
+                                  _startInterruption(_interruptionTypes[2]),
                               description: 'Track material preparation',
                             ),
-                            
+
                             // Help button
                             _buildFullWidthButton(
                               icon: Icons.help_outline,
@@ -646,7 +707,7 @@ class _TimerScreenState extends State<TimerScreen> {
       ),
     );
   }
-  
+
   Widget _buildStatRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -669,7 +730,7 @@ class _TimerScreenState extends State<TimerScreen> {
       ],
     );
   }
-  
+
   Widget _buildControlButton({
     required IconData icon,
     required String label,
@@ -714,7 +775,7 @@ class _TimerScreenState extends State<TimerScreen> {
       ),
     );
   }
-  
+
   String _getStatusText() {
     switch (_timer.mode) {
       case ProductionTimerMode.notStarted:
@@ -723,15 +784,11 @@ class _TimerScreenState extends State<TimerScreen> {
         return 'Production in Progress';
       case ProductionTimerMode.paused:
         return 'Production Paused';
-      case ProductionTimerMode.onBreak:
-        return 'On Break';
-      case ProductionTimerMode.maintenance:
-        return 'Maintenance in Progress';
-      case ProductionTimerMode.prep:
-        return 'Preparation in Progress';
+      case ProductionTimerMode.interrupted:
+        return 'Production Interrupted';
     }
   }
-  
+
   IconData _getIconForCategory(String category) {
     switch (category.toLowerCase()) {
       case 'chairs':
@@ -746,7 +803,7 @@ class _TimerScreenState extends State<TimerScreen> {
         return Icons.chair_alt;
     }
   }
-  
+
   // New method for the full-width buttons with descriptions in the right panel
   Widget _buildFullWidthButton({
     required IconData icon,
@@ -816,564 +873,25 @@ class _TimerScreenState extends State<TimerScreen> {
       ),
     );
   }
-}
 
-class _BreakDialog extends StatefulWidget {
-  final VoidCallback onResume;
-
-  const _BreakDialog({
-    required this.onResume,
-  });
-
-  @override
-  State<_BreakDialog> createState() => _BreakDialogState();
-}
-
-class _BreakDialogState extends State<_BreakDialog> {
-  late Timer _timer;
-  late int _seconds;
-  
-  @override
-  void initState() {
-    super.initState();
-    _seconds = 0;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _seconds++;
-        });
-      }
-    });
+  // Format remaining time
+  String _formatTimeRemaining() {
+    final duration = Duration(seconds: _secondsRemaining);
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
-  
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-  
-  String get _formattedTime {
-    final minutes = _seconds ~/ 60;
-    final remainingSeconds = _seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEB281E).withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.coffee,
-                    size: 30,
-                    color: Color(0xFFEB281E),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Break Time',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            // Timer
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 30),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Text(
-                _formattedTime,
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFEB281E),
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            
-            // Pause message
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[100]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue[700]),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Your production timer is paused while on break.',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: widget.onResume,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEB281E),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'RESUME WORK',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+
+  // Get color for timer based on remaining time
+  Color _getTimerColor() {
+    final percent =
+        _secondsRemaining / (_selectedItem.estimatedTimeInMinutes * 60);
+    if (percent > 0.5) {
+      return Colors.green;
+    } else if (percent > 0.25) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
   }
 }
-
-class _MaintenanceDialog extends StatefulWidget {
-  final VoidCallback onComplete;
-  final TextEditingController notesController;
-  final TextEditingController partsController;
-
-  const _MaintenanceDialog({
-    required this.onComplete,
-    required this.notesController,
-    required this.partsController,
-  });
-
-  @override
-  State<_MaintenanceDialog> createState() => _MaintenanceDialogState();
-}
-
-class _MaintenanceDialogState extends State<_MaintenanceDialog> {
-  late Timer _timer;
-  late int _seconds;
-  
-  @override
-  void initState() {
-    super.initState();
-    _seconds = 0;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _seconds++;
-        });
-      }
-    });
-  }
-  
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-  
-  String get _formattedTime {
-    final minutes = _seconds ~/ 60;
-    final remainingSeconds = _seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEB281E).withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.build,
-                    size: 30,
-                    color: Color(0xFFEB281E),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Maintenance in Progress',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            // Timer
-            Container(
-              width: double.infinity,
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 30),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Text(
-                _formattedTime,
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFEB281E),
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            
-            // Pause message
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[100]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue[700]),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Your production timer is paused while maintenance is in progress.',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Maintenance details form
-            const Text(
-              'Maintenance Details',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2C2C2C),
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // Maintenance notes
-            TextField(
-              controller: widget.notesController,
-              decoration: const InputDecoration(
-                labelText: 'Maintenance Notes',
-                border: OutlineInputBorder(),
-                hintText: 'Enter details about the maintenance performed',
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            
-            // Parts replaced field
-            TextField(
-              controller: widget.partsController,
-              decoration: const InputDecoration(
-                labelText: 'Parts Replaced',
-                border: OutlineInputBorder(),
-                hintText: 'Enter parts separated by commas (e.g., Motor, Belt, Switch)',
-                prefixIcon: Icon(Icons.build_circle),
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: widget.onComplete,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEB281E),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'COMPLETE MAINTENANCE',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PrepDialog extends StatefulWidget {
-  final VoidCallback onComplete;
-
-  const _PrepDialog({
-    required this.onComplete,
-  });
-
-  @override
-  State<_PrepDialog> createState() => _PrepDialogState();
-}
-
-class _PrepDialogState extends State<_PrepDialog> {
-  late Timer _timer;
-  late int _seconds;
-  final TextEditingController _notesController = TextEditingController();
-  
-  @override
-  void initState() {
-    super.initState();
-    _seconds = 0;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _seconds++;
-        });
-      }
-    });
-  }
-  
-  @override
-  void dispose() {
-    _timer.cancel();
-    _notesController.dispose();
-    super.dispose();
-  }
-  
-  String get _formattedTime {
-    final minutes = _seconds ~/ 60;
-    final remainingSeconds = _seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.assignment,
-                    size: 30,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Preparation Time',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            // Timer
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 30),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Text(
-                _formattedTime,
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            
-            // Notes field
-            TextField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Preparation Notes',
-                border: OutlineInputBorder(),
-                hintText: 'Enter any notes about your preparation activities',
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 20),
-            
-            // Pause message
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[100]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue[700]),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Your production timer is paused while preparation is in progress.',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: widget.onComplete,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'COMPLETE PREPARATION',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-} 

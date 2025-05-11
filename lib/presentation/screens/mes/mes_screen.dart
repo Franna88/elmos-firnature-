@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/mes_service.dart';
 import '../../widgets/app_scaffold.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import '../../../mes_tablet/screens/login_screen.dart' as mes_login;
 import '../../../mes_tablet/screens/item_selection_screen.dart' as mes_items;
 import '../../../mes_tablet/screens/timer_screen.dart' as mes_timer;
+import '../../../mes_tablet/models/user.dart' as mes_model;
 
 class MESScreen extends StatelessWidget {
   const MESScreen({super.key});
@@ -15,7 +18,7 @@ class MESScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     // Check if this is on a mobile or tablet device
-    final bool isMobile = MediaQuery.of(context).size.width <= 1024;
+    final bool isMobile = MediaQuery.of(context).size.width <= 1200;
 
     // If on mobile/tablet, directly show the MES login screen
     if (isMobile) {
@@ -143,9 +146,13 @@ class MESTabletApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Set up the theme similar to the MES tablet app
-    return Theme(
-      data: ThemeData(
+    // Access services from parent context
+    final authService = Provider.of<AuthService>(context);
+
+    // We need to use MaterialApp to provide proper route navigation within the MES tablet
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFEB281E), // Elmos Red
           primary: const Color(0xFFEB281E), // Elmos Red
@@ -163,19 +170,83 @@ class MESTabletApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      child: Scaffold(
-        body: const mes_login.LoginScreen(),
-        // Add a back button if we're not on a mobile device
-        floatingActionButton: MediaQuery.of(context).size.width > 1024
-            ? FloatingActionButton(
-                onPressed: () => Navigator.of(context).pop(),
+      // Define all the required routes
+      routes: {
+        '/login': (context) => const mes_login.LoginScreen(),
+        '/item_selection': (context) => const mes_items.ItemSelectionScreen(),
+        '/timer': (context) => const mes_timer.TimerScreen(),
+      },
+      // Create the main screen with embedded providers
+      home: MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: authService),
+          ChangeNotifierProvider(create: (_) => MESService()),
+        ],
+        child: Builder(
+          builder: (context) {
+            // Scaffold with back button
+            return Scaffold(
+              body: _buildMainContent(context, authService),
+              // Add a back button if we're not on a mobile device
+              floatingActionButton: FloatingActionButton(
+                onPressed: () {
+                  // Check if we're in the mobile view (width <= 1200)
+                  if (MediaQuery.of(context).size.width <= 1200) {
+                    // Navigate to mobile selection screen
+                    Navigator.of(context).pop();
+                    if (context.mounted) {
+                      GoRouter.of(context).go('/mobile/selection');
+                    }
+                  } else {
+                    // Just pop back to previous screen on desktop
+                    Navigator.of(context).pop();
+                  }
+                },
                 backgroundColor: const Color(0xFFEB281E),
                 child: const Icon(
                   Icons.arrow_back,
                   color: Colors.white,
                 ),
-              )
-            : null,
+              ),
+              // Add debug overlay that shows screen dimensions
+              bottomSheet: kDebugMode ? _buildDimensionsOverlay(context) : null,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // Separate method to build the main content
+  Widget _buildMainContent(BuildContext context, AuthService authService) {
+    // Check if user is already logged in
+    if (authService.isLoggedIn) {
+      // Create a user object from current auth data to pass to item selection screen
+      final user = mes_model.User(
+        id: authService.userId ?? 'unknown',
+        name: authService.userName ?? 'User',
+        role: authService.userRole ?? 'operator',
+        email: authService.userEmail,
+      );
+
+      // Skip login and go directly to item selection
+      return mes_items.ItemSelectionScreen(initialUser: user);
+    } else {
+      // If not logged in (rare case), show login screen
+      return const mes_login.LoginScreen();
+    }
+  }
+
+  // Debug widget to show screen dimensions
+  Widget _buildDimensionsOverlay(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return Container(
+      color: Colors.black.withOpacity(0.7),
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+      child: Text(
+        'Screen: ${size.width.toStringAsFixed(1)} × ${size.height.toStringAsFixed(1)}',
+        style:
+            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
     );
   }

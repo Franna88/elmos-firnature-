@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import '../../../core/theme/app_theme.dart';
 import '../../../data/services/auth_service.dart';
 
@@ -194,6 +195,24 @@ class MobileSelectionScreen extends StatelessWidget {
             isLandscape
                 ? _buildLandscapeCards(context, isTablet)
                 : _buildPortraitCards(context, isTablet),
+
+            // Debug dimensions display
+            if (kDebugMode)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    'Screen: ${screenSize.width.toStringAsFixed(1)} × ${screenSize.height.toStringAsFixed(1)} - ${isLandscape ? "Landscape" : "Portrait"}${isTablet ? " - Tablet" : ""}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

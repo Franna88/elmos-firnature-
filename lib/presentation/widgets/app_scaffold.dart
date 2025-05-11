@@ -248,6 +248,20 @@ class AppScaffold extends StatelessWidget {
                       ),
                       _buildNavItem(
                         context,
+                        icon: Icons.settings_outlined,
+                        label: 'MES Management',
+                        route: '/mes-management',
+                        isSelected: currentLocation == '/mes-management',
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.insert_chart_outlined,
+                        label: 'MES Reports',
+                        route: '/mes-reports',
+                        isSelected: currentLocation == '/mes-reports',
+                      ),
+                      _buildNavItem(
+                        context,
                         icon: Icons.category_outlined,
                         label: 'Categories',
                         route: '/categories',

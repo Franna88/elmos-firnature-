@@ -5,9 +5,7 @@ enum ProductionTimerMode {
   notStarted,
   running,
   paused,
-  onBreak,
-  maintenance,
-  prep
+  interrupted,
 }
 
 // A specialized timer controller for production timing
@@ -18,20 +16,20 @@ class ProductionTimer {
 
   // Accumulated times (in seconds)
   int _productionTime = 0;
-  int _breakTime = 0;
-  int _maintenanceTime = 0;
-  int _prepTime = 0;
-  
+  int _interruptionTime = 0;
+
   // Timestamp trackers
   DateTime? _productionStartTime;
-  DateTime? _breakStartTime;
-  DateTime? _maintenanceStartTime;
-  DateTime? _prepStartTime;
-  
+  DateTime? _interruptionStartTime;
+
   // Completion counter
   int _completedCount = 0;
   int get completedCount => _completedCount;
-  
+
+  // Track number of times production was started
+  int _productionStartCount = 0;
+  int get productionStartCount => _productionStartCount;
+
   // Callback for UI updates
   final VoidCallback? onTick;
   Timer? _timer;
@@ -56,97 +54,61 @@ class ProductionTimer {
 
   // Start or resume the production timer
   void startProduction() {
-    if (_mode == ProductionTimerMode.onBreak) {
-      // Coming back from break - add break time to total
-      if (_breakStartTime != null) {
-        final breakDuration = DateTime.now().difference(_breakStartTime!).inSeconds;
-        _breakTime += breakDuration;
-        _breakStartTime = null;
-      }
-    } else if (_mode == ProductionTimerMode.maintenance) {
-      // Coming back from maintenance - add maintenance time to total
-      if (_maintenanceStartTime != null) {
-        final maintenanceDuration = DateTime.now().difference(_maintenanceStartTime!).inSeconds;
-        _maintenanceTime += maintenanceDuration;
-        _maintenanceStartTime = null;
-      }
-    } else if (_mode == ProductionTimerMode.prep) {
-      // Coming back from prep - add prep time to total
-      if (_prepStartTime != null) {
-        final prepDuration = DateTime.now().difference(_prepStartTime!).inSeconds;
-        _prepTime += prepDuration;
-        _prepStartTime = null;
+    if (_mode == ProductionTimerMode.interrupted) {
+      // Coming back from interruption - add interruption time to total
+      if (_interruptionStartTime != null) {
+        final interruptionDuration =
+            DateTime.now().difference(_interruptionStartTime!).inSeconds;
+        _interruptionTime += interruptionDuration;
+        _interruptionStartTime = null;
       }
     }
-    
+
     _mode = ProductionTimerMode.running;
     _productionStartTime = DateTime.now();
+    _productionStartCount++;
   }
 
   // Pause the production timer
   void pauseProduction() {
     if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
       // Add current production time to total
-      final duration = DateTime.now().difference(_productionStartTime!).inSeconds;
+      final duration =
+          DateTime.now().difference(_productionStartTime!).inSeconds;
       _productionTime += duration;
       _productionStartTime = null;
     }
-    
+
     _mode = ProductionTimerMode.paused;
   }
 
-  // Start a break
-  void startBreak() {
+  // Start an interruption
+  void startInterruption() {
     if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
       // Add current production time to total
-      final duration = DateTime.now().difference(_productionStartTime!).inSeconds;
+      final duration =
+          DateTime.now().difference(_productionStartTime!).inSeconds;
       _productionTime += duration;
       _productionStartTime = null;
     }
-    
-    _mode = ProductionTimerMode.onBreak;
-    _breakStartTime = DateTime.now();
-  }
 
-  // Start maintenance
-  void startMaintenance() {
-    if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
-      // Add current production time to total
-      final duration = DateTime.now().difference(_productionStartTime!).inSeconds;
-      _productionTime += duration;
-      _productionStartTime = null;
-    }
-    
-    _mode = ProductionTimerMode.maintenance;
-    _maintenanceStartTime = DateTime.now();
-  }
-
-  // Start prep time
-  void startPrep() {
-    if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
-      // Add current production time to total
-      final duration = DateTime.now().difference(_productionStartTime!).inSeconds;
-      _productionTime += duration;
-      _productionStartTime = null;
-    }
-    
-    _mode = ProductionTimerMode.prep;
-    _prepStartTime = DateTime.now();
+    _mode = ProductionTimerMode.interrupted;
+    _interruptionStartTime = DateTime.now();
   }
 
   // Mark an item as completed
   void completeItem() {
     if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
       // Add current production time to total
-      final duration = DateTime.now().difference(_productionStartTime!).inSeconds;
+      final duration =
+          DateTime.now().difference(_productionStartTime!).inSeconds;
       _productionTime += duration;
       _productionStartTime = null;
     }
-    
+
     _completedCount++;
-    
-    // Reset production time but keep break and maintenance time
-    _productionTime = 0;
+
+    // Reset the timer but maintain accumulated times for reporting
     _mode = ProductionTimerMode.notStarted;
   }
 
@@ -154,8 +116,10 @@ class ProductionTimer {
   void resetForNewItem() {
     _mode = ProductionTimerMode.notStarted;
     _productionStartTime = null;
+    _interruptionStartTime = null;
     _productionTime = 0;
-    // We don't reset break, maintenance, and prep times
+    _interruptionTime = 0;
+    _productionStartCount = 0;
   }
 
   // Get total production time in seconds
@@ -163,51 +127,50 @@ class ProductionTimer {
     int total = _productionTime;
     if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
       // Add current running time
-      final duration = DateTime.now().difference(_productionStartTime!).inSeconds;
+      final duration =
+          DateTime.now().difference(_productionStartTime!).inSeconds;
       total += duration;
     }
     return total;
   }
 
-  // Get total break time in seconds
-  int getBreakTime() {
-    int total = _breakTime;
-    if (_mode == ProductionTimerMode.onBreak && _breakStartTime != null) {
-      // Add current break time
-      final duration = DateTime.now().difference(_breakStartTime!).inSeconds;
+  // Get total interruption time in seconds
+  int getTotalInterruptionTime() {
+    int total = _interruptionTime;
+    if (_mode == ProductionTimerMode.interrupted &&
+        _interruptionStartTime != null) {
+      // Add current interruption time
+      final duration =
+          DateTime.now().difference(_interruptionStartTime!).inSeconds;
       total += duration;
     }
     return total;
   }
 
-  // Get total maintenance time in seconds
-  int getMaintenanceTime() {
-    int total = _maintenanceTime;
-    if (_mode == ProductionTimerMode.maintenance && _maintenanceStartTime != null) {
-      // Add current maintenance time
-      final duration = DateTime.now().difference(_maintenanceStartTime!).inSeconds;
-      total += duration;
-    }
-    return total;
+  // Get total time (production + interruption)
+  int getTotalTime() {
+    return getProductionTime() + getTotalInterruptionTime();
   }
 
-  // Get total prep time in seconds
-  int getPrepTime() {
-    int total = _prepTime;
-    if (_mode == ProductionTimerMode.prep && _prepStartTime != null) {
-      // Add current prep time
-      final duration = DateTime.now().difference(_prepStartTime!).inSeconds;
-      total += duration;
-    }
-    return total;
-  }
-
-  // Format seconds into HH:MM:SS
-  static String formatTime(int seconds) {
+  // Format seconds as HH:MM:SS
+  static String formatDuration(int seconds) {
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
     final remainingSeconds = seconds % 60;
-    
+
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
-} 
+
+  // Get estimated completion percentage based on estimated time
+  double getCompletionPercentage(int estimatedTimeInMinutes) {
+    final estimatedTimeInSeconds = estimatedTimeInMinutes * 60;
+    final currentTime = getProductionTime();
+
+    if (estimatedTimeInSeconds <= 0) return 0.0;
+
+    final percentage = (currentTime / estimatedTimeInSeconds) * 100;
+
+    // Cap at 100%
+    return percentage > 100 ? 100 : percentage;
+  }
+}

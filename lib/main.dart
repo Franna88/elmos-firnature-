@@ -2,6 +2,7 @@ import 'package:elmos_furniture_app/data/services/auth_service.dart';
 import 'package:elmos_furniture_app/data/services/sop_service.dart';
 import 'package:elmos_furniture_app/data/services/analytics_service.dart';
 import 'package:elmos_furniture_app/data/services/category_service.dart';
+import 'package:elmos_furniture_app/data/services/mes_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:provider/provider.dart';
@@ -33,6 +34,8 @@ import 'presentation/screens/mobile/mobile_sop_editor_screen.dart';
 import 'presentation/screens/mobile/mobile_selection_screen.dart';
 import 'presentation/screens/image_upload_test_screen.dart';
 import 'presentation/screens/mes/mes_screen.dart';
+import 'presentation/screens/mes_management_screen.dart';
+import 'presentation/screens/mes_reports_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -68,6 +71,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => AuthService()),
         ChangeNotifierProvider(create: (context) => SOPService()),
         ChangeNotifierProvider(create: (context) => CategoryService()),
+        ChangeNotifierProvider(create: (context) => MESService()),
         ChangeNotifierProxyProvider2<AuthService, SOPService, AnalyticsService>(
           create: (context) => AnalyticsService(
             sopService: Provider.of<SOPService>(context, listen: false),
@@ -223,6 +227,16 @@ class MyApp extends StatelessWidget {
           path: '/mes',
           builder: (context, state) => const MESScreen(),
         ),
+        // MES Management route
+        GoRoute(
+          path: '/mes-management',
+          builder: (context, state) => const MESManagementScreen(),
+        ),
+        // MES Reports route
+        GoRoute(
+          path: '/mes-reports',
+          builder: (context, state) => const MESReportsScreen(),
+        ),
         // Test screen for base64 image upload
         GoRoute(
           path: '/image-upload-test',
@@ -235,12 +249,13 @@ class MyApp extends StatelessWidget {
   // Helper method to detect if the current device is mobile or tablet
   bool _isMobileDevice(BuildContext context) {
     final MediaQueryData mediaQuery = MediaQuery.of(context);
-    // Increased breakpoint to include tablets (up to 1024px is common for tablets)
+    // Increased breakpoint to include tablets (up to 1200px is common for larger tablets)
     // - Mobile phones: < 600px
     // - Small tablets: 600px-900px
-    // - Large tablets: 900px-1024px
-    // - Desktop/Web: > 1024px
-    return mediaQuery.size.width <= 1024;
+    // - Medium tablets: 900px-1024px
+    // - Large tablets: 1024px-1200px
+    // - Desktop/Web: > 1200px
+    return mediaQuery.size.width <= 1200;
   }
 }
 

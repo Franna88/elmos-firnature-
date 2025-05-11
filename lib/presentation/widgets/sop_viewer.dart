@@ -5,6 +5,7 @@ import '../../data/services/qr_code_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/sop_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/cross_platform_image.dart';
 
 class SOPViewer extends StatefulWidget {
   final SOP sop;
@@ -28,6 +29,30 @@ class _SOPViewerState extends State<SOPViewer> {
   int _selectedStepIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _validateSelectedStepIndex();
+  }
+
+  @override
+  void didUpdateWidget(SOPViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sop.id != widget.sop.id ||
+        oldWidget.sop.steps.length != widget.sop.steps.length) {
+      _validateSelectedStepIndex();
+    }
+  }
+
+  void _validateSelectedStepIndex() {
+    // Reset to first step if current index is invalid
+    if (widget.sop.steps.isEmpty) {
+      _selectedStepIndex = 0;
+    } else if (_selectedStepIndex >= widget.sop.steps.length) {
+      _selectedStepIndex = 0;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
@@ -45,6 +70,7 @@ class _SOPViewerState extends State<SOPViewer> {
               // Main content area
               Expanded(
                 child: SingleChildScrollView(
+                  key: ValueKey('step-content-${_selectedStepIndex}'),
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,12 +343,14 @@ class _SOPViewerState extends State<SOPViewer> {
           ),
           Expanded(
             child: ListView.builder(
+              key: ValueKey('step-list-${widget.sop.id}'),
               itemCount: widget.sop.steps.length,
               itemBuilder: (context, index) {
                 final step = widget.sop.steps[index];
                 final isSelected = index == _selectedStepIndex;
 
                 return Padding(
+                  key: ValueKey('step-item-${step.id}-$index'),
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8.0, vertical: 2.0),
                   child: Material(
@@ -387,6 +415,7 @@ class _SOPViewerState extends State<SOPViewer> {
 
   Widget _buildCurrentStepCard(BuildContext context, SOPStep step, int index) {
     return Card(
+      key: ValueKey('step-card-$index'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -423,6 +452,7 @@ class _SOPViewerState extends State<SOPViewer> {
                   // Left column - Image (if available)
                   if (step.imageUrl != null) ...[
                     Stack(
+                      key: ValueKey('step-image-stack-$index'),
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
@@ -533,7 +563,8 @@ class _SOPViewerState extends State<SOPViewer> {
                               if (step.estimatedTime != null)
                                 Chip(
                                   avatar: const Icon(Icons.timer, size: 16),
-                                  label: Text('${step.estimatedTime} min'),
+                                  label: Text(
+                                      '${_formatTimeInMinutes(step.estimatedTime!)}'),
                                 ),
                             ],
                           ),
@@ -680,82 +711,31 @@ class _SOPViewerState extends State<SOPViewer> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  String _formatTimeInMinutes(int seconds) {
+    int minutes = (seconds / 60).ceil();
+    return minutes == 1 ? "$minutes min" : "$minutes mins";
+  }
+
   Widget _buildStepImage(String imageUrl, BuildContext context) {
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final bytes = base64Decode(imageUrl.split(',')[1]);
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          height: 250,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        );
-      } catch (e) {
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        fit: BoxFit.cover,
-        height: 250,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.cover,
-        height: 250,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
+    return CrossPlatformImage(
+      key: ValueKey('step-image-$imageUrl'),
+      imageUrl: imageUrl,
+      height: 250,
+      width: 220,
+      fit: BoxFit.cover,
+      errorWidget: _buildImageError(),
+    );
   }
 
   Widget _buildFullScreenImage(String imageUrl, BuildContext context) {
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final bytes = base64Decode(imageUrl.split(',')[1]);
-        return Image.memory(
-          bytes,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        );
-      } catch (e) {
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-            ),
-          );
-        },
-      );
-    }
+    return CrossPlatformImage(
+      key: ValueKey('fullscreen-image-$imageUrl'),
+      imageUrl: imageUrl,
+      width: MediaQuery.of(context).size.width,
+      height: MediaQuery.of(context).size.height * 0.7,
+      fit: BoxFit.contain,
+      errorWidget: _buildImageError(),
+    );
   }
 
   Widget _buildImageError() {
