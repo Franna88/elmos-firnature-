@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/models/sop_model.dart';
+import '../../widgets/cross_platform_image.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
   final String sopId;
@@ -783,80 +784,30 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
   // Helper method for fullscreen image viewing
   Widget _buildStepImageFullscreen(String imageUrl) {
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final data = imageUrl.split(',')[1];
-        final bytes = base64Decode(data);
-        return Image.memory(
-          bytes,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        );
-      } catch (e) {
-        debugPrint('Error displaying data URL image: $e');
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
+    return CrossPlatformImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.contain,
+      errorWidget: _buildImageError(),
+    );
   }
 
   Widget _buildStepImage(String imageUrl) {
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final data = imageUrl.split(',')[1];
-        final bytes = base64Decode(data);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(
-            bytes,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => _buildImageError(),
-          ),
-        );
-      } catch (e) {
-        debugPrint('Error displaying data URL image: $e');
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.asset(
-          imageUrl,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        ),
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        ),
-      );
-    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: CrossPlatformImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.contain,
+        errorWidget: _buildImageError(),
+      ),
+    );
+  }
+
+  Widget _buildThumbnailImage(String imageUrl) {
+    return CrossPlatformImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.contain,
+      errorWidget: _buildImageError(),
+    );
   }
 
   Widget _buildImageError() {
