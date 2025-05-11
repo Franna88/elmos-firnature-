@@ -6,9 +6,9 @@ class MobileRedirectScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Automatically redirect to mobile SOPs screen
+    // Automatically redirect to mobile selection screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.go('/mobile/sops');
+      context.go('/mobile/selection');
     });
 
     return Scaffold(
@@ -30,7 +30,7 @@ class MobileRedirectScreen extends StatelessWidget {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 20),
-            Text('Loading mobile view...'),
+            Text('Loading selection screen...'),
           ],
         ),
       ),

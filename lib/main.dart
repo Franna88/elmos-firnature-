@@ -30,6 +30,7 @@ import 'presentation/screens/mobile/mobile_categories_screen.dart';
 import 'presentation/screens/mobile/mobile_sops_screen.dart';
 import 'presentation/screens/mobile/mobile_login_screen.dart';
 import 'presentation/screens/mobile/mobile_sop_editor_screen.dart';
+import 'presentation/screens/mobile/mobile_selection_screen.dart';
 import 'presentation/screens/image_upload_test_screen.dart';
 import 'presentation/screens/mes/mes_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
@@ -115,7 +116,7 @@ class MyApp extends StatelessWidget {
 
         // If logged in, redirect to appropriate dashboard based on device
         if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
-          return isMobileDevice ? '/mobile/sops' : '/dashboard';
+          return isMobileDevice ? '/mobile/selection' : '/dashboard';
         }
 
         // If not logged in, redirect to appropriate login page based on device
@@ -130,7 +131,9 @@ class MyApp extends StatelessWidget {
           path: '/',
           redirect: (context, state) {
             if (authService.isLoggedIn) {
-              return _isMobileDevice(context) ? '/mobile/sops' : '/dashboard';
+              return _isMobileDevice(context)
+                  ? '/mobile/selection'
+                  : '/dashboard';
             }
             return _isMobileDevice(context) ? '/mobile/login' : '/login';
           },
@@ -152,8 +155,13 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/dashboard',
           builder: (context, state) => _isMobileDevice(context)
-              ? const MobileRedirectScreen()
+              ? const MobileSelectionScreen()
               : const DashboardScreen(),
+        ),
+        // Mobile selection screen route
+        GoRoute(
+          path: '/mobile/selection',
+          builder: (context, state) => const MobileSelectionScreen(),
         ),
         // Mobile-specific routes
         GoRoute(

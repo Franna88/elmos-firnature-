@@ -4,7 +4,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/services/auth_service.dart';
 import '../../widgets/app_scaffold.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import '../../../mes_tablet/tablet_mes_main.dart' as mes_app;
+import '../../../mes_tablet/screens/login_screen.dart' as mes_login;
+import '../../../mes_tablet/screens/item_selection_screen.dart' as mes_items;
+import '../../../mes_tablet/screens/timer_screen.dart' as mes_timer;
 
 class MESScreen extends StatelessWidget {
   const MESScreen({super.key});
@@ -12,7 +14,15 @@ class MESScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
+    // Check if this is on a mobile or tablet device
+    final bool isMobile = MediaQuery.of(context).size.width <= 1024;
 
+    // If on mobile/tablet, directly show the MES login screen
+    if (isMobile) {
+      return const MESTabletApp();
+    }
+
+    // Otherwise show a launcher screen for desktop
     return AppScaffold(
       title: 'MES - Manufacturing Execution System',
       body: Center(
@@ -133,37 +143,40 @@ class MESTabletApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use the tablet MES app but with a way to navigate back
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('MES Tablet Application'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+    // Set up the theme similar to the MES tablet app
+    return Theme(
+      data: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFEB281E), // Elmos Red
+          primary: const Color(0xFFEB281E), // Elmos Red
+          secondary: const Color(0xFF2C2C2C), // Dark Gray
+          onSecondary: const Color(0xFFFFFFFF), // White
+          background: const Color(0xFFFFFFFF), // White
+          surface: const Color(0xFFFFFFFF), // White
+          onPrimary: const Color(0xFFFFFFFF), // White text on primary
+        ),
+        useMaterial3: true,
+        fontFamily: 'Roboto',
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFEB281E), // Elmos Red
+          foregroundColor: Color(0xFFFFFFFF), // White text
+          elevation: 0,
         ),
       ),
-      body: const MESTabletContent(),
-    );
-  }
-}
-
-// This embeds the MES tablet app content
-class MESTabletContent extends StatelessWidget {
-  const MESTabletContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // Create the MES app but without MaterialApp wrapper
-    return Builder(
-      builder: (context) {
-        // Force landscape orientation for the tablet app
-        return OrientationBuilder(
-          builder: (context, orientation) {
-            // Launch the MES tablet application
-            return const mes_app.MyApp();
-          },
-        );
-      },
+      child: Scaffold(
+        body: const mes_login.LoginScreen(),
+        // Add a back button if we're not on a mobile device
+        floatingActionButton: MediaQuery.of(context).size.width > 1024
+            ? FloatingActionButton(
+                onPressed: () => Navigator.of(context).pop(),
+                backgroundColor: const Color(0xFFEB281E),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                ),
+              )
+            : null,
+      ),
     );
   }
 }
