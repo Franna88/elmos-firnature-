@@ -237,6 +237,17 @@ class AppScaffold extends StatelessWidget {
                       ),
                       _buildNavItem(
                         context,
+                        icon: Icons.factory_outlined,
+                        label: 'MES',
+                        onTap: () {
+                          // Launch the tablet MES application
+                          const url = '/mes';
+                          context.go(url);
+                        },
+                        isSelected: currentLocation == '/mes',
+                      ),
+                      _buildNavItem(
+                        context,
                         icon: Icons.category_outlined,
                         label: 'Categories',
                         route: '/categories',
