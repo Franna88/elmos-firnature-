@@ -7,6 +7,8 @@ import '../../../data/models/sop_model.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../../core/theme/app_theme.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import '../../widgets/cross_platform_image.dart';
 
 class SOPsScreen extends StatefulWidget {
   const SOPsScreen({super.key});
@@ -239,7 +241,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
               child: Stack(
                 children: [
                   SizedBox(
-                    height: double.infinity,
+                    height: 100,
                     child: _buildImage(imageUrl),
                   ),
                   // Department badge
@@ -387,14 +389,15 @@ class _SOPsScreenState extends State<SOPsScreen> {
     if (imageUrl == null) {
       return Container(
         color: Colors.grey[100],
-        width: double.infinity,
+        width: 140,
+        height: 100,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.image_not_supported,
-                size: 24, // Increased from 14
+                size: 24,
                 color: AppColors.textLight.withOpacity(0.7),
               ),
               const SizedBox(height: 6),
@@ -411,54 +414,27 @@ class _SOPsScreenState extends State<SOPsScreen> {
       );
     }
 
-    // Check if this is a data URL
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        final bytes = base64Decode(imageUrl.split(',')[1]);
-        return Image.memory(
-          bytes,
-          width: double.infinity,
-          height: double.infinity,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        );
-      } catch (e) {
-        return _buildImageError();
-      }
-    }
-    // Check if this is an asset image
-    else if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        width: double.infinity,
-        height: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
-    // Otherwise, assume it's a network image
-    else {
-      return Image.network(
-        imageUrl,
-        width: double.infinity,
-        height: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
+    return CrossPlatformImage(
+      imageUrl: imageUrl,
+      width: 140,
+      height: 100,
+      fit: BoxFit.cover,
+      errorWidget: _buildImageError(),
+    );
   }
 
   Widget _buildImageError() {
     return Container(
+      width: 140,
+      height: 100,
       color: Colors.grey[100],
-      width: double.infinity,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.broken_image,
-              size: 24, // Increased from 14
+              size: 24,
               color: AppColors.textLight.withOpacity(0.7),
             ),
             const SizedBox(height: 6),

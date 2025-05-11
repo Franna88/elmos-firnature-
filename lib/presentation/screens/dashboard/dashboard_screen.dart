@@ -230,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Stack(
                 children: [
                   SizedBox(
-                    height: double.infinity,
+                    height: 100,
                     child: _buildImage(imageUrl),
                   ),
                   // Department badge
@@ -381,7 +381,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (imageUrl == null) {
       return Container(
         color: Colors.grey[100],
-        width: double.infinity,
+        width: 120,
+        height: 100,
         child: Center(
           child: Icon(
             Icons.image_not_supported,
@@ -394,8 +395,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return CrossPlatformImage(
       imageUrl: imageUrl,
-      height: double.infinity,
-      width: double.infinity,
+      height: 100,
+      width: 120,
       fit: BoxFit.cover,
       errorWidget: _buildImageError(),
     );
@@ -403,7 +404,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildImageError() {
     return Container(
-      width: double.infinity,
+      width: 120,
+      height: 100,
       color: Colors.grey[100],
       child: Center(
         child: Icon(

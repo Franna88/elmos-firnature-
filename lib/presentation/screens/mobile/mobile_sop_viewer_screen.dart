@@ -725,8 +725,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                         ClipRRect(
                           borderRadius: BorderRadius.circular(11),
                           child: Container(
-                            width: double.infinity,
-                            height: double.infinity,
+                            width: MediaQuery.of(context).size.width,
+                            height: 250,
                             color: Colors.grey[100],
                             child: _buildStepImage(step.imageUrl!),
                           ),
@@ -786,6 +786,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   Widget _buildStepImageFullscreen(String imageUrl) {
     return CrossPlatformImage(
       imageUrl: imageUrl,
+      width: MediaQuery.of(context).size.width,
+      height: MediaQuery.of(context).size.height * 0.7,
       fit: BoxFit.contain,
       errorWidget: _buildImageError(),
     );
@@ -796,6 +798,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       borderRadius: BorderRadius.circular(8),
       child: CrossPlatformImage(
         imageUrl: imageUrl,
+        width: MediaQuery.of(context).size.width,
+        height: 250,
         fit: BoxFit.contain,
         errorWidget: _buildImageError(),
       ),
@@ -805,6 +809,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   Widget _buildThumbnailImage(String imageUrl) {
     return CrossPlatformImage(
       imageUrl: imageUrl,
+      width: 150,
+      height: 150,
       fit: BoxFit.contain,
       errorWidget: _buildImageError(),
     );
@@ -812,7 +818,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
   Widget _buildImageError() {
     return Container(
-      width: double.infinity,
+      width: MediaQuery.of(context).size.width,
       height: 200,
       decoration: BoxDecoration(
         color: Colors.grey[200],

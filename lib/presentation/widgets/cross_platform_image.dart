@@ -16,7 +16,7 @@ class CrossPlatformImage extends StatelessWidget {
   const CrossPlatformImage({
     super.key,
     required this.imageUrl,
-    this.width = double.infinity,
+    this.width = 200.0,
     this.height = 140.0,
     this.fit = BoxFit.cover,
     this.placeholder,
@@ -25,10 +25,14 @@ class CrossPlatformImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Make sure we have actual dimensions, especially for web
+    final double actualWidth = width == double.infinity ? 300.0 : width;
+    final double actualHeight = height == double.infinity ? 200.0 : height;
+
     // Default error widget if not provided
     final Widget defaultErrorWidget = Container(
-      width: width,
-      height: height,
+      width: actualWidth,
+      height: actualHeight,
       color: Colors.grey[200],
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -48,8 +52,8 @@ class CrossPlatformImage extends StatelessWidget {
 
     // Default placeholder widget if not provided
     final Widget defaultPlaceholder = Container(
-      width: width,
-      height: height,
+      width: actualWidth,
+      height: actualHeight,
       color: Colors.grey[200],
       child: Center(
         child: CircularProgressIndicator(
@@ -71,8 +75,8 @@ class CrossPlatformImage extends StatelessWidget {
         final bytes = base64Decode(imageUrl!.split(',')[1]);
         return Image.memory(
           bytes,
-          width: width,
-          height: height,
+          width: actualWidth,
+          height: actualHeight,
           fit: fit,
           errorBuilder: (context, error, stackTrace) =>
               errorWidget ?? defaultErrorWidget,
@@ -85,8 +89,8 @@ class CrossPlatformImage extends StatelessWidget {
       // Asset image handling is the same across platforms
       return Image.asset(
         imageUrl!,
-        width: width,
-        height: height,
+        width: actualWidth,
+        height: actualHeight,
         fit: fit,
         errorBuilder: (context, error, stackTrace) =>
             errorWidget ?? defaultErrorWidget,
@@ -96,8 +100,8 @@ class CrossPlatformImage extends StatelessWidget {
       if (kIsWeb) {
         return ImageNetwork(
           image: imageUrl!,
-          height: height,
-          width: width,
+          height: actualHeight,
+          width: actualWidth,
           duration: 1000,
           fitWeb: _mapBoxFitToWeb(fit),
           onLoading: placeholder ?? defaultPlaceholder,
@@ -107,8 +111,8 @@ class CrossPlatformImage extends StatelessWidget {
         // For mobile and other platforms, use regular Image.network
         return Image.network(
           imageUrl!,
-          width: width,
-          height: height,
+          width: actualWidth,
+          height: actualHeight,
           fit: fit,
           errorBuilder: (context, error, stackTrace) =>
               errorWidget ?? defaultErrorWidget,
