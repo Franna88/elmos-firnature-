@@ -473,6 +473,66 @@ class MESService extends ChangeNotifier {
     }
   }
 
+  // Update an existing interruption in a production record
+  Future<MESProductionRecord> updateInterruptionInRecord(
+      String recordId, String typeId,
+      {DateTime? endTime, int? durationSeconds, String? notes}) async {
+    try {
+      // Find the record
+      final index = _productionRecords.indexWhere((r) => r.id == recordId);
+      if (index == -1) {
+        throw Exception('Production record not found');
+      }
+
+      final record = _productionRecords[index];
+
+      // Find the interruption to update (find the most recent one with matching typeId)
+      final interruptionIndex = record.interruptions.lastIndexWhere(
+        (i) => i.typeId == typeId && i.endTime == null,
+      );
+
+      if (interruptionIndex == -1) {
+        throw Exception('Active interruption not found');
+      }
+
+      final interruption = record.interruptions[interruptionIndex];
+
+      // Create updated interruption
+      final updatedInterruption = interruption.copyWith(
+        endTime: endTime,
+        durationSeconds: durationSeconds ?? 0,
+        notes: notes,
+      );
+
+      // Update the list
+      final updatedInterruptions =
+          List<MESInterruption>.from(record.interruptions);
+      updatedInterruptions[interruptionIndex] = updatedInterruption;
+
+      // Update total interruption time
+      int additionalTime = 0;
+      if (durationSeconds != null) {
+        additionalTime = durationSeconds;
+      } else if (endTime != null) {
+        additionalTime = endTime.difference(interruption.startTime).inSeconds;
+      }
+
+      final totalInterruptionTime =
+          record.totalInterruptionTimeSeconds + additionalTime;
+
+      // Create updated record
+      final updatedRecord = record.copyWith(
+        interruptions: updatedInterruptions,
+        totalInterruptionTimeSeconds: totalInterruptionTime,
+      );
+
+      // Save to Firestore
+      return await updateProductionRecord(updatedRecord);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // Complete a production record
   Future<MESProductionRecord> completeProductionRecord(
       String recordId, int totalProductionTimeSeconds) async {

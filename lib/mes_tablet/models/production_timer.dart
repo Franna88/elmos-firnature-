@@ -152,6 +152,15 @@ class ProductionTimer {
     return getProductionTime() + getTotalInterruptionTime();
   }
 
+  // Get the duration of the current interruption in seconds
+  int getCurrentInterruptionDuration() {
+    if (_mode == ProductionTimerMode.interrupted &&
+        _interruptionStartTime != null) {
+      return DateTime.now().difference(_interruptionStartTime!).inSeconds;
+    }
+    return 0;
+  }
+
   // Format seconds as HH:MM:SS
   static String formatDuration(int seconds) {
     final hours = seconds ~/ 3600;

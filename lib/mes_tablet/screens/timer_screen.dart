@@ -22,7 +22,6 @@ class _TimerScreenState extends State<TimerScreen> {
   late int _secondsRemaining;
   List<MESInterruptionType> _interruptionTypes = [];
   bool _isLoading = true;
-  MESInterruptionType? _activeInterruptionType;
 
   @override
   void initState() {
@@ -123,50 +122,213 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Start an interruption (generic handler)
   Future<void> _startInterruption(MESInterruptionType type) async {
-    // Only allow starting an interruption from running state
-    if (_timer.mode == ProductionTimerMode.running) {
-      setState(() {
-        _timer.startInterruption();
-        _activeInterruptionType = type; // Store the active interruption type
-      });
-
-      // Record the interruption in Firebase
-      try {
-        final mesService = Provider.of<MESService>(context, listen: false);
-        final now = DateTime.now();
-
-        await mesService.addInterruptionToRecord(
-          _recordId,
-          type.id,
-          type.name,
-          now,
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error recording interruption: $e')),
-        );
-      }
-    } else if (_timer.mode == ProductionTimerMode.interrupted) {
-      // If we're already in interrupted mode, resume production
-      _resumeProduction();
-    } else {
-      // If not running, show message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'You must start the timer before recording a non-production activity'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+    // Show interruption timer popup
+    _showInterruptionTimerDialog(type);
   }
 
-  // Resume production from interruption
-  void _resumeProduction() {
-    setState(() {
-      _timer.startProduction();
-      _activeInterruptionType = null; // Clear the active interruption
-    });
+  // Show an interruption timer popup
+  void _showInterruptionTimerDialog(MESInterruptionType type) {
+    // Local variables for timer
+    DateTime startTime = DateTime.now();
+    int elapsedSeconds = 0;
+    Timer? timer;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        // Determine color based on interruption type
+        Color dialogColor = const Color(0xFF2C2C2C);
+        IconData icon = Icons.pause_circle;
+
+        if (type.name.toLowerCase().contains('break')) {
+          icon = Icons.coffee;
+          dialogColor = const Color(0xFF795548); // Brown
+        } else if (type.name.toLowerCase().contains('maintenance')) {
+          icon = Icons.build;
+          dialogColor = const Color(0xFFFF9800); // Orange
+        } else if (type.name.toLowerCase().contains('prep')) {
+          icon = Icons.assignment;
+          dialogColor = const Color(0xFF2196F3); // Blue
+        } else if (type.name.toLowerCase().contains('material')) {
+          icon = Icons.inventory;
+          dialogColor = const Color(0xFF4CAF50); // Green
+        } else if (type.name.toLowerCase().contains('training')) {
+          icon = Icons.school;
+          dialogColor = const Color(0xFF9C27B0); // Purple
+        }
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Start timer if not started
+            timer ??= Timer.periodic(const Duration(seconds: 1), (timer) {
+              setState(() {
+                elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
+              });
+            });
+
+            // Format time
+            String formattedTime =
+                ProductionTimer.formatDuration(elapsedSeconds);
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: dialogColor, width: 3),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: dialogColor.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: dialogColor, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          type.name,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (type.description != null &&
+                            type.description!.isNotEmpty)
+                          Text(
+                            type.description!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: dialogColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: dialogColor, width: 3),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          "ELAPSED TIME",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          formattedTime,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: dialogColor,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    "Recording ${type.name} Time",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: dialogColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    // Cancel timer
+                    timer?.cancel();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancel',
+                      style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: dialogColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () async {
+                    // End timer
+                    timer?.cancel();
+
+                    // Record the interruption in Firebase
+                    try {
+                      final mesService =
+                          Provider.of<MESService>(context, listen: false);
+                      final endTime = DateTime.now();
+
+                      await mesService.addInterruptionToRecord(
+                        _recordId,
+                        type.id,
+                        type.name,
+                        startTime,
+                        endTime: endTime,
+                        durationSeconds: elapsedSeconds,
+                      );
+
+                      // Show success message
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                '${type.name} time recorded: $formattedTime'),
+                            backgroundColor: dialogColor,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content:
+                                  Text('Error recording interruption: $e')),
+                        );
+                      }
+                    }
+
+                    // Close dialog
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Done'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   // Complete current item
@@ -596,7 +758,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                                 icon: Icons.play_arrow,
                                                 label: 'Resume',
                                                 color: const Color(0xFF4CAF50),
-                                                onPressed: _resumeProduction,
+                                                onPressed: _startTimer,
                                                 isNarrow: isNarrow,
                                               )
                                             : _buildControlButton(
@@ -649,78 +811,90 @@ class _TimerScreenState extends State<TimerScreen> {
                         SizedBox(height: isNarrow ? 12 : 16),
                         Expanded(
                           child: ListView(
-                            children: [
-                              // Break button
-                              _buildFullWidthButton(
-                                icon: Icons.coffee,
-                                label: 'Take a Break',
-                                color:
-                                    _timer.mode == ProductionTimerMode.running
-                                        ? const Color(0xFF2C2C2C)
-                                        : Colors.grey,
-                                onPressed: () {
-                                  if (_interruptionTypes.isNotEmpty) {
-                                    _startInterruption(_interruptionTypes[0]);
-                                  }
-                                },
-                                description: 'Pause production for a break',
-                                isNarrow: isNarrow,
-                                interruptionType: _interruptionTypes.isNotEmpty
-                                    ? _interruptionTypes[0]
-                                    : null,
-                              ),
-                              SizedBox(height: isNarrow ? 6 : 8),
+                            children: _interruptionTypes.isEmpty
+                                ? [
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Text(
+                                          'No interruption types configured',
+                                          style: TextStyle(
+                                              color: Colors.grey[600]),
+                                        ),
+                                      ),
+                                    )
+                                  ]
+                                : [
+                                    // Generate buttons dynamically based on interruption types
+                                    ..._interruptionTypes.map((type) {
+                                      // Determine icon based on type name or use default
+                                      IconData icon = Icons.pause_circle;
+                                      Color buttonColor =
+                                          const Color(0xFF2C2C2C);
 
-                              // Maintenance button
-                              _buildFullWidthButton(
-                                icon: Icons.build,
-                                label: 'Maintenance',
-                                color:
-                                    _timer.mode == ProductionTimerMode.running
-                                        ? const Color(0xFF2C2C2C)
-                                        : Colors.grey,
-                                onPressed: () {
-                                  if (_interruptionTypes.length > 1) {
-                                    _startInterruption(_interruptionTypes[1]);
-                                  }
-                                },
-                                description: 'Record equipment maintenance',
-                                isNarrow: isNarrow,
-                                interruptionType: _interruptionTypes.length > 1
-                                    ? _interruptionTypes[1]
-                                    : null,
-                              ),
-                              SizedBox(height: isNarrow ? 6 : 8),
+                                      if (type.name
+                                          .toLowerCase()
+                                          .contains('break')) {
+                                        icon = Icons.coffee;
+                                        buttonColor =
+                                            const Color(0xFF795548); // Brown
+                                      } else if (type.name
+                                          .toLowerCase()
+                                          .contains('maintenance')) {
+                                        icon = Icons.build;
+                                        buttonColor =
+                                            const Color(0xFFFF9800); // Orange
+                                      } else if (type.name
+                                          .toLowerCase()
+                                          .contains('prep')) {
+                                        icon = Icons.assignment;
+                                        buttonColor =
+                                            const Color(0xFF2196F3); // Blue
+                                      } else if (type.name
+                                          .toLowerCase()
+                                          .contains('material')) {
+                                        icon = Icons.inventory;
+                                        buttonColor =
+                                            const Color(0xFF4CAF50); // Green
+                                      } else if (type.name
+                                          .toLowerCase()
+                                          .contains('training')) {
+                                        icon = Icons.school;
+                                        buttonColor =
+                                            const Color(0xFF9C27B0); // Purple
+                                      }
 
-                              // Prep button
-                              _buildFullWidthButton(
-                                icon: Icons.assignment,
-                                label: 'Prep Time',
-                                color: const Color(0xFF2196F3),
-                                onPressed: () {
-                                  if (_interruptionTypes.length > 2) {
-                                    _startInterruption(_interruptionTypes[2]);
-                                  }
-                                },
-                                description: 'Track material preparation',
-                                isNarrow: isNarrow,
-                                interruptionType: _interruptionTypes.length > 2
-                                    ? _interruptionTypes[2]
-                                    : null,
-                              ),
-                              SizedBox(height: isNarrow ? 6 : 8),
+                                      return Column(
+                                        children: [
+                                          _buildFullWidthButton(
+                                            icon: icon,
+                                            label: type.name,
+                                            color: buttonColor,
+                                            onPressed: () {
+                                              _startInterruption(type);
+                                            },
+                                            description: type.description ??
+                                                'Track time for ${type.name}',
+                                            isNarrow: isNarrow,
+                                            interruptionType: type,
+                                          ),
+                                          SizedBox(height: isNarrow ? 6 : 8),
+                                        ],
+                                      );
+                                    }).toList(),
 
-                              // Help button
-                              _buildFullWidthButton(
-                                icon: Icons.help_outline,
-                                label: 'Help',
-                                color: const Color(0xFFEB281E),
-                                onPressed: _requestHelp,
-                                description: 'Call supervisor for assistance',
-                                isNarrow: isNarrow,
-                                interruptionType: null,
-                              ),
-                            ],
+                                    // Help button always available
+                                    _buildFullWidthButton(
+                                      icon: Icons.help_outline,
+                                      label: 'Help',
+                                      color: const Color(0xFFEB281E),
+                                      onPressed: _requestHelp,
+                                      description:
+                                          'Call supervisor for assistance',
+                                      isNarrow: isNarrow,
+                                      interruptionType: null,
+                                    ),
+                                  ],
                           ),
                         ),
                       ],
@@ -954,10 +1128,7 @@ class _TimerScreenState extends State<TimerScreen> {
       case ProductionTimerMode.paused:
         return 'Production Paused';
       case ProductionTimerMode.interrupted:
-        if (_activeInterruptionType != null) {
-          return '${_activeInterruptionType!.name} in Progress';
-        }
-        return 'Non-Production Activity';
+        return 'Production Interrupted';
     }
   }
 
@@ -986,21 +1157,16 @@ class _TimerScreenState extends State<TimerScreen> {
     required bool isNarrow,
     MESInterruptionType? interruptionType,
   }) {
-    // Check if this button is the active interruption
-    final bool isActive = _activeInterruptionType != null &&
-        interruptionType != null &&
-        _activeInterruptionType!.id == interruptionType.id;
-
     return SizedBox(
       width: double.infinity,
       child: Card(
-        elevation: isActive ? 8 : 2,
+        elevation: 2,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(
-            color: isActive ? color : color.withOpacity(0.3),
-            width: isActive ? 2 : 1,
+            color: color.withOpacity(0.3),
+            width: 1,
           ),
         ),
         child: InkWell(
@@ -1014,12 +1180,12 @@ class _TimerScreenState extends State<TimerScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isActive ? color : color.withOpacity(0.1),
+                    color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
-                    color: isActive ? Colors.white : color,
+                    color: color,
                     size: isNarrow ? 20 : 24,
                   ),
                 ),
@@ -1033,35 +1199,25 @@ class _TimerScreenState extends State<TimerScreen> {
                         style: TextStyle(
                           fontSize: isNarrow ? 14 : 16,
                           fontWeight: FontWeight.bold,
-                          color: isActive ? Colors.black87 : color,
+                          color: color,
                         ),
                       ),
                       SizedBox(height: isNarrow ? 2 : 4),
                       Text(
-                        isActive ? 'Currently active' : description,
+                        description,
                         style: TextStyle(
                           fontSize: isNarrow ? 10 : 12,
-                          color: isActive ? color : Colors.grey[600],
-                          fontWeight:
-                              isActive ? FontWeight.bold : FontWeight.normal,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (isActive)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.timer,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
+                Icon(
+                  Icons.timer,
+                  color: color.withOpacity(0.7),
+                  size: 16,
+                ),
               ],
             ),
           ),
