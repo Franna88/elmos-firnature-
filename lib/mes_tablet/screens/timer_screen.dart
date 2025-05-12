@@ -22,6 +22,7 @@ class _TimerScreenState extends State<TimerScreen> {
   late int _secondsRemaining;
   List<MESInterruptionType> _interruptionTypes = [];
   bool _isLoading = true;
+  int _dailyNonProductiveSeconds = 0; // Track daily non-productive time
 
   @override
   void initState() {
@@ -71,6 +72,9 @@ class _TimerScreenState extends State<TimerScreen> {
       final mesService = Provider.of<MESService>(context, listen: false);
       await mesService.fetchInterruptionTypes(onlyActive: true);
       _interruptionTypes = mesService.interruptionTypes;
+
+      // Load daily non-productive time
+      await _loadDailyNonProductiveTime(mesService);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading data: $e')),
@@ -79,6 +83,36 @@ class _TimerScreenState extends State<TimerScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadDailyNonProductiveTime(MESService mesService) async {
+    try {
+      // Get today's date (without time)
+      final today = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+
+      // Get all records for today for this user
+      final records = await mesService.fetchProductionRecords(
+        userId: _user.id,
+        startDate: today,
+        endDate: today,
+      );
+
+      // Sum up all interruption times for today
+      int totalSeconds = 0;
+      for (var record in records) {
+        totalSeconds += record.totalInterruptionTimeSeconds;
+      }
+
+      setState(() {
+        _dailyNonProductiveSeconds = totalSeconds;
+      });
+    } catch (e) {
+      print('Error loading daily non-productive time: $e');
     }
   }
 
@@ -133,202 +167,406 @@ class _TimerScreenState extends State<TimerScreen> {
     int elapsedSeconds = 0;
     Timer? timer;
 
-    showDialog(
+    // Determine color based on interruption type
+    Color dialogColor = const Color(0xFF2C2C2C);
+    IconData icon = Icons.pause_circle;
+
+    if (type.name.toLowerCase().contains('break')) {
+      icon = Icons.coffee;
+      dialogColor = const Color(0xFF795548); // Brown
+    } else if (type.name.toLowerCase().contains('maintenance')) {
+      icon = Icons.build;
+      dialogColor = const Color(0xFFFF9800); // Orange
+    } else if (type.name.toLowerCase().contains('prep')) {
+      icon = Icons.assignment;
+      dialogColor = const Color(0xFF2196F3); // Blue
+    } else if (type.name.toLowerCase().contains('material')) {
+      icon = Icons.inventory;
+      dialogColor = const Color(0xFF4CAF50); // Green
+    } else if (type.name.toLowerCase().contains('training')) {
+      icon = Icons.school;
+      dialogColor = const Color(0xFF9C27B0); // Purple
+    }
+
+    showGeneralDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
-        // Determine color based on interruption type
-        Color dialogColor = const Color(0xFF2C2C2C);
-        IconData icon = Icons.pause_circle;
-
-        if (type.name.toLowerCase().contains('break')) {
-          icon = Icons.coffee;
-          dialogColor = const Color(0xFF795548); // Brown
-        } else if (type.name.toLowerCase().contains('maintenance')) {
-          icon = Icons.build;
-          dialogColor = const Color(0xFFFF9800); // Orange
-        } else if (type.name.toLowerCase().contains('prep')) {
-          icon = Icons.assignment;
-          dialogColor = const Color(0xFF2196F3); // Blue
-        } else if (type.name.toLowerCase().contains('material')) {
-          icon = Icons.inventory;
-          dialogColor = const Color(0xFF4CAF50); // Green
-        } else if (type.name.toLowerCase().contains('training')) {
-          icon = Icons.school;
-          dialogColor = const Color(0xFF9C27B0); // Purple
-        }
-
+      barrierColor: Colors.black.withOpacity(0.5),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
         return StatefulBuilder(
-          builder: (context, setState) {
-            // Start timer if not started
-            timer ??= Timer.periodic(const Duration(seconds: 1), (timer) {
-              setState(() {
-                elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
-              });
-            });
-
+          builder: (context, setStateDialog) {
             // Format time
             String formattedTime =
                 ProductionTimer.formatDuration(elapsedSeconds);
 
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: dialogColor, width: 3),
-              ),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: dialogColor.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, color: dialogColor, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          type.name,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (type.description != null &&
-                            type.description!.isNotEmpty)
-                          Text(
-                            type.description!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
+            // Start timer only once when dialog is shown
+            if (timer == null) {
+              timer = Timer.periodic(const Duration(seconds: 1), (t) {
+                elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
+                setStateDialog(() {});
+              });
+            }
+
+            return Material(
+              child: Container(
+                color: Colors.white,
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        color: dialogColor,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(icon, color: Colors.white, size: 32),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: dialogColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: dialogColor, width: 3),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          "ELAPSED TIME",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    type.name,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  if (type.description != null &&
+                                      type.description!.isNotEmpty)
+                                    Text(
+                                      type.description!,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.white.withOpacity(0.9),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon:
+                                  const Icon(Icons.close, color: Colors.white),
+                              onPressed: () {
+                                // Cancel timer
+                                timer?.cancel();
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Main content
+                      Expanded(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "TIME ELAPSED",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: dialogColor,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(40),
+                                decoration: BoxDecoration(
+                                  color: dialogColor.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                  border:
+                                      Border.all(color: dialogColor, width: 4),
+                                ),
+                                child: Text(
+                                  formattedTime,
+                                  style: TextStyle(
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.bold,
+                                    color: dialogColor,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              Text(
+                                "Recording ${type.name}",
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  color: dialogColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "This time will be added to today's non-productive time",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          formattedTime,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: dialogColor,
-                            fontFamily: 'monospace',
-                          ),
+                      ),
+
+                      // Footer
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 60,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: dialogColor,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  // Show confirmation dialog
+                                  _showRecordConfirmation(
+                                      context,
+                                      type,
+                                      dialogColor,
+                                      startTime,
+                                      elapsedSeconds,
+                                      formattedTime, () {
+                                    // Stop timer
+                                    timer?.cancel();
+                                  });
+                                },
+                                child: const Text(
+                                  'DONE',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.grey[700],
+                                  side: BorderSide(color: Colors.grey[400]!),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  timer?.cancel();
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text(
+                                  'CANCEL',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    "Recording ${type.name} Time",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: dialogColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    // Cancel timer
-                    timer?.cancel();
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Cancel',
-                      style: TextStyle(color: Colors.grey)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: dialogColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () async {
-                    // End timer
-                    timer?.cancel();
-
-                    // Record the interruption in Firebase
-                    try {
-                      final mesService =
-                          Provider.of<MESService>(context, listen: false);
-                      final endTime = DateTime.now();
-
-                      await mesService.addInterruptionToRecord(
-                        _recordId,
-                        type.id,
-                        type.name,
-                        startTime,
-                        endTime: endTime,
-                        durationSeconds: elapsedSeconds,
-                      );
-
-                      // Show success message
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                '${type.name} time recorded: $formattedTime'),
-                            backgroundColor: dialogColor,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content:
-                                  Text('Error recording interruption: $e')),
-                        );
-                      }
-                    }
-
-                    // Close dialog
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Done'),
-                ),
-              ],
             );
           },
         );
       },
     );
+  }
+
+  // Show confirmation dialog for recording interruption time
+  void _showRecordConfirmation(
+    BuildContext context,
+    MESInterruptionType type,
+    Color dialogColor,
+    DateTime startTime,
+    int elapsedSeconds,
+    String formattedTime,
+    VoidCallback onConfirm,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Confirm Time Recording",
+          style: TextStyle(
+            color: dialogColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Record ${type.name} time?",
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Time elapsed: $formattedTime",
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "This time will be added to today's total non-productive time.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close confirmation dialog
+            },
+            child: const Text('BACK'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: dialogColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              // Call onConfirm to stop the timer
+              onConfirm();
+
+              // Record the interruption in Firebase
+              try {
+                final mesService =
+                    Provider.of<MESService>(context, listen: false);
+                final endTime = DateTime.now();
+
+                await mesService.addInterruptionToRecord(
+                  _recordId,
+                  type.id,
+                  type.name,
+                  startTime,
+                  endTime: endTime,
+                  durationSeconds: elapsedSeconds,
+                );
+
+                // Calculate and update the daily total non-productive time
+                await _updateDailyNonProductiveTime(mesService, elapsedSeconds);
+
+                // Show success message
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          Text('${type.name} time recorded: $formattedTime'),
+                      backgroundColor: dialogColor,
+                    ),
+                  );
+                }
+
+                // Close all dialogs
+                Navigator.of(context).pop(); // Close confirmation dialog
+                Navigator.of(context).pop(); // Close timer dialog
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error recording interruption: $e')),
+                  );
+                  Navigator.pop(context); // Close confirmation dialog only
+                }
+              }
+            },
+            child: const Text('CONFIRM'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Update the daily total non-productive time
+  Future<void> _updateDailyNonProductiveTime(
+      MESService mesService, int additionalSeconds) async {
+    try {
+      // Get today's date (without time)
+      final today = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+
+      // Get all records for today for this user
+      final records = await mesService.fetchProductionRecords(
+        userId: _user.id,
+        startDate: today,
+        endDate: today,
+      );
+
+      // Sum up all interruption times for today
+      int totalNonProductiveSeconds = 0;
+      for (var record in records) {
+        totalNonProductiveSeconds += record.totalInterruptionTimeSeconds;
+      }
+
+      // Include the newly added seconds in case it's not yet reflected in the records
+      totalNonProductiveSeconds += additionalSeconds;
+
+      // Update the state
+      setState(() {
+        _dailyNonProductiveSeconds = totalNonProductiveSeconds;
+      });
+
+      // Format for display
+      final formattedTotal =
+          ProductionTimer.formatDuration(totalNonProductiveSeconds);
+
+      // Show total non-productive time for today
+      if (mounted) {
+        // Delay slightly to show after the first snackbar
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text('Total non-productive time today: $formattedTotal'),
+                backgroundColor: Colors.indigo,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        });
+      }
+
+      // For debugging
+      print('Total non-productive time today: $formattedTotal');
+    } catch (e) {
+      print('Error updating daily non-productive time: $e');
+    }
   }
 
   // Complete current item
@@ -808,6 +1046,14 @@ class _TimerScreenState extends State<TimerScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        SizedBox(height: isNarrow ? 4 : 6),
+                        Text(
+                          'Track time spent on non-productive activities',
+                          style: TextStyle(
+                            fontSize: isNarrow ? 12 : 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
                         SizedBox(height: isNarrow ? 12 : 16),
                         Expanded(
                           child: ListView(
@@ -1034,6 +1280,45 @@ class _TimerScreenState extends State<TimerScreen> {
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1976D2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Add daily non-productive time
+              const Divider(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Today\'s Non-Productive:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 2, horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.indigo[300]!),
+                      ),
+                      child: Text(
+                        _formatTimeForStatistics(_dailyNonProductiveSeconds),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.indigo,
                         ),
                       ),
                     ),

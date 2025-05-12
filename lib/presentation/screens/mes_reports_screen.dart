@@ -434,6 +434,8 @@ class _MESReportsScreenState extends State<MESReportsScreen>
         _buildProductivityChart(),
         const SizedBox(height: 16),
         _buildProductivityMetrics(),
+        const SizedBox(height: 16),
+        _buildNonProductiveAnalysis(),
       ],
     );
   }
@@ -455,6 +457,11 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     final totalTime = totalProductiveTime + totalNonProductiveTime;
     final productivityPercent = totalTime > 0
         ? (totalProductiveTime / totalTime * 100).toStringAsFixed(1) + '%'
+        : '0%';
+
+    // Calculate non-productive percentage
+    final nonProductivePercent = totalTime > 0
+        ? (totalNonProductiveTime / totalTime * 100).toStringAsFixed(1) + '%'
         : '0%';
 
     return Card(
@@ -485,13 +492,84 @@ class _MESReportsScreenState extends State<MESReportsScreen>
                   'Productive Time',
                   _formatDuration(totalProductiveTime),
                   Icons.timer,
+                  color: Colors.green,
                 ),
                 _buildSummaryStat(
-                  'Productivity',
-                  productivityPercent,
-                  Icons.trending_up,
+                  'Non-Productive Time',
+                  _formatDuration(totalNonProductiveTime),
+                  Icons.timer_off,
+                  color: Colors.red,
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+
+            // Add time chart
+            Container(
+              height: 70,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: totalTime > 0
+                                ? totalProductiveTime / totalTime
+                                : 0,
+                            minHeight: 24,
+                            backgroundColor: Colors.red[100],
+                            color: Colors.green[400],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.green[400],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Productive: $productivityPercent',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.red[100],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Non-Productive: $nonProductivePercent',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -826,6 +904,257 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     );
   }
 
+  // Add a new method to analyze non-productive time by category
+  Widget _buildNonProductiveAnalysis() {
+    // Get all production records from the service
+    final mesService = Provider.of<MESService>(context);
+    final records = mesService.productionRecords;
+
+    // Define a map to track interruption types and their durations
+    final interruptionsByType = <String, int>{};
+    int totalInterruptionTime = 0;
+
+    // Analyze all interruptions
+    for (var record in records) {
+      for (var interruption in record.interruptions) {
+        // Add to the type map
+        interruptionsByType[interruption.typeName] =
+            (interruptionsByType[interruption.typeName] ?? 0) +
+                interruption.durationSeconds;
+
+        // Add to total
+        totalInterruptionTime += interruption.durationSeconds;
+      }
+    }
+
+    // Sort interruption types by duration (descending)
+    final sortedTypes = interruptionsByType.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Determine colors for each type
+    final typeColors = <String, Color>{};
+    for (var entry in sortedTypes) {
+      Color color = Colors.grey;
+
+      if (entry.key.toLowerCase().contains('break')) {
+        color = const Color(0xFF795548); // Brown
+      } else if (entry.key.toLowerCase().contains('maintenance')) {
+        color = const Color(0xFFFF9800); // Orange
+      } else if (entry.key.toLowerCase().contains('prep')) {
+        color = const Color(0xFF2196F3); // Blue
+      } else if (entry.key.toLowerCase().contains('material')) {
+        color = const Color(0xFF4CAF50); // Green
+      } else if (entry.key.toLowerCase().contains('training')) {
+        color = const Color(0xFF9C27B0); // Purple
+      }
+
+      typeColors[entry.key] = color;
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Non-Productive Time Analysis',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (interruptionsByType.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                    'No non-productive activities recorded in this period.'),
+              )
+            else
+              Column(
+                children: [
+                  // Summary
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            const Text(
+                              'Total Non-Productive Time',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _formatDuration(totalInterruptionTime),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Text(
+                              'Different Types',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              interruptionsByType.length.toString(),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Type breakdown
+                  const Text(
+                    'Breakdown by Type',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Bar chart
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    height: interruptionsByType.length * 50.0 + 40,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Y-axis labels
+                              SizedBox(
+                                width: 150,
+                                child: Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: sortedTypes.map((entry) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 4),
+                                      child: Text(
+                                        entry.key,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              // Bars
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  children: sortedTypes.map((entry) {
+                                    // Calculate percentage of total
+                                    final percentage = totalInterruptionTime > 0
+                                        ? entry.value / totalInterruptionTime
+                                        : 0.0;
+
+                                    return Row(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            height: 24,
+                                            clipBehavior: Clip.hardEdge,
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              color: Colors.grey[200],
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  flex: (percentage * 100)
+                                                      .round(),
+                                                  child: Container(
+                                                    color:
+                                                        typeColors[entry.key],
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 100 -
+                                                      (percentage * 100)
+                                                          .round(),
+                                                  child: Container(),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          width: 100,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                _formatDuration(entry.value),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${(percentage * 100).toStringAsFixed(1)}%',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Export current report to CSV
   void _exportCurrentReport() {
     final tabIndex = _tabController.index;
@@ -928,10 +1257,11 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     );
   }
 
-  Widget _buildSummaryStat(String label, String value, IconData icon) {
+  Widget _buildSummaryStat(String label, String value, IconData icon,
+      {Color? color}) {
     return Column(
       children: [
-        Icon(icon, size: 32, color: Colors.blue),
+        Icon(icon, size: 32, color: color ?? Colors.blue),
         const SizedBox(height: 8),
         Text(
           value,
@@ -1121,37 +1451,29 @@ class _MESReportsScreenState extends State<MESReportsScreen>
                       children: [
                         _buildInfoRow('Item', item.name),
                         _buildInfoRow('Category', item.category),
-                        _buildInfoRow('Estimated Time',
-                            '${item.estimatedTimeInMinutes} minutes'),
                         _buildInfoRow('Operator', record.userName),
                         _buildInfoRow('Status',
                             record.isCompleted ? 'Completed' : 'In Progress'),
-                      ],
-                    ),
-                  ),
-
-                  // Right column - Timing info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
                         _buildInfoRow(
                             'Start Time',
-                            DateFormat('yyyy-MM-dd HH:mm:ss')
+                            DateFormat('yyyy-MM-dd HH:mm')
                                 .format(record.startTime)),
                         if (record.endTime != null)
                           _buildInfoRow(
                               'End Time',
-                              DateFormat('yyyy-MM-dd HH:mm:ss')
-                                  .format(record.endTime!))
-                        else
-                          _buildInfoRow('End Time', 'Not completed'),
+                              DateFormat('yyyy-MM-dd HH:mm')
+                                  .format(record.endTime!)),
+                        const SizedBox(height: 8),
+                        Divider(color: Colors.grey[300]),
+                        const SizedBox(height: 8),
                         _buildInfoRow('Production Time',
-                            _formatDuration(record.totalProductionTimeSeconds)),
+                            _formatDuration(record.totalProductionTimeSeconds),
+                            valueColor: Colors.green),
                         _buildInfoRow(
-                            'Interruption Time',
+                            'Non-Productive Time',
                             _formatDuration(
-                                record.totalInterruptionTimeSeconds)),
+                                record.totalInterruptionTimeSeconds),
+                            valueColor: Colors.red),
                         _buildInfoRow(
                             'Total Time',
                             _formatDuration(record.totalProductionTimeSeconds +
@@ -1159,102 +1481,173 @@ class _MESReportsScreenState extends State<MESReportsScreen>
                       ],
                     ),
                   ),
-                ],
-              ),
 
-              const SizedBox(height: 24),
-              const Text(
-                'Interruptions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Interruptions table
-              record.interruptions.isEmpty
-                  ? const Text('No interruptions recorded')
-                  : Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
-                      columnWidths: const {
-                        0: FlexColumnWidth(2), // Type
-                        1: FlexColumnWidth(2), // Start Time
-                        2: FlexColumnWidth(2), // End Time
-                        3: FlexColumnWidth(1), // Duration
-                        4: FlexColumnWidth(3), // Notes
-                      },
+                  // Right column - Interruptions
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const TableRow(
-                          decoration: BoxDecoration(
-                            color: Colors.black12,
+                        const Text(
+                          'Non-Productive Activities',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
                           ),
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('Type',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('Start Time',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('End Time',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('Duration',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('Notes',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          ],
                         ),
-                        ...record.interruptions.map((interruption) {
-                          return TableRow(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(interruption.typeName),
+                        const SizedBox(height: 8),
+                        if (record.interruptions.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child:
+                                Text('No non-productive activities recorded.'),
+                          )
+                        else
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 300),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children:
+                                    record.interruptions.map((interruption) {
+                                  final startTime = DateFormat('HH:mm:ss')
+                                      .format(interruption.startTime);
+                                  final endTime = interruption.endTime != null
+                                      ? DateFormat('HH:mm:ss')
+                                          .format(interruption.endTime!)
+                                      : 'N/A';
+
+                                  // Determine color based on type name
+                                  Color typeColor = Colors.grey[800]!;
+                                  if (interruption.typeName
+                                      .toLowerCase()
+                                      .contains('break')) {
+                                    typeColor =
+                                        const Color(0xFF795548); // Brown
+                                  } else if (interruption.typeName
+                                      .toLowerCase()
+                                      .contains('maintenance')) {
+                                    typeColor =
+                                        const Color(0xFFFF9800); // Orange
+                                  } else if (interruption.typeName
+                                      .toLowerCase()
+                                      .contains('prep')) {
+                                    typeColor = const Color(0xFF2196F3); // Blue
+                                  } else if (interruption.typeName
+                                      .toLowerCase()
+                                      .contains('material')) {
+                                    typeColor =
+                                        const Color(0xFF4CAF50); // Green
+                                  } else if (interruption.typeName
+                                      .toLowerCase()
+                                      .contains('training')) {
+                                    typeColor =
+                                        const Color(0xFF9C27B0); // Purple
+                                  }
+
+                                  String duration;
+                                  if (interruption.durationSeconds > 0) {
+                                    duration = _formatDuration(
+                                        interruption.durationSeconds);
+                                  } else if (interruption.endTime != null) {
+                                    duration = _formatDuration(interruption
+                                        .endTime!
+                                        .difference(interruption.startTime)
+                                        .inSeconds);
+                                  } else {
+                                    duration = 'In Progress';
+                                  }
+
+                                  return Card(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    elevation: 1,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: BorderSide(
+                                        color: typeColor.withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    width: 12,
+                                                    height: 12,
+                                                    decoration: BoxDecoration(
+                                                      color: typeColor,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    interruption.typeName,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: typeColor,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              Text(
+                                                duration,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'Start: $startTime',
+                                                style: const TextStyle(
+                                                    fontSize: 12),
+                                              ),
+                                              Text(
+                                                'End: $endTime',
+                                                style: const TextStyle(
+                                                    fontSize: 12),
+                                              ),
+                                            ],
+                                          ),
+                                          if (interruption.notes != null &&
+                                              interruption
+                                                  .notes!.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Notes: ${interruption.notes}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(DateFormat('yyyy-MM-dd HH:mm:ss')
-                                    .format(interruption.startTime)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: interruption.endTime != null
-                                    ? Text(DateFormat('yyyy-MM-dd HH:mm:ss')
-                                        .format(interruption.endTime!))
-                                    : const Text('N/A'),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(_formatDuration(
-                                    interruption.durationSeconds)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(interruption.notes ?? 'No notes'),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                            ),
+                          ),
                       ],
                     ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -1262,9 +1655,9 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, {Color? valueColor}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1277,7 +1670,14 @@ class _MESReportsScreenState extends State<MESReportsScreen>
               ),
             ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: valueColor,
+              ),
+            ),
+          ),
         ],
       ),
     );
