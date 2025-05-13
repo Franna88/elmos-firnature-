@@ -164,8 +164,8 @@ class PrintService {
       final int stepsCount = steps.length;
 
       // Calculate optimal steps per page based on step count
-      // We now want 3 steps per page (1 row) to accommodate larger variable-height instructions
-      const int stepsPerPage = 3;
+      // We now always want 6 steps per page for better consistency
+      const int stepsPerPage = 6;
 
       debugPrint(
           'Generating PDF with ${stepsCount} steps across multiple pages');
@@ -205,7 +205,7 @@ class PrintService {
 
                 pw.SizedBox(height: 6),
 
-                // Always show the first 3 steps on first page
+                // Always show the first 6 steps on first page
                 pw.Text(
                   "Step-by-Step Procedure",
                   style: pw.TextStyle(
@@ -217,9 +217,9 @@ class PrintService {
                 pw.Divider(color: PdfColors.grey300),
                 pw.SizedBox(height: 3),
 
-                // First 3 steps or all if <= 3
+                // First 6 steps or all if <= 6
                 _buildStepsSection(sop, stepImages, pdfCategoryColor, 0,
-                    stepsCount <= 3 ? stepsCount : 3),
+                    stepsCount <= 6 ? stepsCount : 6),
 
                 pw.Spacer(),
                 _buildFooter(context, sop, qrCodeImage),
@@ -229,9 +229,9 @@ class PrintService {
         ),
       );
 
-      // Add steps pages - only if there are more than 3 steps
-      if (stepsCount > 3) {
-        for (int i = 3; i < stepsCount; i += stepsPerPage) {
+      // Add steps pages - only if there are more than 6 steps
+      if (stepsCount > 6) {
+        for (int i = 6; i < stepsCount; i += stepsPerPage) {
           final int endIndex =
               i + stepsPerPage > stepsCount ? stepsCount : i + stepsPerPage;
 
@@ -385,40 +385,50 @@ class PrintService {
       try {
         debugPrint('Using image_network approach for web platform');
 
-        // Create an ImageNetwork widget to fetch the image
-        final imageNetwork = ImageNetwork(
-          image: url,
-          height: 300,
-          width: 300,
-          duration: 1500,
-          onLoading: Container(),
-          onError: Container(),
-        );
-
-        // Get the bytes from the image using a different approach
+        // Try multiple enhanced approaches to fetch the image
         try {
+          // First approach with enhanced headers
           final response = await http.get(
             Uri.parse(url),
             headers: {
               'Accept': 'image/*',
               'Access-Control-Allow-Origin': '*',
               'X-Requested-With': 'XMLHttpRequest',
+              'Referer': 'https://firebasestorage.googleapis.com/',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
+              'Origin': 'https://firebasestorage.googleapis.com'
             },
-          );
+          ).timeout(const Duration(seconds: 15));
 
           if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
             debugPrint(
-                'Successfully loaded image via custom headers: ${response.bodyBytes.length} bytes');
+                'Successfully loaded image via enhanced headers: ${response.bodyBytes.length} bytes');
             return pw.MemoryImage(response.bodyBytes);
           }
         } catch (e) {
-          debugPrint('Error using custom headers approach: $e');
+          debugPrint('Error using enhanced headers approach: $e');
+        }
+
+        // Second approach - try CORS proxy
+        try {
+          final proxyUrl = 'https://corsproxy.io/?${Uri.encodeComponent(url)}';
+          final proxyResponse = await http
+              .get(Uri.parse(proxyUrl))
+              .timeout(const Duration(seconds: 15));
+
+          if (proxyResponse.statusCode == 200 &&
+              proxyResponse.bodyBytes.isNotEmpty) {
+            debugPrint(
+                'Successfully loaded image via proxy: ${proxyResponse.bodyBytes.length} bytes');
+            return pw.MemoryImage(proxyResponse.bodyBytes);
+          }
+        } catch (e) {
+          debugPrint('Error using proxy approach: $e');
         }
       } catch (e) {
         debugPrint('Error using image_network: $e');
       }
-
-      // If image_network approach fails, continue with other approaches
     }
 
     // Check if this is a Firebase Storage URL
@@ -437,9 +447,13 @@ class PrintService {
       // Try multiple approaches to fetch the image
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Accept': 'image/*'},
+        headers: {
+          'Accept': 'image/*',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        },
       ).timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: 15),
         onTimeout: () {
           debugPrint('Network image request timed out: $url');
           throw Exception('Network request timed out');
@@ -465,7 +479,7 @@ class PrintService {
           // Use a CORS proxy if needed
           final proxyUrl = 'https://corsproxy.io/?${Uri.encodeComponent(url)}';
           final proxyResponse = await http.get(Uri.parse(proxyUrl)).timeout(
-                const Duration(seconds: 10),
+                const Duration(seconds: 15),
               );
 
           if (proxyResponse.statusCode == 200 &&
@@ -494,7 +508,7 @@ class PrintService {
       // On web platform, try the custom headers approach that works with the CrossPlatformImage widget
       if (kIsWeb) {
         try {
-          debugPrint('Using custom headers approach for Firebase URL on web');
+          debugPrint('Using enhanced headers approach for Firebase URL on web');
 
           // Add the alt=media parameter if it's missing
           String processedUrl = url;
@@ -503,23 +517,27 @@ class PrintService {
                 url.contains('?') ? '$url&alt=media' : '$url?alt=media';
           }
 
-          // Make the request with CORS-friendly headers
+          // Make the request with enhanced CORS-friendly headers
           final response = await http.get(
             Uri.parse(processedUrl),
             headers: {
               'Accept': 'image/*',
               'Access-Control-Allow-Origin': '*',
               'X-Requested-With': 'XMLHttpRequest',
+              'Referer': 'https://firebasestorage.googleapis.com/',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
+              'Origin': 'https://firebasestorage.googleapis.com'
             },
-          ).timeout(const Duration(seconds: 10));
+          ).timeout(const Duration(seconds: 15));
 
           if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
             debugPrint(
-                'Successfully loaded Firebase image with custom headers: ${response.bodyBytes.length} bytes');
+                'Successfully loaded Firebase image with enhanced headers: ${response.bodyBytes.length} bytes');
             return pw.MemoryImage(response.bodyBytes);
           }
         } catch (e) {
-          debugPrint('Custom headers approach failed for Firebase URL: $e');
+          debugPrint('Enhanced headers approach failed for Firebase URL: $e');
           // Continue with other approaches if this fails
         }
       }
@@ -533,6 +551,27 @@ class PrintService {
           uri.queryParameters['alt'] != 'media') {
         processedUrl = url.contains('?') ? '$url&alt=media' : '$url?alt=media';
         debugPrint('Added alt=media parameter: $processedUrl');
+      }
+
+      // Try a more direct approach first
+      try {
+        final directResponse = await http.get(
+          Uri.parse(processedUrl),
+          headers: {
+            'Accept': 'image/*',
+            'Cache-Control': 'no-cache',
+            'Origin': 'https://firebasestorage.googleapis.com'
+          },
+        ).timeout(const Duration(seconds: 15));
+
+        if (directResponse.statusCode == 200 &&
+            directResponse.bodyBytes.isNotEmpty) {
+          debugPrint(
+              'Direct Firebase URL approach succeeded: ${directResponse.bodyBytes.length} bytes');
+          return pw.MemoryImage(directResponse.bodyBytes);
+        }
+      } catch (e) {
+        debugPrint('Direct Firebase URL approach failed: $e');
       }
 
       // Convert to a public download URL format if needed
@@ -550,14 +589,16 @@ class PrintService {
                     : 'https://firebasestorage.googleapis.com/v0/b/';
 
             // Create a more direct URL that might bypass CORS
-            final directUrl = '$storageUrl$encodedPath';
+            final directUrl = '$storageUrl$encodedPath?alt=media';
             debugPrint('Trying direct storage URL: $directUrl');
 
             try {
-              final directResponse =
-                  await http.get(Uri.parse(directUrl)).timeout(
-                        const Duration(seconds: 5),
-                      );
+              final directResponse = await http.get(
+                Uri.parse(directUrl),
+                headers: {'Accept': 'image/*', 'Cache-Control': 'no-cache'},
+              ).timeout(
+                const Duration(seconds: 15),
+              );
 
               if (directResponse.statusCode == 200 &&
                   directResponse.bodyBytes.isNotEmpty) {
@@ -574,22 +615,37 @@ class PrintService {
 
       // Use a CORS proxy as last resort for Firebase Storage URLs
       debugPrint('Trying CORS proxy for Firebase URL');
-      final proxyUrl =
-          'https://corsproxy.io/?${Uri.encodeComponent(processedUrl)}';
+      // Try multiple CORS proxies
+      final proxies = [
+        'https://corsproxy.io/?${Uri.encodeComponent(processedUrl)}',
+        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(processedUrl)}'
+      ];
 
-      final response = await http.get(Uri.parse(proxyUrl)).timeout(
-            const Duration(seconds: 15),
-          );
+      for (final proxyUrl in proxies) {
+        try {
+          debugPrint('Trying proxy: $proxyUrl');
+          final response = await http.get(Uri.parse(proxyUrl)).timeout(
+                const Duration(seconds: 15),
+              );
 
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        debugPrint(
-            'Successfully loaded Firebase image via proxy: ${response.bodyBytes.length} bytes');
-        return pw.MemoryImage(response.bodyBytes);
-      } else {
-        debugPrint('Proxy failed. Status: ${response.statusCode}');
+          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+            debugPrint(
+                'Successfully loaded Firebase image via proxy: ${response.bodyBytes.length} bytes');
+            return pw.MemoryImage(response.bodyBytes);
+          }
+        } catch (e) {
+          debugPrint('Proxy failed: $e');
+        }
       }
     } catch (e) {
       debugPrint('Firebase image loading error: $e');
+    }
+
+    // Final fallback - try the alternative approach
+    try {
+      return await _loadFirebaseImageAlternative(url);
+    } catch (e) {
+      debugPrint('Alternative approach also failed: $e');
     }
 
     return null;
@@ -716,7 +772,7 @@ class PrintService {
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          // QR Code on the left (replacing the logo)
+          // QR Code and company name on the left
           pw.Container(
             width: 110,
             child: pw.Row(
@@ -768,7 +824,7 @@ class PrintService {
                 ),
                 pw.SizedBox(height: 3),
                 pw.Text(
-                  'Rev: ${sop.revisionNumber} | Cat: ${sop.categoryName ?? 'Uncategorized'} | Updated: ${_formatDate(sop.updatedAt)} | Est. Time: ${_formatTime(totalTime)}',
+                  'ID: ${sop.id} | Rev: ${sop.revisionNumber} | Cat: ${sop.categoryName ?? 'Uncategorized'} | Updated: ${_formatDate(sop.updatedAt)} | Est. Time: ${_formatTime(totalTime)}',
                   style: const pw.TextStyle(
                     fontSize: 8,
                     color: PdfColors.grey700,
@@ -777,6 +833,8 @@ class PrintService {
               ],
             ),
           ),
+
+          // No longer needed since QR code is already used on the left
         ],
       ),
     );
@@ -786,6 +844,7 @@ class PrintService {
   pw.Widget _buildSummarySection(SOP sop, PdfColor categoryColor) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(6),
+      height: 50,
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -802,9 +861,13 @@ class PrintService {
             ),
           ),
           pw.SizedBox(height: 2),
-          pw.Text(
-            sop.description,
-            style: const pw.TextStyle(fontSize: 7),
+          pw.Expanded(
+            child: pw.Text(
+              sop.description,
+              style: const pw.TextStyle(fontSize: 7),
+              maxLines: 4,
+              overflow: pw.TextOverflow.clip,
+            ),
           ),
         ],
       ),
@@ -832,8 +895,7 @@ class PrintService {
             ...rowSteps.map((step) => pw.Expanded(
                   flex: 1, // Equal flex for consistent sizing
                   child: pw.Padding(
-                    padding: const pw.EdgeInsets.fromLTRB(
-                        2, 0, 2, 8), // Increased bottom padding for more space
+                    padding: const pw.EdgeInsets.fromLTRB(2, 0, 2, 0),
                     child: _buildStepCard(step, i + rowSteps.indexOf(step) + 1,
                         stepImages[step.id], categoryColor),
                   ),
@@ -850,9 +912,8 @@ class PrintService {
           ],
         ),
       );
-
-      // Add more spacing between rows to ensure descriptions have room
-      rows.add(pw.SizedBox(height: 10));
+      rows.add(pw.SizedBox(
+          height: 5)); // Spacing between rows (reduced for more compact layout)
     }
 
     return pw.Column(
@@ -864,11 +925,12 @@ class PrintService {
   // Build an individual step card with consistent image size and text limited to 4 lines
   pw.Widget _buildStepCard(SOPStep step, int stepNumber,
       pw.MemoryImage? stepImage, PdfColor categoryColor) {
-    final cardHeight =
-        250.0; // Increased fixed height for all cards to accommodate variable text
+    final cardHeight = 180.0; // Fixed height for all cards
     final imageHeight = 110.0; // Fixed height for all images
+    final textContainerHeight = 40.0; // Fixed height for text container
 
     return pw.Container(
+      height: cardHeight,
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: categoryColor),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -985,58 +1047,63 @@ class PrintService {
                   ),
           ),
 
-          // Step content - instruction with dynamic layout
-          pw.Expanded(
-            child: pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(4),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Present instruction text - without fixed line limits
-                  pw.Text(
+          // Step content - instruction with compact layout
+          pw.Container(
+            width: double.infinity,
+            height: textContainerHeight,
+            padding: const pw.EdgeInsets.all(4),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Present instruction text - limited to available space
+                pw.Expanded(
+                  child: pw.Text(
                     step.instruction,
                     style: const pw.TextStyle(fontSize: 7),
+                    overflow: pw.TextOverflow.clip,
+                    maxLines: 3,
                   ),
+                ),
 
-                  pw.SizedBox(height: 4),
-
-                  // If there are tools or hazards, show in single compact line
-                  if (step.stepTools.isNotEmpty || step.stepHazards.isNotEmpty)
-                    pw.Container(
-                      width: double.infinity,
-                      child: pw.Row(
-                        children: [
-                          if (step.stepTools.isNotEmpty)
-                            pw.Expanded(
-                              child: pw.Text(
-                                "Tools: ${step.stepTools.join(', ')}",
-                                style: pw.TextStyle(
-                                  fontSize: 5,
-                                  color: PdfColors.blue900,
-                                  fontStyle: pw.FontStyle.italic,
-                                ),
+                // If there are tools or hazards, show in single compact line
+                if (step.stepTools.isNotEmpty || step.stepHazards.isNotEmpty)
+                  pw.Container(
+                    width: double.infinity,
+                    child: pw.Row(
+                      children: [
+                        if (step.stepTools.isNotEmpty)
+                          pw.Expanded(
+                            child: pw.Text(
+                              "Tools: ${step.stepTools.join(', ')}",
+                              style: pw.TextStyle(
+                                fontSize: 5,
+                                color: PdfColors.blue900,
+                                fontStyle: pw.FontStyle.italic,
                               ),
+                              maxLines: 1,
+                              overflow: pw.TextOverflow.clip,
                             ),
-                          if (step.stepTools.isNotEmpty &&
-                              step.stepHazards.isNotEmpty)
-                            pw.SizedBox(width: 2),
-                          if (step.stepHazards.isNotEmpty)
-                            pw.Expanded(
-                              child: pw.Text(
-                                "Hazards: ${step.stepHazards.join(', ')}",
-                                style: pw.TextStyle(
-                                  fontSize: 5,
-                                  color: PdfColors.red900,
-                                  fontStyle: pw.FontStyle.italic,
-                                ),
+                          ),
+                        if (step.stepTools.isNotEmpty &&
+                            step.stepHazards.isNotEmpty)
+                          pw.SizedBox(width: 2),
+                        if (step.stepHazards.isNotEmpty)
+                          pw.Expanded(
+                            child: pw.Text(
+                              "Hazards: ${step.stepHazards.join(', ')}",
+                              style: pw.TextStyle(
+                                fontSize: 5,
+                                color: PdfColors.red900,
+                                fontStyle: pw.FontStyle.italic,
                               ),
+                              maxLines: 1,
+                              overflow: pw.TextOverflow.clip,
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -1111,7 +1178,7 @@ class PrintService {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
-  // New method to build global information section
+  // Build the global information section into horizontal rows
   pw.Widget _buildGlobalInfoSection(SOP sop) {
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -1394,7 +1461,7 @@ class PrintService {
         }
       }
 
-      // Use custom headers that simulate the image_network package's approach
+      // Enhanced headers for better CORS handling
       final response = await http.get(
         Uri.parse(imageUrl),
         headers: {
@@ -1402,13 +1469,32 @@ class PrintService {
           'Access-Control-Allow-Origin': '*',
           'X-Requested-With': 'XMLHttpRequest',
           'Referer': 'https://firebasestorage.googleapis.com/',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Origin': 'https://firebasestorage.googleapis.com'
         },
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 15)); // Increased timeout
 
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         debugPrint(
             'Successfully converted CrossPlatformImage for PDF: ${response.bodyBytes.length} bytes');
         return pw.MemoryImage(response.bodyBytes);
+      }
+
+      // If direct approach fails, try with a CORS proxy
+      debugPrint('Direct image fetch failed, trying with CORS proxy');
+      final proxyUrl = 'https://corsproxy.io/?${Uri.encodeComponent(imageUrl)}';
+      final proxyResponse = await http
+          .get(
+            Uri.parse(proxyUrl),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (proxyResponse.statusCode == 200 &&
+          proxyResponse.bodyBytes.isNotEmpty) {
+        debugPrint(
+            'Successfully loaded image via proxy: ${proxyResponse.bodyBytes.length} bytes');
+        return pw.MemoryImage(proxyResponse.bodyBytes);
       }
     } catch (e) {
       debugPrint('Error converting CrossPlatformImage for PDF: $e');

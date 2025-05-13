@@ -282,22 +282,14 @@ class _TimerScreenState extends State<TimerScreen> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(40),
-                                decoration: BoxDecoration(
-                                  color: dialogColor.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: dialogColor, width: 4),
-                                ),
-                                child: Text(
-                                  formattedTime,
-                                  style: TextStyle(
-                                    fontSize: 48,
-                                    fontWeight: FontWeight.bold,
-                                    color: dialogColor,
-                                    fontFamily: 'monospace',
-                                  ),
+                              // Display timer with larger digits and no background
+                              Text(
+                                formattedTime,
+                                style: TextStyle(
+                                  fontSize: 104, // Increased by 30% from 80
+                                  fontWeight: FontWeight.bold,
+                                  color: dialogColor,
+                                  fontFamily: 'monospace',
                                 ),
                               ),
                               const SizedBox(height: 32),
@@ -311,7 +303,7 @@ class _TimerScreenState extends State<TimerScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                "This time will be added to today's non-productive time",
+                                "This time will be added to today's no value added time",
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Colors.grey[600],
@@ -338,18 +330,55 @@ class _TimerScreenState extends State<TimerScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
-                                onPressed: () {
-                                  // Show confirmation dialog
-                                  _showRecordConfirmation(
-                                      context,
-                                      type,
-                                      dialogColor,
+                                onPressed: () async {
+                                  // Stop timer
+                                  timer?.cancel();
+
+                                  try {
+                                    final mesService = Provider.of<MESService>(
+                                        context,
+                                        listen: false);
+                                    final endTime = DateTime.now();
+
+                                    // Close the dialog immediately
+                                    Navigator.of(context).pop();
+
+                                    // Then record the interruption in Firebase
+                                    await mesService.addInterruptionToRecord(
+                                      _recordId,
+                                      type.id,
+                                      type.name,
                                       startTime,
-                                      elapsedSeconds,
-                                      formattedTime, () {
-                                    // Stop timer
-                                    timer?.cancel();
-                                  });
+                                      endTime: endTime,
+                                      durationSeconds: elapsedSeconds,
+                                    );
+
+                                    // Calculate and update daily non-productive time
+                                    await _updateDailyNonProductiveTime(
+                                        mesService, elapsedSeconds);
+
+                                    // Show success message
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              '${type.name} time recorded: $formattedTime'),
+                                          backgroundColor: dialogColor,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    // Dialog is already closed at this point
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Error recording interruption: $e')),
+                                      );
+                                    }
+                                  }
                                 },
                                 child: const Text(
                                   'DONE',
@@ -395,117 +424,6 @@ class _TimerScreenState extends State<TimerScreen> {
           },
         );
       },
-    );
-  }
-
-  // Show confirmation dialog for recording interruption time
-  void _showRecordConfirmation(
-    BuildContext context,
-    MESInterruptionType type,
-    Color dialogColor,
-    DateTime startTime,
-    int elapsedSeconds,
-    String formattedTime,
-    VoidCallback onConfirm,
-  ) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text(
-          "Confirm Time Recording",
-          style: TextStyle(
-            color: dialogColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Record ${type.name} time?",
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Time elapsed: $formattedTime",
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "This time will be added to today's total non-productive time.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close confirmation dialog
-            },
-            child: const Text('BACK'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: dialogColor,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              // Call onConfirm to stop the timer
-              onConfirm();
-
-              // Record the interruption in Firebase
-              try {
-                final mesService =
-                    Provider.of<MESService>(context, listen: false);
-                final endTime = DateTime.now();
-
-                await mesService.addInterruptionToRecord(
-                  _recordId,
-                  type.id,
-                  type.name,
-                  startTime,
-                  endTime: endTime,
-                  durationSeconds: elapsedSeconds,
-                );
-
-                // Calculate and update the daily total non-productive time
-                await _updateDailyNonProductiveTime(mesService, elapsedSeconds);
-
-                // Show success message
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content:
-                          Text('${type.name} time recorded: $formattedTime'),
-                      backgroundColor: dialogColor,
-                    ),
-                  );
-                }
-
-                // Close all dialogs
-                Navigator.of(context).pop(); // Close confirmation dialog
-                Navigator.of(context).pop(); // Close timer dialog
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error recording interruption: $e')),
-                  );
-                  Navigator.pop(context); // Close confirmation dialog only
-                }
-              }
-            },
-            child: const Text('CONFIRM'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1048,7 +966,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         ),
                         SizedBox(height: isNarrow ? 4 : 6),
                         Text(
-                          'Track time spent on non-productive activities',
+                          'Track time spent on no value added activities',
                           style: TextStyle(
                             fontSize: isNarrow ? 12 : 13,
                             color: Colors.grey[600],
@@ -1183,7 +1101,7 @@ class _TimerScreenState extends State<TimerScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Production time:',
+                      'Value Added:',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey[700],
@@ -1219,7 +1137,7 @@ class _TimerScreenState extends State<TimerScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Non-Production Time:',
+                      'No Value Added:',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey[700],
@@ -1280,45 +1198,6 @@ class _TimerScreenState extends State<TimerScreen> {
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1976D2),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Add daily non-productive time
-              const Divider(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Today\'s Non-Productive:',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 2, horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.indigo.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.indigo[300]!),
-                      ),
-                      child: Text(
-                        _formatTimeForStatistics(_dailyNonProductiveSeconds),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.indigo,
                         ),
                       ),
                     ),
