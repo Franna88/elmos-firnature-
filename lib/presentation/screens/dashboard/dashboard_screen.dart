@@ -68,9 +68,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding:
+                  const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                //crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Simplified header
                   Row(

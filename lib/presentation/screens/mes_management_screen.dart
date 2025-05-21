@@ -162,8 +162,8 @@ class _ItemsTab extends StatelessWidget {
                     ),
                     IconButton(
                       icon: Icon(item.isActive
-                          ? Icons.visibility_off
-                          : Icons.visibility),
+                          ? Icons.visibility
+                          : Icons.visibility_off),
                       tooltip: item.isActive ? 'Deactivate' : 'Activate',
                       onPressed: () => _toggleItemStatus(context, item),
                     ),
@@ -609,8 +609,8 @@ class _InterruptionTypesTab extends StatelessWidget {
                     ),
                     IconButton(
                       icon: Icon(type.isActive
-                          ? Icons.visibility_off
-                          : Icons.visibility),
+                          ? Icons.visibility
+                          : Icons.visibility_off),
                       tooltip: type.isActive ? 'Deactivate' : 'Activate',
                       onPressed: () => _toggleTypeStatus(context, type),
                     ),
@@ -666,20 +666,25 @@ class _InterruptionTypesTab extends StatelessWidget {
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text('Name'),
+              const SizedBox(height: 8),
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Name',
                   hintText: 'e.g., Break, Maintenance, etc.',
+                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
+              const Text('Description (Optional)'),
+              const SizedBox(height: 8),
               TextField(
                 controller: descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
                   hintText: 'Describe this interruption type',
+                  border: OutlineInputBorder(),
                 ),
                 maxLines: 3,
               ),
@@ -739,20 +744,25 @@ class _InterruptionTypesTab extends StatelessWidget {
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text('Name'),
+              const SizedBox(height: 8),
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Name',
                   hintText: 'e.g., Break, Maintenance, etc.',
+                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
+              const Text('Description (Optional)'),
+              const SizedBox(height: 8),
               TextField(
                 controller: descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
                   hintText: 'Describe this interruption type',
+                  border: OutlineInputBorder(),
                 ),
                 maxLines: 3,
               ),

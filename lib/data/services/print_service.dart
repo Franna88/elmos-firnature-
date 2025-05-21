@@ -181,7 +181,7 @@ class PrintService {
               children: [
                 // Header with logo and basic info
                 _buildPDFHeader(sop, logoImage, qrCodeImage, pdfCategoryColor),
-                pw.SizedBox(height: 8),
+                pw.SizedBox(height: 4),
 
                 // Description section - much more compact
                 pw.Row(
@@ -203,19 +203,7 @@ class PrintService {
                   ],
                 ),
 
-                pw.SizedBox(height: 6),
-
-                // Always show the first 6 steps on first page
-                pw.Text(
-                  "Step-by-Step Procedure",
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.black,
-                  ),
-                ),
-                pw.Divider(color: PdfColors.grey300),
-                pw.SizedBox(height: 3),
+                pw.SizedBox(height: 4),
 
                 // First 6 steps or all if <= 6
                 _buildStepsSection(sop, stepImages, pdfCategoryColor, 0,
@@ -245,17 +233,7 @@ class PrintService {
                   children: [
                     _buildPDFHeader(
                         sop, logoImage, qrCodeImage, pdfCategoryColor),
-                    pw.SizedBox(height: 8),
-                    pw.Text(
-                      "Step-by-Step Procedure (continued)",
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.black,
-                      ),
-                    ),
-                    pw.Divider(color: PdfColors.grey300),
-                    pw.SizedBox(height: 3),
+                    pw.SizedBox(height: 4),
                     _buildStepsSection(
                         sop, stepImages, pdfCategoryColor, i, endIndex),
                     pw.Spacer(),
@@ -289,7 +267,7 @@ class PrintService {
 
           return pdf.save();
         },
-        name: '${_removeEmojis(sop.title)} - SOP #${sop.id}',
+        name: _removeEmojis(sop.title),
         format: PdfPageFormat.a4.landscape,
       );
 
@@ -824,7 +802,7 @@ class PrintService {
                 ),
                 pw.SizedBox(height: 3),
                 pw.Text(
-                  'ID: ${sop.id} | Rev: ${sop.revisionNumber} | Cat: ${sop.categoryName ?? 'Uncategorized'} | Updated: ${_formatDate(sop.updatedAt)} | Est. Time: ${_formatTime(totalTime)}',
+                  'Rev: ${sop.revisionNumber} | Cat: ${sop.categoryName ?? 'Uncategorized'} | Updated: ${_formatDate(sop.updatedAt)} | Est. Time: ${_formatTime(totalTime)}',
                   style: const pw.TextStyle(
                     fontSize: 8,
                     color: PdfColors.grey700,
@@ -913,7 +891,7 @@ class PrintService {
         ),
       );
       rows.add(pw.SizedBox(
-          height: 5)); // Spacing between rows (reduced for more compact layout)
+          height: 3)); // Reduced spacing between rows (previously 5)
     }
 
     return pw.Column(
@@ -925,9 +903,10 @@ class PrintService {
   // Build an individual step card with consistent image size and text limited to 4 lines
   pw.Widget _buildStepCard(SOPStep step, int stepNumber,
       pw.MemoryImage? stepImage, PdfColor categoryColor) {
-    final cardHeight = 180.0; // Fixed height for all cards
-    final imageHeight = 110.0; // Fixed height for all images
-    final textContainerHeight = 40.0; // Fixed height for text container
+    final cardHeight = 210.0; // Increased card height
+    final imageHeight =
+        130.0; // Slightly reduced image height to make room for text
+    final textContainerHeight = 50.0; // Increased text container height
 
     return pw.Container(
       height: cardHeight,
@@ -940,8 +919,8 @@ class PrintService {
         children: [
           // Step header with step number
           pw.Container(
-            height: 20,
-            padding: const pw.EdgeInsets.all(4),
+            height: 18, // Reduced from 20
+            padding: const pw.EdgeInsets.all(3), // Reduced from 4
             decoration: pw.BoxDecoration(
               color: PdfColors.grey200,
               borderRadius: const pw.BorderRadius.only(
@@ -1061,7 +1040,7 @@ class PrintService {
                     step.instruction,
                     style: const pw.TextStyle(fontSize: 7),
                     overflow: pw.TextOverflow.clip,
-                    maxLines: 3,
+                    maxLines: 6, // Increased from 3 to 6
                   ),
                 ),
 

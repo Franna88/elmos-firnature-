@@ -2,7 +2,19 @@
 <html>
 
 <head>
-  <!-- App Version: 1.2.3 (build 22) -->
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -11,26 +23,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- iOS meta tags & icons -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Elmos Furniture">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Google Sign-in client ID -->
-  <meta name="google-signin-client_id" content="891377129781-[YOUR_OAUTH_CLIENT_ID].apps.googleusercontent.com">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png" />
 
   <title>Elmos Furniture</title>
   <link rel="manifest" href="manifest.json">
-
-  <script>
-    // The value below is injected by flutter build, do not touch.
-    var serviceWorkerVersion = "{{flutter_service_worker_version}}";
-  </script>
-  <!-- This script adds the flutter initialization JS code -->
-  <script src="flutter.js" defer></script>
 </head>
 
 <body>
@@ -43,33 +45,20 @@
   <script>
     // Your web app's Firebase configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyC9M_TQ2vAEE80OxI3h9Eyz-TLS9DejIc0",
-      authDomain: "elmo-s-sample-d7e63.firebaseapp.com",
-      projectId: "elmo-s-sample-d7e63",
-      storageBucket: "elmo-s-sample-d7e63.firebasestorage.app",
-      messagingSenderId: "891377129781",
-      appId: "1:891377129781:web:6e1c7486a8ab30747e147c"
+      apiKey: "AIzaSyBZMqZes4LsGprJ9XnCKug-eO6mA8yG-ig",
+      authDomain: "elmos-furniture.firebaseapp.com",
+      projectId: "elmos-furniture",
+      storageBucket: "elmos-furniture.firebasestorage.app",
+      messagingSenderId: "1003855542467",
+      appId: "1:1003855542467:web:9455385bfe618ce039ca76",
+      measurementId: "G-CW2J36EY6E"
     };
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
   </script>
 
-  <script>
-    window.addEventListener('load', function(ev) {
-      // Download main.dart.js
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
-          });
-        }
-      });
-    });
-  </script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 
 </html>
