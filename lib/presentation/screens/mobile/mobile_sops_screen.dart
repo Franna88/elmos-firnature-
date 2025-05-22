@@ -806,7 +806,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       case 'upholstery':
         return Colors.redAccent;
       default:
-        return AppColors.primaryRed;
+        return AppColors.primaryBlue;
     }
   }
 

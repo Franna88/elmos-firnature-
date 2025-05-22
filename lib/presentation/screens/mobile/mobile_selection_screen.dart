@@ -23,7 +23,7 @@ class MobileSelectionScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Elmo's Furniture"),
         centerTitle: true,
-        backgroundColor: AppColors.primaryRed,
+        backgroundColor: AppColors.primaryBlue,
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.menu),
@@ -186,7 +186,7 @@ class MobileSelectionScreen extends StatelessWidget {
                                         : isTablet
                                             ? 50.0
                                             : 40.0,
-                                    color: AppColors.primaryRed,
+                                    color: AppColors.primaryBlue,
                                   ),
                                 ),
                               ),
@@ -303,7 +303,7 @@ class MobileSelectionScreen extends StatelessWidget {
             description:
                 'Standard Operating Procedures for furniture manufacturing',
             icon: Icons.description_outlined,
-            color: AppColors.primaryRed,
+            color: AppColors.primaryBlue,
             onTap: () {
               context.go('/mobile/sops');
             },
@@ -355,7 +355,7 @@ class MobileSelectionScreen extends StatelessWidget {
             description:
                 'Standard Operating Procedures for furniture manufacturing',
             icon: Icons.description_outlined,
-            color: AppColors.primaryRed,
+            color: AppColors.primaryBlue,
             onTap: () {
               context.go('/mobile/sops');
             },

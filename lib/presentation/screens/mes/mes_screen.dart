@@ -35,7 +35,7 @@ class MESScreen extends StatelessWidget {
             const Icon(
               Icons.factory_outlined,
               size: 80,
-              color: AppColors.primaryRed,
+              color: AppColors.primaryBlue,
             ),
             const SizedBox(height: 24),
             const Text(
@@ -58,7 +58,7 @@ class MESScreen extends StatelessWidget {
               icon: const Icon(Icons.launch),
               label: const Text('Launch MES Application'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryRed,
+                backgroundColor: AppColors.primaryBlue,
                 foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -87,7 +87,7 @@ class MESScreen extends StatelessWidget {
         return AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.info_outline, color: AppColors.primaryRed),
+              Icon(Icons.info_outline, color: AppColors.primaryBlue),
               const SizedBox(width: 12),
               const Text('MES Application'),
             ],
@@ -128,7 +128,7 @@ class MESScreen extends StatelessWidget {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryRed,
+                backgroundColor: AppColors.primaryBlue,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Continue'),

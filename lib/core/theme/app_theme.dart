@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Main colors
-  static const Color primaryRed = Color(0xffB21E1E);
-  static const Color accentRed = Color(0xffD32F2F);
+  static const Color primaryBlue = Color(0xFF0A5688);
+  static const Color accentTeal = Color(0xFF00838F);
   static const Color backgroundWhite = Color(0xffFAFAFA);
   static const Color surfaceWhite = Colors.white;
   static const Color textDark = Color(0xff2D3748);
@@ -15,20 +15,22 @@ class AppColors {
   static const Color greenAccent = Color(0xff38A169);
   static const Color orangeAccent = Color(0xffED8936);
   static const Color purpleAccent = Color(0xff805AD5);
+  static const Color tealAccent = Color(0xFF009688);
 
   // Neutral colors
   static const Color divider = Color(0xffE2E8F0);
   static const Color cardBorder = Color(0xffEDF2F7);
+  static const Color borderColor = Color(0xffE2E8F0);
 }
 
 class AppTheme {
   static final ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.primaryRed,
-      primary: AppColors.primaryRed,
+      seedColor: AppColors.primaryBlue,
+      primary: AppColors.primaryBlue,
       onPrimary: Colors.white,
-      secondary: AppColors.blueAccent,
+      secondary: AppColors.accentTeal,
       onSecondary: Colors.white,
       background: AppColors.backgroundWhite,
       surface: AppColors.surfaceWhite,
@@ -42,7 +44,7 @@ class AppTheme {
     appBarTheme: AppBarTheme(
       elevation: 0,
       centerTitle: false,
-      backgroundColor: AppColors.primaryRed,
+      backgroundColor: AppColors.primaryBlue,
       foregroundColor: Colors.white,
       titleTextStyle: TextStyle(
         color: Colors.white,
@@ -69,7 +71,7 @@ class AppTheme {
     // Button themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primaryRed,
+        backgroundColor: AppColors.primaryBlue,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         shape: RoundedRectangleBorder(
@@ -86,8 +88,8 @@ class AppTheme {
 
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.blueAccent,
-        side: BorderSide(color: AppColors.blueAccent),
+        foregroundColor: AppColors.accentTeal,
+        side: BorderSide(color: AppColors.accentTeal),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -102,7 +104,7 @@ class AppTheme {
 
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.primaryRed,
+        foregroundColor: AppColors.primaryBlue,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         textStyle: const TextStyle(
           fontWeight: FontWeight.w600,
@@ -127,7 +129,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.primaryRed, width: 2),
+        borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
       ),
       labelStyle: TextStyle(color: AppColors.textLight),
       hintStyle: TextStyle(color: AppColors.textLight),

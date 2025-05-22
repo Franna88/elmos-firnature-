@@ -406,7 +406,7 @@ class AppScaffold extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? AppColors.primaryRed.withOpacity(0.08)
+                  ? AppColors.primaryBlue.withOpacity(0.08)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
@@ -416,14 +416,14 @@ class AppScaffold extends StatelessWidget {
                   icon,
                   size: 20,
                   color:
-                      isSelected ? AppColors.primaryRed : AppColors.textMedium,
+                      isSelected ? AppColors.primaryBlue : AppColors.textMedium,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   label,
                   style: TextStyle(
                     color:
-                        isSelected ? AppColors.primaryRed : AppColors.textDark,
+                        isSelected ? AppColors.primaryBlue : AppColors.textDark,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     fontSize: 14,
                   ),

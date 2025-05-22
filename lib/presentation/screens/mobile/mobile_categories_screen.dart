@@ -423,7 +423,7 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
       case 'upholstery':
         return Colors.redAccent;
       default:
-        return AppColors.primaryRed;
+        return AppColors.primaryBlue;
     }
   }
 

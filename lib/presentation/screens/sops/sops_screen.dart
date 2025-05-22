@@ -184,8 +184,8 @@ class _SOPsScreenState extends State<SOPsScreen> {
                         child: GridView.builder(
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 3.0,
+                            crossAxisCount: 4,
+                            childAspectRatio: 1.0,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
                           ),
@@ -198,14 +198,6 @@ class _SOPsScreenState extends State<SOPsScreen> {
                       ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.go('/editor/new');
-        },
-        backgroundColor: const Color(0xffB21E1E),
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -223,45 +215,55 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      elevation: 2, // Increased elevation for better visibility
-      margin: const EdgeInsets.all(4), // Added small margin
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.cardBorder),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
         onTap: () {
           context.go('/editor/${sop.id}');
         },
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Image section (35% of width)
-            Expanded(
-              flex: 35,
-              child: Stack(
+            // Category header at the top
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: departmentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  SizedBox(
-                    height: 100,
-                    child: _buildImage(imageUrl),
-                  ),
-                  // Department badge
-                  Positioned(
-                    top: 6, // Increased slightly
-                    right: 6, // Increased slightly
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3), // Increased padding
-                      decoration: BoxDecoration(
-                        color: departmentColor.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(4),
+                  Expanded(
+                    child: Text(
+                      sop.categoryName ?? 'Unknown',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
-                      child: Text(
-                        sop.categoryName ?? 'Unknown',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9, // Increased from 7
-                          fontWeight: FontWeight.w600,
-                        ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Rev ${sop.revisionNumber}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -269,97 +271,81 @@ class _SOPsScreenState extends State<SOPsScreen> {
               ),
             ),
 
-            // Content section (65% of width)
+            // Image section
             Expanded(
-              flex: 65,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Title with Rev number
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            sop.title,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14, // Increased from 11
-                              color: AppColors.textDark,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2), // Increased padding
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            'Rev ${sop.revisionNumber}',
-                            style: TextStyle(
-                              color: AppColors.textMedium,
-                              fontSize: 9, // Increased from 7
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+              child: SizedBox(
+                width: double.infinity,
+                child: _buildImage(imageUrl),
+              ),
+            ),
 
-                    // Description (new addition)
+            // Content section
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    sop.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppColors.textDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // Description (if available)
+                  if (sop.description.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       sop.description,
-                      style: TextStyle(
+                      style: const TextStyle(
+                        fontSize: 12,
                         color: AppColors.textMedium,
-                        fontSize: 10, // Readable size for description
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-
-                    // Stats in a row
-                    const SizedBox(height: 8), // Increased spacing
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.format_list_numbered,
-                          size: 12, // Increased from 10
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4), // Increased spacing
-                        Text(
-                          '${sop.steps.length} steps',
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 10, // Increased from 8
-                          ),
-                        ),
-                        const SizedBox(width: 12), // Increased spacing
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 12, // Increased from 10
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4), // Increased spacing
-                        Text(
-                          _formatDate(sop.updatedAt), // Changed to updated date
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 10, // Increased from 8
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
-                ),
+
+                  const SizedBox(height: 8),
+
+                  // Stats in a row
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.format_list_numbered,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${sop.steps.length} steps',
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(sop.updatedAt),
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -381,7 +367,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
       case 'upholstery':
         return Colors.redAccent;
       default:
-        return AppColors.primaryRed;
+        return AppColors.primaryBlue;
     }
   }
 
@@ -389,26 +375,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
     if (imageUrl == null) {
       return Container(
         color: Colors.grey[100],
-        width: 140,
-        height: 100,
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.image_not_supported,
-                size: 24,
-                color: AppColors.textLight.withOpacity(0.7),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                "No Thumbnail",
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textLight.withOpacity(0.7),
-                ),
-              ),
-            ],
+          child: Icon(
+            Icons.image_not_supported,
+            size: 24,
+            color: AppColors.textLight.withOpacity(0.5),
           ),
         ),
       );
@@ -416,8 +387,6 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
     return CrossPlatformImage(
       imageUrl: imageUrl,
-      width: 140,
-      height: 100,
       fit: BoxFit.cover,
       errorWidget: _buildImageError(),
     );
@@ -425,27 +394,12 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
   Widget _buildImageError() {
     return Container(
-      width: 140,
-      height: 100,
       color: Colors.grey[100],
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.broken_image,
-              size: 24,
-              color: AppColors.textLight.withOpacity(0.7),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "Image Error",
-              style: TextStyle(
-                fontSize: 10,
-                color: AppColors.textLight.withOpacity(0.7),
-              ),
-            ),
-          ],
+        child: Icon(
+          Icons.broken_image,
+          size: 24,
+          color: AppColors.textLight.withOpacity(0.5),
         ),
       ),
     );

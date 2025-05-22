@@ -422,6 +422,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: AppColors.primaryBlue,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -435,11 +438,32 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         ),
         title: _isLoading
             ? const Text('Loading...')
-            : Text(_isEditing ? 'Edit SOP' : _sop.title),
+            : Row(
+                children: [
+                  Text(_isEditing ? 'Edit SOP' : _sop.title,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  if (!_isLoading && !_isEditing)
+                    Container(
+                      margin: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Rev ${_sop.revisionNumber}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
         actions: [
           if (!_isLoading) // Only show these actions when not loading
             IconButton(
-              icon: Icon(_isEditing ? Icons.save : Icons.edit),
+              icon:
+                  Icon(_isEditing ? Icons.save_outlined : Icons.edit_outlined),
+              tooltip: _isEditing ? 'Save SOP' : 'Edit SOP',
               onPressed: () {
                 if (_isEditing) {
                   _saveSOP();
@@ -451,7 +475,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
               },
             ),
           IconButton(
-            icon: const Icon(Icons.qr_code),
+            icon: const Icon(Icons.qr_code_outlined),
+            tooltip: 'Show QR Code',
             onPressed: _isLoading
                 ? null
                 : () {
@@ -460,7 +485,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                   },
           ),
           IconButton(
-            icon: const Icon(Icons.print),
+            icon: const Icon(Icons.print_outlined),
+            tooltip: 'Print SOP',
             onPressed: _isLoading
                 ? null
                 : () {
@@ -469,6 +495,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                   },
           ),
           PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'More Options',
             onSelected: (value) {
               if (value == 'export_pdf') {
                 // Export to PDF
@@ -486,29 +514,37 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
               const PopupMenuItem<String>(
                 value: 'export_pdf',
                 child: ListTile(
-                  leading: Icon(Icons.picture_as_pdf),
+                  leading: Icon(Icons.picture_as_pdf_outlined),
                   title: Text('Export to PDF'),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
                 ),
               ),
               const PopupMenuItem<String>(
                 value: 'share',
                 child: ListTile(
-                  leading: Icon(Icons.share),
+                  leading: Icon(Icons.share_outlined),
                   title: Text('Share SOP'),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
                 ),
               ),
               const PopupMenuItem<String>(
                 value: 'duplicate',
                 child: ListTile(
-                  leading: Icon(Icons.copy),
+                  leading: Icon(Icons.copy_outlined),
                   title: Text('Duplicate'),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
                 ),
               ),
               const PopupMenuItem<String>(
                 value: 'delete',
                 child: ListTile(
-                  leading: Icon(Icons.delete, color: Colors.red),
-                  title: Text('Delete'),
+                  leading: Icon(Icons.delete_outlined, color: Colors.red),
+                  title: Text('Delete', style: TextStyle(color: Colors.red)),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
                 ),
               ),
             ],
@@ -531,92 +567,176 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       key: _formKey,
       child: Column(
         children: [
-          // Toolbar for editing SOP
+          // Main toolbar with edit actions
           Container(
-            padding: const EdgeInsets.all(8),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  offset: const Offset(0, 1),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
             child: Row(
               children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save SOP'),
-                  onPressed: _saveSOP,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                // Edit panel label
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_note,
+                          size: 16, color: AppColors.primaryBlue),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Editing',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryBlue,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Spacer(),
+
+                const SizedBox(width: 16),
+
+                // SOP title indicator
+                Expanded(
+                  child: Text(
+                    _sop.title.isNotEmpty ? _sop.title : 'New SOP',
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+
+                // Add step button
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Step'),
                   onPressed: _showAddStepDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    elevation: 0,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.add_circle_outline),
-                  tooltip: 'Add Items',
-                  onSelected: (value) {
-                    if (value == 'tool') {
-                      _showAddItemDialog('Tool', (item) {
-                        setState(() {
-                          final updatedTools = List<String>.from(_sop.tools)
-                            ..add(item);
-                          _sop = _sop.copyWith(tools: updatedTools);
-                        });
-                      });
-                    } else if (value == 'safety') {
-                      _showAddItemDialog('Safety Requirement', (item) {
-                        setState(() {
-                          final updatedSafety =
-                              List<String>.from(_sop.safetyRequirements)
-                                ..add(item);
-                          _sop =
-                              _sop.copyWith(safetyRequirements: updatedSafety);
-                        });
-                      });
-                    } else if (value == 'caution') {
-                      _showAddItemDialog('Caution', (item) {
-                        setState(() {
-                          final updatedCautions =
-                              List<String>.from(_sop.cautions)..add(item);
-                          _sop = _sop.copyWith(cautions: updatedCautions);
-                        });
-                      });
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'tool',
-                      child: Row(
-                        children: [
-                          Icon(Icons.build, size: 18),
-                          SizedBox(width: 8),
-                          Text('Add Tool'),
-                        ],
-                      ),
+                const SizedBox(width: 10),
+
+                // Add items dropdown
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.borderColor),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: PopupMenuButton<String>(
+                    icon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.add_circle_outline, size: 16),
+                        const SizedBox(width: 6),
+                        const Text('Add Items',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.arrow_drop_down, size: 16),
+                      ],
                     ),
-                    const PopupMenuItem(
-                      value: 'safety',
-                      child: Row(
-                        children: [
-                          Icon(Icons.security, size: 18),
-                          SizedBox(width: 8),
-                          Text('Add Safety Requirement'),
-                        ],
-                      ),
+                    tooltip: 'Add Items',
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    offset: const Offset(0, 40),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: AppColors.borderColor),
                     ),
-                    const PopupMenuItem(
-                      value: 'caution',
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning, size: 18),
-                          SizedBox(width: 8),
-                          Text('Add Caution'),
-                        ],
+                    onSelected: (value) {
+                      if (value == 'tool') {
+                        _showAddItemDialog('Tool', (item) {
+                          setState(() {
+                            final updatedTools = List<String>.from(_sop.tools)
+                              ..add(item);
+                            _sop = _sop.copyWith(tools: updatedTools);
+                          });
+                        });
+                      } else if (value == 'safety') {
+                        _showAddItemDialog('Safety Requirement', (item) {
+                          setState(() {
+                            final updatedSafety =
+                                List<String>.from(_sop.safetyRequirements)
+                                  ..add(item);
+                            _sop = _sop.copyWith(
+                                safetyRequirements: updatedSafety);
+                          });
+                        });
+                      } else if (value == 'caution') {
+                        _showAddItemDialog('Caution', (item) {
+                          setState(() {
+                            final updatedCautions =
+                                List<String>.from(_sop.cautions)..add(item);
+                            _sop = _sop.copyWith(cautions: updatedCautions);
+                          });
+                        });
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'tool',
+                        child: Row(
+                          children: [
+                            Icon(Icons.build,
+                                size: 18, color: AppColors.primaryBlue),
+                            const SizedBox(width: 12),
+                            const Text('Add Tool'),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      PopupMenuItem(
+                        value: 'safety',
+                        child: Row(
+                          children: [
+                            Icon(Icons.security,
+                                size: 18, color: AppColors.greenAccent),
+                            const SizedBox(width: 12),
+                            const Text('Add Safety Requirement'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'caution',
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning,
+                                size: 18, color: AppColors.orangeAccent),
+                            const SizedBox(width: 12),
+                            const Text('Add Caution'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -629,36 +749,66 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
               children: [
                 // Left navigation bar for steps
                 Container(
-                  width: 220,
+                  width: 240,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    color: Colors.grey.shade50,
                     border: Border(
-                      right: BorderSide(color: Theme.of(context).dividerColor),
+                      right: BorderSide(
+                          color: AppColors.borderColor.withOpacity(0.5)),
                     ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Steps header with add button
+                      // Compact steps header
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
+                          color: Colors.white,
                           border: Border(
                             bottom: BorderSide(
-                                color: Theme.of(context).dividerColor),
+                                color: AppColors.borderColor.withOpacity(0.5)),
                           ),
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Steps',
-                              style: Theme.of(context).textTheme.titleLarge,
+                            Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryBlue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Icon(
+                                Icons.format_list_numbered,
+                                size: 14,
+                                color: AppColors.primaryBlue,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Steps (${_sop.steps.length})',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.add_circle),
+                              icon: Icon(
+                                Icons.add_circle_outlined,
+                                color: AppColors.accentTeal,
+                                size: 18,
+                              ),
                               tooltip: 'Add Step',
                               onPressed: _showAddStepDialog,
+                              constraints: const BoxConstraints(
+                                minWidth: 28,
+                                minHeight: 28,
+                              ),
+                              padding: EdgeInsets.zero,
                             ),
                           ],
                         ),
@@ -668,17 +818,53 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                       Expanded(
                         child: _sop.steps.isEmpty
                             ? Center(
-                                child: Text(
-                                  'No steps yet.\nClick + to add steps.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .outline),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.add_task_outlined,
+                                        size: 40,
+                                        color: AppColors.textLight,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No steps added yet',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textMedium,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Click + to add your first step',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textLight,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.add),
+                                      label: const Text('Add First Step'),
+                                      onPressed: _showAddStepDialog,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.accentTeal,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               )
                             : ReorderableListView.builder(
-                                padding: const EdgeInsets.only(top: 4),
+                                padding: const EdgeInsets.only(top: 8),
                                 itemCount: _sop.steps.length,
                                 onReorder: (oldIndex, newIndex) {
                                   setState(() {
@@ -692,107 +878,237 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                 },
                                 itemBuilder: (context, index) {
                                   final step = _sop.steps[index];
-                                  return Padding(
+                                  return Card(
                                     key: Key(step.id),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8.0, vertical: 2.0),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: ListTile(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      side: BorderSide(
+                                        color: AppColors.borderColor
+                                            .withOpacity(0.5),
+                                      ),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          left: BorderSide(
+                                            color: AppColors.primaryBlue,
+                                            width: 3,
+                                          ),
                                         ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 16, vertical: 4),
-                                        leading: CircleAvatar(
-                                          radius: 14,
-                                          backgroundColor: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          foregroundColor: Theme.of(context)
-                                              .colorScheme
-                                              .onPrimary,
-                                          child: Text('${index + 1}'),
-                                        ),
-                                        title: Text(
-                                          step.title,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (step.imageUrl != null)
-                                              IconButton(
-                                                icon: const Icon(
-                                                    Icons.fullscreen,
-                                                    size: 18),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                tooltip: 'View full image',
-                                                onPressed: () {
-                                                  // Show full-size image dialog
-                                                  _showFullSizeImageDialog(
-                                                      context, step.imageUrl!);
-                                                },
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          ListTile(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6),
+                                            tileColor: Colors.white,
+                                            dense: true,
+                                            leading: Container(
+                                              width: 24,
+                                              height: 24,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primaryBlue
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
-                                            if (step.estimatedTime != null)
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.blue
-                                                      .withOpacity(0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                      color: Colors.blue
-                                                          .withOpacity(0.5)),
-                                                ),
+                                              child: Center(
                                                 child: Text(
-                                                  _formatTime(
-                                                      step.estimatedTime!),
-                                                  style: const TextStyle(
+                                                  '${index + 1}',
+                                                  style: TextStyle(
+                                                    color:
+                                                        AppColors.primaryBlue,
+                                                    fontWeight: FontWeight.bold,
                                                     fontSize: 12,
-                                                    color: Colors.blue,
                                                   ),
                                                 ),
                                               ),
-                                            const SizedBox(width: 8),
-                                            IconButton(
-                                              icon: const Icon(Icons.edit,
-                                                  size: 18),
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              onPressed: () =>
-                                                  _showEditStepDialog(
-                                                      step, index),
                                             ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete,
-                                                  size: 18),
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              onPressed: () {
-                                                setState(() {
-                                                  final updatedSteps =
-                                                      List<SOPStep>.from(
-                                                          _sop.steps)
-                                                        ..removeAt(index);
-                                                  _sop = _sop.copyWith(
-                                                      steps: updatedSteps);
-                                                });
-                                              },
+                                            title: Text(
+                                              step.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textDark,
+                                              ),
                                             ),
-                                          ],
-                                        ),
-                                        onTap: () =>
-                                            _showEditStepDialog(step, index),
+                                            subtitle: Text(
+                                              step.instruction,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textMedium,
+                                              ),
+                                            ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (step.estimatedTime != null)
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 1),
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                            right: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors
+                                                          .primaryBlue
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    child: Text(
+                                                      _formatTime(
+                                                          step.estimatedTime!),
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: AppColors
+                                                            .primaryBlue,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                if (step.imageUrl != null)
+                                                  Container(
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                            right: 2),
+                                                    padding:
+                                                        const EdgeInsets.all(2),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors
+                                                          .accentTeal
+                                                          .withOpacity(0.1),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.photo_outlined,
+                                                      size: 10,
+                                                      color:
+                                                          AppColors.accentTeal,
+                                                    ),
+                                                  ),
+                                                SizedBox(
+                                                  width: 40,
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      InkWell(
+                                                        onTap: () =>
+                                                            _showEditStepDialog(
+                                                                step, index),
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(4.0),
+                                                          child: Icon(
+                                                            Icons.edit_outlined,
+                                                            size: 14,
+                                                            color: AppColors
+                                                                .primaryBlue,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 2),
+                                                      InkWell(
+                                                        onTap: () {
+                                                          setState(() {
+                                                            final updatedSteps =
+                                                                List<SOPStep>.from(
+                                                                    _sop.steps)
+                                                                  ..removeAt(
+                                                                      index);
+                                                            _sop = _sop.copyWith(
+                                                                steps:
+                                                                    updatedSteps);
+                                                          });
+                                                        },
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(4.0),
+                                                          child: Icon(
+                                                            Icons
+                                                                .delete_outlined,
+                                                            size: 14,
+                                                            color: Colors
+                                                                .red.shade400,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            onTap: () => _showEditStepDialog(
+                                                step, index),
+                                          ),
+                                          if (step.imageUrl != null)
+                                            Container(
+                                              height: 120,
+                                              width: double.infinity,
+                                              decoration: BoxDecoration(
+                                                border: Border(
+                                                  top: BorderSide(
+                                                    color: AppColors.borderColor
+                                                        .withOpacity(0.5),
+                                                  ),
+                                                ),
+                                              ),
+                                              child: Stack(
+                                                fit: StackFit.expand,
+                                                children: [
+                                                  CrossPlatformImage(
+                                                    imageUrl: step.imageUrl!,
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                                  Positioned(
+                                                    bottom: 8,
+                                                    right: 8,
+                                                    child: InkWell(
+                                                      onTap: () =>
+                                                          _showFullSizeImageDialog(
+                                                              context,
+                                                              step.imageUrl!),
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(6),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: Colors.black
+                                                              .withOpacity(0.4),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(4),
+                                                        ),
+                                                        child: Icon(
+                                                          Icons.fullscreen,
+                                                          color: Colors.white,
+                                                          size: 16,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                   );
@@ -808,17 +1124,123 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TabBar(
-                        controller: _tabController,
-                        tabs: _tabs,
-                        isScrollable: true,
-                        labelColor: Theme.of(context).colorScheme.primary,
-                        indicatorColor: Theme.of(context).colorScheme.primary,
+                      // Custom section header
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                        color: Colors.white,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'SOP Contents',
+                                  style: TextStyle(
+                                    color: AppColors.textDark,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppColors.primaryBlue.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    _tabController.index == 0
+                                        ? 'Editing Basic Info'
+                                        : (_tabController.index == 5
+                                            ? 'Editing Steps'
+                                            : 'Editing Details'),
+                                    style: TextStyle(
+                                      color: AppColors.primaryBlue,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.help_outline,
+                                      size: 14,
+                                      color: AppColors.textLight,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Complete all required sections',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textLight,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
                       ),
-                      Expanded(
-                        child: TabBarView(
+
+                      // Tabs navigation
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          border: Border(
+                            bottom: BorderSide(color: AppColors.borderColor),
+                          ),
+                        ),
+                        child: TabBar(
                           controller: _tabController,
-                          children: _buildTabViews(),
+                          tabs: _tabs,
+                          isScrollable: true,
+                          labelColor: AppColors.primaryBlue,
+                          unselectedLabelColor: AppColors.textMedium,
+                          indicatorColor: AppColors.primaryBlue,
+                          indicatorWeight: 3,
+                          labelStyle: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          unselectedLabelStyle: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          dividerColor: Colors.transparent,
+                        ),
+                      ),
+
+                      // Tab content area with shadow
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: _buildTabViews(),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -3148,184 +3570,378 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
     final categories = categoryService.categories;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Basic Information',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 16),
-
-          // Category dropdown
-          DropdownButtonFormField<String>(
-            decoration: const InputDecoration(
-              labelText: 'Category',
-              border: OutlineInputBorder(),
-              helperText: 'Select the department or category for this SOP',
+          Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: AppColors.borderColor.withOpacity(0.5)),
             ),
-            value: _sop.categoryId.isEmpty ? null : _sop.categoryId,
-            items: categories.map((category) {
-              return DropdownMenuItem<String>(
-                value: category.id,
-                child: Text(category.name),
-              );
-            }).toList(),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please select a category';
-              }
-              return null;
-            },
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _sop = _sop.copyWith(categoryId: value);
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(Icons.info_outline, color: AppColors.primaryBlue),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Basic Information',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 36),
+                    child: Text(
+                      'Define the core details of this Standard Operating Procedure',
+                      style: TextStyle(
+                        color: AppColors.textMedium,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
 
-                  // Update categoryName as well
-                  final category = categoryService.getCategoryById(value);
-                  if (category != null) {
-                    _sop = _sop.copyWith(categoryName: category.name);
+                  // Category dropdown with enhanced styling
+                  Padding(
+                    padding: const EdgeInsets.only(left: 36),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Department/Category',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  BorderSide(color: AppColors.borderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  BorderSide(color: AppColors.borderColor),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            helperText:
+                                'Select the department or category for this SOP',
+                            prefixIcon: Icon(Icons.category_outlined,
+                                color: AppColors.accentTeal),
+                          ),
+                          value:
+                              _sop.categoryId.isEmpty ? null : _sop.categoryId,
+                          items: categories.map((category) {
+                            return DropdownMenuItem<String>(
+                              value: category.id,
+                              child: Text(category.name),
+                            );
+                          }).toList(),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a category';
+                            }
+                            return null;
+                          },
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _sop = _sop.copyWith(categoryId: value);
 
-                    // Update tab controller to match required sections
-                    _updateVisibleTabsForCategory(category);
-                  }
-                });
-              }
-            },
-          ),
+                                // Update categoryName as well
+                                final category =
+                                    categoryService.getCategoryById(value);
+                                if (category != null) {
+                                  _sop = _sop.copyWith(
+                                      categoryName: category.name);
 
-          const SizedBox(height: 24),
+                                  // Update tab controller to match required sections
+                                  _updateVisibleTabsForCategory(category);
+                                }
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
 
-          // Title field
-          TextFormField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'SOP Title',
-              border: OutlineInputBorder(),
-              helperText: 'Enter a descriptive title for this SOP',
+                  const SizedBox(height: 24),
+
+                  // Title field with enhanced styling
+                  Padding(
+                    padding: const EdgeInsets.only(left: 36),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SOP Title',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _titleController,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  BorderSide(color: AppColors.borderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  BorderSide(color: AppColors.borderColor),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            helperText:
+                                'Enter a descriptive title for this SOP',
+                            prefixIcon:
+                                Icon(Icons.title, color: AppColors.primaryBlue),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a title';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a title';
-              }
-              return null;
-            },
           ),
 
           const SizedBox(height: 24),
 
           // SOP Thumbnail section
-          Text(
-            'SOP Thumbnail',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Add an image that represents the end product or result of this SOP',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
-
-          // Thumbnail image or placeholder
-          Center(
-            child: GestureDetector(
-              onTap: () => _uploadSOPThumbnail(_sop.id),
-              child: Container(
-                width: 300,
-                height: 200,
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.8,
-                  maxHeight: 200,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                ),
-                child: _sop.thumbnailUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(7),
-                        child: _displayImage(
-                          _sop.thumbnailUrl,
-                        ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_outlined,
-                            size: 48,
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Click to add thumbnail',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+          Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: AppColors.borderColor.withOpacity(0.5)),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // YouTube URL field
-          Text(
-            'YouTube Video',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Add a link to a YouTube video related to this SOP',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
-
-          TextFormField(
-            controller: _youtubeUrlController,
-            decoration: const InputDecoration(
-              labelText: 'YouTube URL',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.link),
-              helperText: 'Enter a YouTube URL (optional)',
-            ),
-          ),
-
-          // YouTube QR code preview
-          if (_generateYouTubeQRCode() != null) ...[
-            const SizedBox(height: 16),
-            Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'YouTube QR Code',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(Icons.image_outlined, color: AppColors.accentTeal),
+                      const SizedBox(width: 12),
+                      Text(
+                        'SOP Thumbnail',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 36),
+                    child: Text(
+                      'Add an image that represents the end product or result of this SOP',
+                      style: TextStyle(
+                        color: AppColors.textMedium,
+                        fontSize: 14,
+                      ),
                     ),
-                    child: _generateYouTubeQRCode(),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Scan to watch video',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  const SizedBox(height: 24),
+
+                  // Thumbnail image or placeholder with improved styling
+                  Center(
+                    child: GestureDetector(
+                      onTap: () => _uploadSOPThumbnail(_sop.id),
+                      child: Container(
+                        width: 350,
+                        height: 200,
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.8,
+                          maxHeight: 200,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: AppColors.borderColor,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: _sop.thumbnailUrl != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: _displayImage(
+                                  _sop.thumbnailUrl,
+                                ),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    size: 48,
+                                    color: AppColors.accentTeal,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Click to add thumbnail',
+                                    style: TextStyle(
+                                      color: AppColors.textMedium,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Recommended size: 1200 x 800 pixels',
+                                    style: TextStyle(
+                                      color: AppColors.textLight,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // YouTube URL field with better styling
+          Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: AppColors.borderColor.withOpacity(0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(Icons.smart_display, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Supplementary Video',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 36),
+                    child: Text(
+                      'Add a link to a YouTube video related to this SOP',
+                      style: TextStyle(
+                        color: AppColors.textMedium,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  Padding(
+                    padding: const EdgeInsets.only(left: 36),
+                    child: TextFormField(
+                      controller: _youtubeUrlController,
+                      decoration: InputDecoration(
+                        labelText: 'YouTube URL',
+                        hintText: 'https://youtube.com/watch?v=...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: AppColors.borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: AppColors.borderColor),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        helperText: 'Enter a YouTube URL (optional)',
+                        prefixIcon: Icon(Icons.link, color: Colors.red),
+                      ),
+                    ),
+                  ),
+
+                  // YouTube QR code preview
+                  if (_generateYouTubeQRCode() != null) ...[
+                    const SizedBox(height: 24),
+                    Center(
+                      child: Column(
+                        children: [
+                          const Text(
+                            'YouTube QR Code',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: _generateYouTubeQRCode(),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Scan to watch video',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

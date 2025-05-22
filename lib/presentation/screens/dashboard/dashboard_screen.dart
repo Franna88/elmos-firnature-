@@ -67,136 +67,273 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding:
-                  const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
-              child: Column(
-                //crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Simplified header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome back, ${authService.userName ?? 'User'}',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Manage your furniture manufacturing procedures efficiently.',
-                            style: TextStyle(
-                              color: AppColors.textMedium,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          context.go('/editor/new');
-                        },
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Create SOP'),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Section title
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Standard Operating Procedures',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if (sopService.sops.length > 6)
-                        TextButton.icon(
-                          onPressed: () {
-                            context.go('/sops');
-                          },
-                          icon: const Icon(Icons.arrow_forward, size: 18),
-                          label: const Text('View All'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // SOP cards grid
-                  sopService.sops.isEmpty
-                      ? _buildEmptyState(context)
-                      : GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 2.5,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          itemCount: sopService.sops.length > 9
-                              ? 9
-                              : sopService.sops.length,
-                          itemBuilder: (context, index) {
-                            final sop = sopService.sops[index];
-                            return _buildSOPCard(context, sop);
-                          },
-                        ),
-                ],
-              ),
-            ),
+          : _buildDashboardContent(context, authService, sopService),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildDashboardContent(
+      BuildContext context, AuthService authService, SOPService sopService) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Welcome header with elegant styling
+          _buildWelcomeHeader(context, authService),
+
+          const SizedBox(height: 32),
+
+          // Quick actions section
+          _buildQuickActionsSection(context),
+
+          const SizedBox(height: 32),
+
+          // SOPs section with more professional styling
+          _buildSOPsSection(context, sopService),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader(BuildContext context, AuthService authService) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.description_outlined,
-            size: 48,
-            color: AppColors.textLight.withOpacity(0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No SOPs created yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create your first SOP to get started with the manufacturing process',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textMedium,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.go('/editor/new');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create First SOP'),
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primaryBlue,
+            AppColors.accentTeal,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left side content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome back, ${authService.userName ?? 'User'}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Manage your furniture manufacturing procedures efficiently with our comprehensive SOP system.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.9),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.go('/editor/new');
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Create New SOP'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: AppColors.primaryBlue,
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Decorative element
+          Container(
+            margin: const EdgeInsets.only(left: 20),
+            child: Icon(
+              Icons.auto_awesome,
+              size: 64,
+              color: Colors.white.withOpacity(0.2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quick Actions',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _buildActionCard(
+              context,
+              icon: Icons.add_circle_outline,
+              title: 'Create SOP',
+              description: 'Design a new procedure',
+              color: AppColors.primaryBlue,
+              onTap: () => context.go('/editor/new'),
+            ),
+            const SizedBox(width: 16),
+            _buildActionCard(
+              context,
+              icon: Icons.search,
+              title: 'Browse SOPs',
+              description: 'View all procedures',
+              color: AppColors.accentTeal,
+              onTap: () => context.go('/sops'),
+            ),
+            const SizedBox(width: 16),
+            _buildActionCard(
+              context,
+              icon: Icons.insights,
+              title: 'Analytics',
+              description: 'View SOP metrics',
+              color: AppColors.tealAccent,
+              onTap: () => context.go('/analytics'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.divider),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textLight,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSOPsSection(BuildContext context, SOPService sopService) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent SOPs',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            if (sopService.sops.length > 6)
+              TextButton.icon(
+                onPressed: () {
+                  context.go('/sops');
+                },
+                icon: const Icon(Icons.arrow_forward, size: 18),
+                label: const Text('View All'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.accentTeal,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        sopService.sops.isEmpty
+            ? _buildEmptyState(context)
+            : _buildSOPsGrid(context, sopService),
+      ],
+    );
+  }
+
+  Widget _buildSOPsGrid(BuildContext context, SOPService sopService) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1.2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: sopService.sops.length > 6 ? 6 : sopService.sops.length,
+      itemBuilder: (context, index) {
+        final sop = sopService.sops[index];
+        return _buildSOPCard(context, sop);
+      },
     );
   }
 
@@ -213,45 +350,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      elevation: 1,
-      margin: EdgeInsets.zero,
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.cardBorder.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
         onTap: () {
           context.go('/editor/${sop.id}');
         },
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Image section (30% of width)
-            Expanded(
-              flex: 30,
-              child: Stack(
+            // Category header at the top
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: departmentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  SizedBox(
-                    height: 100,
-                    child: _buildImage(imageUrl),
+                  Text(
+                    sop.categoryName ?? 'Unknown',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
-                  // Department badge
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: departmentColor,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        sop.categoryName ?? 'Unknown',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Rev ${sop.revisionNumber}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -259,100 +403,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Content section (70% of width)
-            Expanded(
-              flex: 70,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // Title with Rev number
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            sop.title,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: AppColors.textDark,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(4),
-                            border:
-                                Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            'Rev ${sop.revisionNumber}',
-                            style: TextStyle(
-                              color: AppColors.textMedium,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+            // Image section
+            SizedBox(
+              height: 120,
+              width: double.infinity,
+              child: _buildImage(imageUrl),
+            ),
+
+            // Content section
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    sop.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppColors.textDark,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
 
-                    // Description (if available)
-                    if (sop.description.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        sop.description,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMedium,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                  // Description (if available)
+                  if (sop.description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      sop.description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMedium,
                       ),
-                    ],
-
-                    // Stats in a row
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.checklist,
-                          size: 14,
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${sop.steps.length} steps',
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 14,
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}",
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
+
+                  const SizedBox(height: 8),
+
+                  // Stats in a row
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.checklist,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${sop.steps.length} steps',
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}",
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -361,20 +485,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildEmptyState(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.accentTeal.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.description_outlined,
+              size: 48,
+              color: AppColors.accentTeal,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No SOPs Created Yet',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Create your first Standard Operating Procedure to streamline your manufacturing process',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textMedium,
+              height: 1.5,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              context.go('/editor/new');
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create First SOP'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _getDepartmentColor(String department) {
     switch (department.toLowerCase()) {
       case 'assembly':
-        return AppColors.blueAccent;
+        return AppColors.primaryBlue;
       case 'finishing':
-        return AppColors.greenAccent;
+        return AppColors.accentTeal;
       case 'machinery':
         return AppColors.orangeAccent;
       case 'quality':
         return AppColors.purpleAccent;
       case 'upholstery':
-        return Colors.redAccent;
+        return AppColors.tealAccent;
       default:
-        return AppColors.primaryRed;
+        return AppColors.primaryBlue;
     }
   }
 
@@ -382,12 +569,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (imageUrl == null) {
       return Container(
         color: Colors.grey[100],
-        width: 120,
-        height: 100,
         child: Center(
           child: Icon(
             Icons.image_not_supported,
-            size: 20,
+            size: 24,
             color: AppColors.textLight.withOpacity(0.5),
           ),
         ),
@@ -396,8 +581,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return CrossPlatformImage(
       imageUrl: imageUrl,
-      height: 100,
-      width: 120,
       fit: BoxFit.cover,
       errorWidget: _buildImageError(),
     );
@@ -405,13 +588,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildImageError() {
     return Container(
-      width: 120,
-      height: 100,
       color: Colors.grey[100],
       child: Center(
         child: Icon(
           Icons.broken_image,
-          size: 20,
+          size: 24,
           color: AppColors.textLight.withOpacity(0.5),
         ),
       ),
