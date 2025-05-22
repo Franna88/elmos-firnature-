@@ -6,7 +6,11 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../widgets/app_scaffold.dart';
+import '../../design_system/components/app_button.dart';
+import '../../design_system/components/app_card.dart';
+import '../../design_system/layouts/app_scaffold.dart';
+import '../../design_system/components/app_sidebar.dart';
+import '../../design_system/components/app_header.dart';
 import '../../widgets/cross_platform_image.dart';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,6 +25,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = false;
+  int _selectedSidebarIndex = 0;
 
   @override
   void initState() {
@@ -49,62 +54,160 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final authService = Provider.of<AuthService>(context);
     final sopService = Provider.of<SOPService>(context);
 
+    // Define sidebar items
+    final List<AppSidebarItem> sidebarItems = [
+      AppSidebarItem(
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+      ),
+      AppSidebarItem(
+        label: 'My SOPs',
+        icon: Icons.description_outlined,
+      ),
+      AppSidebarItem(
+        label: 'MES',
+        icon: Icons.factory_outlined,
+      ),
+      AppSidebarItem(
+        label: 'MES Management',
+        icon: Icons.settings_outlined,
+      ),
+      AppSidebarItem(
+        label: 'MES Reports',
+        icon: Icons.insert_chart_outlined,
+      ),
+      AppSidebarItem(
+        label: 'Categories',
+        icon: Icons.category_outlined,
+      ),
+      AppSidebarItem(
+        label: 'Analytics',
+        icon: Icons.insights_outlined,
+      ),
+      AppSidebarItem(
+        label: 'Settings',
+        icon: Icons.settings_outlined,
+      ),
+    ];
+
+    // Define header actions
+    final List<AppHeaderAction> headerActions = [
+      AppHeaderAction(
+        icon: Icons.refresh,
+        label: 'Refresh',
+        onPressed: _refreshSOPs,
+      ),
+      AppHeaderAction(
+        icon: Icons.add_circle_outline,
+        label: 'Create SOP',
+        onPressed: () => context.go('/editor/new'),
+        showAsButton: true,
+      ),
+    ];
+
     return AppScaffold(
       title: "Dashboard",
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          tooltip: 'Refresh SOPs',
-          onPressed: _refreshSOPs,
+      sidebarItems: sidebarItems,
+      selectedSidebarIndex: _selectedSidebarIndex,
+      onSidebarItemSelected: (index) {
+        setState(() {
+          _selectedSidebarIndex = index;
+        });
+
+        // Navigate based on selected index
+        switch (index) {
+          case 0: // Dashboard
+            context.go('/dashboard');
+            break;
+          case 1: // My SOPs
+            context.go('/sops');
+            break;
+          case 2: // MES
+            context.go('/mes');
+            break;
+          case 3: // MES Management
+            context.go('/mes-management');
+            break;
+          case 4: // MES Reports
+            context.go('/mes-reports');
+            break;
+          case 5: // Categories
+            context.go('/categories');
+            break;
+          case 6: // Analytics
+            context.go('/analytics');
+            break;
+          case 7: // Settings
+            context.go('/settings');
+            break;
+        }
+      },
+      actions: headerActions,
+      sidebarHeader: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Image.asset(
+              'assets/images/elmos_logo.png',
+              height: 40,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "SOP Management",
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textLight,
+              ),
+            ),
+          ],
         ),
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline),
-          tooltip: 'Add SOP',
-          onPressed: () {
-            context.go('/editor/new');
-          },
-        ),
-      ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding:
-                  const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+              padding: const EdgeInsets.only(
+                  left: 24.0, right: 24.0, top: 16.0, bottom: 24.0),
               child: Column(
-                //crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Simplified header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome back, ${authService.userName ?? 'User'}',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Manage your furniture manufacturing procedures efficiently.',
-                            style: TextStyle(
-                              color: AppColors.textMedium,
-                              fontSize: 14,
+                  // Welcome header
+                  AppCard(
+                    variant: CardVariant.flat,
+                    padding: EdgeInsets.all(24),
+                    content: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome back, ${authService.userName ?? 'User'}',
+                              style: Theme.of(context).textTheme.headlineSmall,
                             ),
-                          ),
-                        ],
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          context.go('/editor/new');
-                        },
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Create SOP'),
-                      ),
-                    ],
+                            const SizedBox(height: 8),
+                            Text(
+                              'Manage your furniture manufacturing procedures efficiently.',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        AppButton(
+                          label: 'Create SOP',
+                          variant: ButtonVariant.primary,
+                          leadingIcon: Icons.add,
+                          onPressed: () {
+                            context.go('/editor/new');
+                          },
+                        ),
+                      ],
+                    ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   // Section title
                   Row(
@@ -112,19 +215,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(
                         'Standard Operating Procedures',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                       if (sopService.sops.length > 6)
-                        TextButton.icon(
+                        AppButton(
+                          label: 'View All',
+                          variant: ButtonVariant.tertiary,
+                          trailingIcon: Icons.arrow_forward,
                           onPressed: () {
                             context.go('/sops');
                           },
-                          icon: const Icon(Icons.arrow_forward, size: 18),
-                          label: const Text('View All'),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // SOP cards grid
                   sopService.sops.isEmpty
@@ -136,8 +240,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
                             childAspectRatio: 2.5,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
                           ),
                           itemCount: sopService.sops.length > 9
                               ? 9
@@ -154,46 +258,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
+    return AppCard(
+      padding: EdgeInsets.all(32),
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.description_outlined,
             size: 48,
-            color: AppColors.textLight.withOpacity(0.5),
+            color: AppColors.textTertiary.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'No SOPs created yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
-            ),
+            style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
             'Create your first SOP to get started with the manufacturing process',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppColors.textMedium,
+              color: AppColors.textSecondary,
               height: 1.5,
             ),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
+          AppButton(
+            label: 'Create First SOP',
+            variant: ButtonVariant.primary,
+            leadingIcon: Icons.add,
             onPressed: () {
               context.go('/editor/new');
             },
-            icon: const Icon(Icons.add),
-            label: const Text('Create First SOP'),
           ),
         ],
       ),
@@ -211,152 +307,144 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final Color departmentColor =
         _getDepartmentColor(sop.categoryName ?? 'Unknown');
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: 1,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.cardBorder.withOpacity(0.5)),
-      ),
-      child: InkWell(
-        onTap: () {
-          context.go('/editor/${sop.id}');
-        },
-        child: Row(
-          children: [
-            // Image section (30% of width)
-            Expanded(
-              flex: 30,
-              child: Stack(
-                children: [
-                  SizedBox(
-                    height: 100,
-                    child: _buildImage(imageUrl),
-                  ),
-                  // Department badge
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: departmentColor,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        sop.categoryName ?? 'Unknown',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
+    return AppCard(
+      variant: CardVariant.outlined,
+      hasShadow: false,
+      onTap: () {
+        context.go('/editor/${sop.id}');
+      },
+      content: Row(
+        children: [
+          // Image section (30% of width)
+          Expanded(
+            flex: 30,
+            child: Stack(
+              children: [
+                SizedBox(
+                  height: 100,
+                  child: _buildImage(imageUrl),
+                ),
+                // Department badge
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: departmentColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      sop.categoryName ?? 'Unknown',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Content section (70% of width)
+          Expanded(
+            flex: 70,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Title with Rev number
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          sop.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          'Rev ${sop.revisionNumber}',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Description (if available)
+                  if (sop.description.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      sop.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+
+                  // Stats in a row
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.checklist,
+                        size: 14,
+                        color: AppColors.textTertiary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${sop.steps.length} steps',
+                        style: TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 14,
+                        color: AppColors.textTertiary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}",
+                        style: TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-
-            // Content section (70% of width)
-            Expanded(
-              flex: 70,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // Title with Rev number
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            sop.title,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: AppColors.textDark,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(4),
-                            border:
-                                Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            'Rev ${sop.revisionNumber}',
-                            style: TextStyle(
-                              color: AppColors.textMedium,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Description (if available)
-                    if (sop.description.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        sop.description,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMedium,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-
-                    // Stats in a row
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.checklist,
-                          size: 14,
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${sop.steps.length} steps',
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 14,
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}",
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -374,21 +462,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'upholstery':
         return Colors.redAccent;
       default:
-        return AppColors.primaryRed;
+        return AppColors.primary;
     }
   }
 
   Widget _buildImage(String? imageUrl) {
     if (imageUrl == null) {
       return Container(
-        color: Colors.grey[100],
+        color: AppColors.surfaceLight,
         width: 120,
         height: 100,
         child: Center(
           child: Icon(
             Icons.image_not_supported,
             size: 20,
-            color: AppColors.textLight.withOpacity(0.5),
+            color: AppColors.textTertiary.withOpacity(0.5),
           ),
         ),
       );
@@ -407,137 +495,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       width: 120,
       height: 100,
-      color: Colors.grey[100],
+      color: AppColors.surfaceLight,
       child: Center(
         child: Icon(
           Icons.broken_image,
           size: 20,
-          color: AppColors.textLight.withOpacity(0.5),
+          color: AppColors.textTertiary.withOpacity(0.5),
         ),
       ),
-    );
-  }
-
-  void _showDeleteSOPDialog() {
-    // State variables for selected SOPs
-    List<SOP> selectedSOPs = [];
-    final sopService = Provider.of<SOPService>(context, listen: false);
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(builder: (context, setState) {
-        return AlertDialog(
-          title: const Text('Delete SOPs'),
-          content: SizedBox(
-            width: 500,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Select SOPs to delete:'),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: sopService.sops.length,
-                    itemBuilder: (context, index) {
-                      final sop = sopService.sops[index];
-                      final bool isSelected = selectedSOPs.contains(sop);
-
-                      return CheckboxListTile(
-                        title: Text(sop.title),
-                        subtitle: Text(
-                            'Created: ${sop.createdAt.day}/${sop.createdAt.month}/${sop.createdAt.year}'),
-                        value: isSelected,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            if (value == true) {
-                              selectedSOPs.add(sop);
-                            } else {
-                              selectedSOPs.remove(sop);
-                            }
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              onPressed: selectedSOPs.isEmpty
-                  ? null
-                  : () async {
-                      Navigator.pop(context);
-
-                      // Show loading dialog
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => const AlertDialog(
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(),
-                              SizedBox(height: 16),
-                              Text('Deleting SOPs...'),
-                            ],
-                          ),
-                        ),
-                      );
-
-                      try {
-                        // Delete each selected SOP
-                        for (var sop in selectedSOPs) {
-                          await sopService.deleteSop(sop.id);
-                        }
-
-                        // Refresh SOPs after deletion
-                        await sopService.refreshSOPs();
-
-                        if (context.mounted) {
-                          // Close loading dialog
-                          Navigator.pop(context);
-
-                          // Show success message
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                  'Successfully deleted ${selectedSOPs.length} SOPs'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          // Close loading dialog
-                          Navigator.pop(context);
-
-                          // Show error message
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error deleting SOPs: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('DELETE'),
-            ),
-          ],
-        );
-      }),
     );
   }
 }
