@@ -624,7 +624,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
   }
 
   Widget _buildSOPCard(BuildContext context, SOP sop) {
-    // Use the SOP thumbnail if available, otherwise fallback to the first step image
+    // Use the SOP thumbnail if available, otherwise fallback to first step image
     final String? imageUrl = sop.thumbnailUrl ??
         (sop.steps.isNotEmpty && sop.steps.first.imageUrl != null
             ? sop.steps.first.imageUrl
@@ -638,140 +638,142 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     final bool isTablet = MediaQuery.of(context).size.width > 600;
 
     // Adjust image height based on device type
-    final double imageHeight = isTablet ? 160.0 : 140.0;
+    final double imageHeight = isTablet ? 160.0 : 120.0;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12.0), // Slightly increased margin
-      elevation: 3, // Increased elevation for more prominence
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
         onTap: () {
           context.go('/mobile/sop/${sop.id}');
         },
-        borderRadius: BorderRadius.circular(12.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Image and category badge
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12.0),
-                    topRight: Radius.circular(12.0),
-                  ),
-                  child: imageUrl != null
-                      ? _buildImageFromUrl(imageUrl, height: imageHeight)
-                      : Container(
-                          width: double.infinity,
-                          height: imageHeight,
-                          color: Colors.grey[200],
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported,
-                                size: 56, // Larger icon
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "No Thumbnail",
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              )
-                            ],
-                          ),
-                        ),
+            // Category header at the top
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: categoryColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
                 ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10.0, // Increased padding
-                      vertical: 6.0, // Increased padding
-                    ),
-                    decoration: BoxDecoration(
-                      color: categoryColor.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
                     child: Text(
                       sop.categoryName ?? 'Unknown',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 14.0, // Increased font size
-                        fontWeight: FontWeight.bold, // Made bold for emphasis
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Rev ${sop.revisionNumber}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
 
-            // Title and details
+            // Image section
+            SizedBox(
+              height: imageHeight,
+              width: double.infinity,
+              child: imageUrl != null
+                  ? CrossPlatformImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: _buildImageError(),
+                    )
+                  : _buildImageError(),
+            ),
+
+            // Content section
             Padding(
-              padding: const EdgeInsets.all(12.0), // Increased padding
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Title
                   Text(
                     sop.title,
-                    style: TextStyle(
-                      fontSize: 18.0, // Increased from smaller size
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      fontSize: 14,
+                      color: AppColors.textDark,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8.0), // Increased spacing
-                  Text(
-                    sop.description,
-                    style: TextStyle(
-                      fontSize: 14.0, // Increased from smaller size
-                      color: Colors.black54,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12.0), // Increased spacing
 
-                  // Meta info at the bottom of the card
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.history,
-                              size: 16.0, color: Colors.grey[600]),
-                          const SizedBox(width: 4.0),
-                          Text(
-                            _formatDate(sop.updatedAt),
-                            style: TextStyle(
-                              fontSize: 13.0, // Increased from smaller size
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
+                  // Description (if available)
+                  if (sop.description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      sop.description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMedium,
                       ),
-                      Row(
-                        children: [
-                          Icon(Icons.format_list_numbered,
-                              size: 16.0, color: Colors.grey[600]),
-                          const SizedBox(width: 4.0),
-                          Text(
-                            '${sop.steps.length} steps',
-                            style: TextStyle(
-                              fontSize: 13.0, // Increased from smaller size
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+
+                  const SizedBox(height: 8),
+
+                  // Stats in a row
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.format_list_numbered,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${sop.steps.length} steps',
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(sop.updatedAt),
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -784,12 +786,16 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     );
   }
 
-  Widget _buildImageFromUrl(String url, {double height = 140.0}) {
-    return CrossPlatformImage(
-      imageUrl: url,
-      height: height,
-      width: double.infinity,
-      fit: BoxFit.cover,
+  Widget _buildImageError() {
+    return Container(
+      color: Colors.grey[100],
+      child: Center(
+        child: Icon(
+          Icons.image_not_supported,
+          size: 24,
+          color: AppColors.textLight.withOpacity(0.5),
+        ),
+      ),
     );
   }
 
