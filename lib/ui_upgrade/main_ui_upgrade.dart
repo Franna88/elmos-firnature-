@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'design_system/design_system.dart';
 import 'sample_page.dart';
-import 'screens/sop_list_screen.dart';
-import 'screens/sop_viewer_screen.dart';
+import 'screens/screens.dart';
 
 /// Entry point for the UI upgrade demo
 void main() {
@@ -20,11 +19,18 @@ class UIUpgradeApp extends StatelessWidget {
       theme: AppTheme.lightTheme(),
       debugShowCheckedModeBanner: false,
       routes: {
-        '/': (context) => const SamplePage(),
+        '/': (context) => const LoginScreen(),
+        '/register': (context) => const RegistrationScreen(),
+        '/password-reset': (context) => const PasswordResetScreen(),
+        '/dashboard': (context) => const SamplePage(),
+        '/profile': (context) => const UserProfileScreen(),
+        '/settings': (context) => const SettingsScreen(),
+        '/users': (context) => const UserListScreen(),
         '/sop-list': (context) => const SOPListScreen(),
         '/sop-viewer': (context) => const SOPViewerScreen(sopId: 'SOP-001'),
+        '/sop-categories': (context) => const SOPCategoryManagementScreen(),
       },
-      initialRoute: '/sop-viewer', // Change to see different screens
+      initialRoute: '/', // Start with login screen
     );
   }
 }
