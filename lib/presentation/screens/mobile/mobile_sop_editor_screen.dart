@@ -17,8 +17,13 @@ import '../../../utils/permission_handler.dart';
 
 class MobileSOPEditorScreen extends StatefulWidget {
   final String sopId;
+  final int? initialStepIndex;
 
-  const MobileSOPEditorScreen({super.key, required this.sopId});
+  const MobileSOPEditorScreen({
+    super.key,
+    required this.sopId,
+    this.initialStepIndex,
+  });
 
   @override
   State<MobileSOPEditorScreen> createState() => _MobileSOPEditorScreenState();
@@ -88,7 +93,27 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSOP();
+
+    // Initialize controllers
+    _stepTitleController = TextEditingController();
+    _stepInstructionController = TextEditingController();
+    _stepHelpNoteController = TextEditingController();
+    _stepEstimatedHoursController = TextEditingController(text: '0');
+    _stepEstimatedMinutesController = TextEditingController(text: '0');
+    _stepEstimatedSecondsController = TextEditingController(text: '0');
+
+    _loadSOP().then((_) {
+      // If initialStepIndex is provided and valid, open the step editor for that step
+      if (widget.initialStepIndex != null &&
+          widget.initialStepIndex! >= 0 &&
+          _sop.steps.isNotEmpty &&
+          widget.initialStepIndex! < _sop.steps.length) {
+        // Schedule the step editor to open after the build is complete
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _editStep(widget.initialStepIndex!);
+        });
+      }
+    });
   }
 
   @override
@@ -447,6 +472,11 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         stepHazards: _currentStepHazards,
       );
 
+      // Store the current step index for navigation after saving
+      final int savedStepIndex = _currentStepIndex < updatedSteps.length
+          ? _currentStepIndex // For existing step, use current index
+          : updatedSteps.length; // For new step, it will be added at the end
+
       if (_currentStepIndex < updatedSteps.length) {
         // Update existing step
         updatedSteps[_currentStepIndex] = newStep;
@@ -475,7 +505,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
       setState(() {
         _sop = finalSop;
-        _currentStepIndex = -1; // Return to main form
         _tempImageUrl = null; // Clear temporary image URL
         _isLoading = false; // Hide loading indicator
       });
@@ -483,6 +512,16 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Step saved successfully')),
       );
+
+      // Navigate back to SOP viewer with the saved step index
+      if (widget.sopId != 'new') {
+        context.go('/mobile/sop/${finalSop.id}?stepIndex=$savedStepIndex');
+      } else {
+        // For new SOPs, return to the main editor form
+        setState(() {
+          _currentStepIndex = -1;
+        });
+      }
     } catch (e) {
       // Hide loading indicator even if there's an error
       setState(() {

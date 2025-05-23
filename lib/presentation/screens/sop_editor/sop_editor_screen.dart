@@ -24,8 +24,13 @@ import 'package:flutter/services.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
+  final int? initialStepIndex;
 
-  const SOPEditorScreen({super.key, required this.sopId});
+  const SOPEditorScreen({
+    super.key,
+    required this.sopId,
+    this.initialStepIndex,
+  });
 
   @override
   State<SOPEditorScreen> createState() => _SOPEditorScreenState();
@@ -74,6 +79,21 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         if (category != null) {
           _updateVisibleTabsForCategory(category);
         }
+      }
+
+      // If initialStepIndex is provided, navigate to the Steps tab and open the step editor
+      if (widget.initialStepIndex != null &&
+          widget.initialStepIndex! >= 0 &&
+          _sop.steps.isNotEmpty &&
+          widget.initialStepIndex! < _sop.steps.length) {
+        // Select the Steps tab (index 5)
+        _tabController.animateTo(5);
+
+        // Schedule the step editor to open after the build is complete
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final step = _sop.steps[widget.initialStepIndex!];
+          _showEditStepDialog(step, widget.initialStepIndex!);
+        });
       }
     });
   }
@@ -558,7 +578,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
               : SOPViewer(
                   sop: _sop,
                   onPrint: _printSOP,
-                  onDownloadQRCode: _downloadQRCode),
+                  onDownloadQRCode: _downloadQRCode,
+                  onEditStep: _editStepFromViewer,
+                ),
     );
   }
 
@@ -4582,5 +4604,22 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         ),
       ),
     );
+  }
+
+  // Method to handle step edit requests from the SOPViewer
+  void _editStepFromViewer(int stepIndex) {
+    if (stepIndex >= 0 && stepIndex < _sop.steps.length) {
+      setState(() {
+        _isEditing = true;
+        // Select the Steps tab
+        _tabController.animateTo(5);
+      });
+
+      // Schedule the step editor to open after the build is complete
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final step = _sop.steps[stepIndex];
+        _showEditStepDialog(step, stepIndex);
+      });
+    }
   }
 }

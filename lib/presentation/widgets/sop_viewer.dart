@@ -12,6 +12,7 @@ class SOPViewer extends StatefulWidget {
   final bool showFullDetails;
   final VoidCallback? onPrint;
   final VoidCallback? onDownloadQRCode;
+  final Function(int)? onEditStep;
 
   const SOPViewer({
     super.key,
@@ -19,6 +20,7 @@ class SOPViewer extends StatefulWidget {
     this.showFullDetails = true,
     this.onPrint,
     this.onDownloadQRCode,
+    this.onEditStep,
   });
 
   @override
@@ -760,6 +762,12 @@ class _SOPViewerState extends State<SOPViewer> {
                     ),
                   ),
                 ),
+                if (widget.onEditStep != null)
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.white),
+                    tooltip: 'Edit this step',
+                    onPressed: () => widget.onEditStep!(index),
+                  ),
                 if (step.estimatedTime != null)
                   Container(
                     padding:

@@ -178,12 +178,16 @@ class MyApp extends StatelessWidget {
           path: '/mobile/sop/:sopId',
           builder: (context, state) => MobileSOPViewerScreen(
             sopId: state.pathParameters['sopId'] ?? '',
+            initialStepIndex:
+                int.tryParse(state.uri.queryParameters['stepIndex'] ?? ''),
           ),
         ),
         GoRoute(
           path: '/mobile/editor/:sopId',
           builder: (context, state) => MobileSOPEditorScreen(
             sopId: state.pathParameters['sopId'] ?? '',
+            initialStepIndex:
+                int.tryParse(state.uri.queryParameters['stepIndex'] ?? ''),
           ),
         ),
         GoRoute(
@@ -207,7 +211,10 @@ class MyApp extends StatelessWidget {
           path: '/editor/:id',
           builder: (context, state) {
             final id = state.pathParameters['id'];
-            return SOPEditorScreen(sopId: id ?? '');
+            final stepIndex =
+                int.tryParse(state.uri.queryParameters['stepIndex'] ?? '');
+            return SOPEditorScreen(
+                sopId: id ?? '', initialStepIndex: stepIndex);
           },
         ),
         GoRoute(

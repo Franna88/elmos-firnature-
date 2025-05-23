@@ -245,33 +245,28 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
       BuildContext context, Category category, List<SOP> sops) {
     final Color categoryColor = _getCategoryColor(category.name);
 
-    // Calculate statistics
-    final int totalSteps =
-        sops.isEmpty ? 0 : sops.fold(0, (sum, sop) => sum + sop.steps.length);
+    // Get only the active sections for this category
+    List<String> activeSections = [];
 
-    final double avgStepsPerSOP = sops.isEmpty ? 0 : totalSteps / sops.length;
+    // Add standard sections if they're enabled in category settings
+    if (category.categorySettings['tools'] == true) {
+      activeSections.add('Tools');
+    }
+    if (category.categorySettings['safety'] == true) {
+      activeSections.add('Safety');
+    }
+    if (category.categorySettings['cautions'] == true) {
+      activeSections.add('Cautions');
+    }
 
-    final int newestSOPIndex = sops.isEmpty
-        ? -1
-        : sops.indexWhere((sop) =>
-            sop.updatedAt ==
-            sops
-                .map((s) => s.updatedAt)
-                .reduce((a, b) => a.isAfter(b) ? a : b));
+    // Add custom sections
+    activeSections.addAll(category.customSections);
 
-    final String newestSOPTitle =
-        (newestSOPIndex >= 0) ? sops[newestSOPIndex].title : 'None';
-
-    // Calculate most recent update date
-    final DateTime? mostRecentUpdate = sops.isEmpty
-        ? null
-        : sops.map((s) => s.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b);
-
-    // Calculate estimated total completion time (2 min per step as an estimate)
-    final int totalCompletionTime = totalSteps * 2; // in minutes
+    // Steps are always included
+    activeSections.add('Steps');
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 16.0),
+      margin: const EdgeInsets.only(bottom: 12.0),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12.0),
@@ -344,93 +339,73 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
             ),
           ),
 
-          // Statistics display instead of SOPs list
+          // Sections list - with compact height and consistent colors
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sections:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.0,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 8.0),
+                Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: activeSections.map((section) {
+                    IconData iconData;
+
+                    // Assign appropriate icon based on section type
+                    switch (section.toLowerCase()) {
+                      case 'tools':
+                        iconData = Icons.build;
+                        break;
+                      case 'safety':
+                        iconData = Icons.security;
+                        break;
+                      case 'cautions':
+                        iconData = Icons.warning;
+                        break;
+                      case 'steps':
+                        iconData = Icons.format_list_numbered;
+                        break;
+                      default:
+                        iconData = Icons.article;
+                    }
+
+                    // Use a consistent color for all chips
+                    return Chip(
+                      avatar: Icon(iconData, size: 16, color: categoryColor),
+                      label: Text(section),
+                      backgroundColor: categoryColor.withOpacity(0.1),
+                      visualDensity: VisualDensity.compact,
+                      labelStyle: TextStyle(
+                        fontSize: 12.0,
+                        color: categoryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+
+          // Only show "No SOPs" message if empty
           if (sops.isEmpty)
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
               child: Text(
                 'No SOPs in this category',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Stats row 1
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        icon: Icons.article,
-                        value: '${sops.length}',
-                        label: 'Total SOPs',
-                        color: categoryColor,
-                        flex: 1,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        icon: Icons.format_list_numbered,
-                        value: '$totalSteps',
-                        label: 'Total Steps',
-                        color: categoryColor,
-                        flex: 1,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Stats row 2
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        icon: Icons.bar_chart,
-                        value: avgStepsPerSOP.toStringAsFixed(1),
-                        label: 'Avg Steps/SOP',
-                        color: categoryColor,
-                        flex: 1,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        icon: Icons.update,
-                        value: newestSOPTitle,
-                        label: 'Latest Updated',
-                        color: categoryColor,
-                        flex: 2,
-                        isText: true,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Stats row 3
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        icon: Icons.calendar_today,
-                        value: mostRecentUpdate != null
-                            ? '${mostRecentUpdate.day}/${mostRecentUpdate.month}/${mostRecentUpdate.year}'
-                            : 'N/A',
-                        label: 'Last Updated',
-                        color: categoryColor,
-                        flex: 1,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        icon: Icons.timer,
-                        value: totalCompletionTime > 60
-                            ? '${(totalCompletionTime / 60).toStringAsFixed(1)} hrs'
-                            : '$totalCompletionTime min',
-                        label: 'Est. Completion',
-                        color: categoryColor,
-                        flex: 1,
-                      ),
-                    ],
-                  ),
-                ],
+                style: TextStyle(
+                    color: Colors.grey[600], fontStyle: FontStyle.italic),
               ),
             ),
         ],
@@ -438,7 +413,7 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
     );
   }
 
-  // Helper widget to build a stat card
+  // Helper widget to build a stat card - keeping the method signature but removing implementation
   Widget _buildStatCard({
     required IconData icon,
     required String value,
@@ -447,55 +422,8 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
     required int flex,
     bool isText = false,
   }) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: color),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            isText
-                ? Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                : Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-          ],
-        ),
-      ),
-    );
+    // This method is kept for compatibility but not used anymore
+    return const SizedBox.shrink();
   }
 
   // Method to navigate to the filtered SOPs view

@@ -11,8 +11,13 @@ import '../../../core/theme/app_theme.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
   final String sopId;
+  final int? initialStepIndex;
 
-  const MobileSOPViewerScreen({super.key, required this.sopId});
+  const MobileSOPViewerScreen({
+    super.key,
+    required this.sopId,
+    this.initialStepIndex,
+  });
 
   @override
   State<MobileSOPViewerScreen> createState() => _MobileSOPViewerScreenState();
@@ -32,7 +37,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    // Initialize with the provided step index if available
+    _currentStepIndex = widget.initialStepIndex ?? 0;
+    _pageController = PageController(initialPage: _currentStepIndex);
 
     // Initialize animation controller for QR scan effect
     _animationController = AnimationController(
@@ -209,7 +216,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
               tooltip: 'Edit SOP',
               onPressed: () {
                 // Navigate to the editor screen with the current SOP id
-                context.go('/mobile/editor/${widget.sopId}');
+                // and pass the current step index to edit that specific step
+                context.go(
+                    '/mobile/editor/${widget.sopId}?stepIndex=$_currentStepIndex');
               },
             ),
         ],
@@ -1120,7 +1129,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             TextButton.icon(
               onPressed: () {
                 Navigator.pop(context);
-                context.go('/mobile/editor/${widget.sopId}');
+                context.go(
+                    '/mobile/editor/${widget.sopId}?stepIndex=$_currentStepIndex');
               },
               icon: const Icon(Icons.edit, color: Colors.blue),
               label: const Text(

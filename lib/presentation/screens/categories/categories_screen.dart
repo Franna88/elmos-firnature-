@@ -140,53 +140,77 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     Color categoryColor = Theme.of(context).colorScheme.primary;
     if (category.color != null && category.color!.startsWith('#')) {
       try {
-        categoryColor = Color(
-          int.parse('FF${category.color!.substring(1)}', radix: 16),
-        );
+        categoryColor =
+            Color(int.parse('FF${category.color!.substring(1)}', radix: 16));
       } catch (e) {
-        // Use default color if parsing fails
+        // Keep default color on error
       }
     }
 
+    // Get only the active sections for this category
+    List<String> activeSections = [];
+
+    // Add standard sections if they're enabled in category settings
+    if (category.categorySettings['tools'] == true) {
+      activeSections.add('Tools');
+    }
+    if (category.categorySettings['safety'] == true) {
+      activeSections.add('Safety');
+    }
+    if (category.categorySettings['cautions'] == true) {
+      activeSections.add('Cautions');
+    }
+
+    // Add custom sections
+    activeSections.addAll(category.customSections);
+
+    // Steps are always included
+    activeSections.add('Steps');
+
     return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: 3,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Category header
+          // Category header with color and name - reduced padding
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: categoryColor.withOpacity(0.8),
-            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: categoryColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        category.name,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${sops.length} SOPs',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                      ),
-                    ],
+                  child: Text(
+                    category.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                // Settings/gear icon for category settings
+                Text(
+                  '${sops.length} SOPs',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  icon: const Icon(Icons.more_vert,
+                      color: Colors.white, size: 20),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Category Options',
                   onSelected: (value) {
                     if (value == 'edit') {
@@ -204,90 +228,37 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       // Show confirmation dialog before deleting
                       showDialog(
                         context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: const Text('Delete Category'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    'Are you sure you want to delete the category "${category.name}"?'),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'This action cannot be undone.',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                if (hasSOPs) ...[
-                                  const SizedBox(height: 16),
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                          color: Colors.amber.shade800),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(Icons.warning_amber,
-                                                color: Colors.amber.shade800),
-                                            const SizedBox(width: 8),
-                                            const Text(
-                                              'Warning',
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                            'This category contains ${categorySOPs.length} SOP${categorySOPs.length == 1 ? '' : 's'}. '
-                                            'Deleting this category will remove the category assignment from these SOPs.'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
+                        builder: (context) => AlertDialog(
+                          title: const Text('Delete Category?'),
+                          content: Text(
+                            hasSOPs
+                                ? 'This category contains ${categorySOPs.length} SOPs. If you delete it, these SOPs will be moved to "Uncategorized".'
+                                : 'Are you sure you want to delete this category?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('CANCEL'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  final categoryService =
-                                      Provider.of<CategoryService>(context,
-                                          listen: false);
-
-                                  // First dismiss the confirmation dialog
-                                  Navigator.pop(context);
-
-                                  // Delete the category
-                                  categoryService.deleteCategory(category.id);
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                final categoryService =
+                                    Provider.of<CategoryService>(context,
+                                        listen: false);
+                                categoryService.deleteCategory(category.id);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
                                       content: Text(
-                                          'Category "${category.name}" deleted'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: const Text('DELETE'),
-                              ),
-                            ],
-                          );
-                        },
+                                          'Category "${category.name}" deleted')),
+                                );
+                              },
+                              style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
                       );
                     }
                   },
@@ -319,79 +290,121 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
           ),
 
-          // Category description if available
+          // Category description if available - more compact
           if (category.description != null && category.description!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
                 category.description!,
-                style: Theme.of(context).textTheme.bodyMedium,
-                maxLines: 2,
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
 
-          // SOPs list
-          Expanded(
-            child: sops.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.folder_open,
-                            size: 32,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity(0.3),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No SOPs in this category',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withOpacity(0.6),
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const ClampingScrollPhysics(),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    itemCount: sops.length,
-                    itemBuilder: (context, index) =>
-                        _buildSOPListItemCompact(context, sops[index]),
-                  ),
+          // Divider - reduced vertical padding
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Divider(height: 1),
           ),
 
-          // Add SOP button
+          // Sections list - more compact
           Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  context.go('/editor/new?categoryId=${category.id}');
-                },
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add SOP'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: categoryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Sections:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: activeSections.map((section) {
+                          IconData iconData;
+
+                          // Assign appropriate icon based on section type
+                          switch (section.toLowerCase()) {
+                            case 'tools':
+                              iconData = Icons.build;
+                              break;
+                            case 'safety':
+                              iconData = Icons.security;
+                              break;
+                            case 'cautions':
+                              iconData = Icons.warning;
+                              break;
+                            case 'steps':
+                              iconData = Icons.format_list_numbered;
+                              break;
+                            default:
+                              iconData = Icons.article;
+                          }
+
+                          // Use a consistent color for all chips
+                          return Chip(
+                            avatar:
+                                Icon(iconData, size: 14, color: categoryColor),
+                            label: Text(section),
+                            backgroundColor: categoryColor.withOpacity(0.1),
+                            visualDensity: VisualDensity.compact,
+                            labelStyle: TextStyle(
+                              fontSize: 11.0,
+                              color: categoryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
+            ),
+          ),
+
+          // SOPs count and view button - more compact
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total SOPs: ${sops.length}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[700],
+                    fontSize: 12,
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Navigate to SOPs screen with category filter
+                    context.go('/sops', extra: {'categoryId': category.id});
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: categoryColor,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 12),
+                    minimumSize: const Size(80, 28),
+                  ),
+                  child: const Text('View SOPs'),
+                ),
+              ],
             ),
           ),
         ],
