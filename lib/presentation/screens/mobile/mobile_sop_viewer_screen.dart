@@ -280,20 +280,24 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       )
                     : const SizedBox(width: 48),
 
-                // Step indicator
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Step ${_currentStepIndex + 1} of ${_sop.steps.length}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: isTablet ? 18.0 : 16.0,
-                      color: Colors.black87,
+                // Minimalist dot indicator
+                Expanded(
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(_sop.steps.length, (index) {
+                        return Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: index == _currentStepIndex
+                                ? AppColors.primaryBlue
+                                : Colors.grey[300],
+                          ),
+                        );
+                      }),
                     ),
                   ),
                 ),

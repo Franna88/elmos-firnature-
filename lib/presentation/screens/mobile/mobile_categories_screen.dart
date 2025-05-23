@@ -245,6 +245,31 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
       BuildContext context, Category category, List<SOP> sops) {
     final Color categoryColor = _getCategoryColor(category.name);
 
+    // Calculate statistics
+    final int totalSteps =
+        sops.isEmpty ? 0 : sops.fold(0, (sum, sop) => sum + sop.steps.length);
+
+    final double avgStepsPerSOP = sops.isEmpty ? 0 : totalSteps / sops.length;
+
+    final int newestSOPIndex = sops.isEmpty
+        ? -1
+        : sops.indexWhere((sop) =>
+            sop.updatedAt ==
+            sops
+                .map((s) => s.updatedAt)
+                .reduce((a, b) => a.isAfter(b) ? a : b));
+
+    final String newestSOPTitle =
+        (newestSOPIndex >= 0) ? sops[newestSOPIndex].title : 'None';
+
+    // Calculate most recent update date
+    final DateTime? mostRecentUpdate = sops.isEmpty
+        ? null
+        : sops.map((s) => s.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b);
+
+    // Calculate estimated total completion time (2 min per step as an estimate)
+    final int totalCompletionTime = totalSteps * 2; // in minutes
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16.0),
       elevation: 2,
@@ -319,7 +344,7 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
             ),
           ),
 
-          // SOPs list
+          // Statistics display instead of SOPs list
           if (sops.isEmpty)
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -329,77 +354,146 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
               ),
             )
           else
-            ListView.separated(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemCount:
-                  sops.length > 3 ? 3 : sops.length, // Show only first 3 SOPs
-              separatorBuilder: (context, index) => Divider(
-                height: 1,
-                color: Colors.grey[200],
-              ),
-              itemBuilder: (context, index) {
-                final sop = sops[index];
-                return ListTile(
-                  title: Text(
-                    sop.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '${sop.steps.length} steps • Rev ${sop.revisionNumber}',
-                    style: TextStyle(
-                      fontSize: 12.0,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16.0),
-                  onTap: () {
-                    context.go('/mobile/sop/${sop.id}');
-                  },
-                );
-              },
-            ),
-
-          // "Show more" button if there are more than 3 SOPs
-          if (sops.length > 3)
-            InkWell(
-              onTap: () {
-                _navigateToFilteredSOPs(context, category.name);
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(12.0),
-                    bottomRight: Radius.circular(12.0),
-                  ),
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Stats row 1
+                  Row(
                     children: [
-                      Text(
-                        'View ${sops.length - 3} more',
-                        style: TextStyle(
-                          color: categoryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward,
-                        size: 16.0,
+                      _buildStatCard(
+                        icon: Icons.article,
+                        value: '${sops.length}',
+                        label: 'Total SOPs',
                         color: categoryColor,
+                        flex: 1,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildStatCard(
+                        icon: Icons.format_list_numbered,
+                        value: '$totalSteps',
+                        label: 'Total Steps',
+                        color: categoryColor,
+                        flex: 1,
                       ),
                     ],
                   ),
-                ),
+
+                  const SizedBox(height: 12),
+
+                  // Stats row 2
+                  Row(
+                    children: [
+                      _buildStatCard(
+                        icon: Icons.bar_chart,
+                        value: avgStepsPerSOP.toStringAsFixed(1),
+                        label: 'Avg Steps/SOP',
+                        color: categoryColor,
+                        flex: 1,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildStatCard(
+                        icon: Icons.update,
+                        value: newestSOPTitle,
+                        label: 'Latest Updated',
+                        color: categoryColor,
+                        flex: 2,
+                        isText: true,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Stats row 3
+                  Row(
+                    children: [
+                      _buildStatCard(
+                        icon: Icons.calendar_today,
+                        value: mostRecentUpdate != null
+                            ? '${mostRecentUpdate.day}/${mostRecentUpdate.month}/${mostRecentUpdate.year}'
+                            : 'N/A',
+                        label: 'Last Updated',
+                        color: categoryColor,
+                        flex: 1,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildStatCard(
+                        icon: Icons.timer,
+                        value: totalCompletionTime > 60
+                            ? '${(totalCompletionTime / 60).toStringAsFixed(1)} hrs'
+                            : '$totalCompletionTime min',
+                        label: 'Est. Completion',
+                        color: categoryColor,
+                        flex: 1,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  // Helper widget to build a stat card
+  Widget _buildStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+    required int flex,
+    bool isText = false,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.3))),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20, color: color),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            isText
+                ? Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+          ],
+        ),
       ),
     );
   }

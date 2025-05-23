@@ -325,141 +325,190 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       ),
       body: Column(
         children: [
-          // Search bar
+          // Search bar and category filter in the same row
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search SOPs...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Check if we're on a tablet or a phone
+                final bool isTablet = constraints.maxWidth > 600;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Search bar - takes more space
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Show label for both tablet and phone, but smaller on phones
+                          Text(
+                            "Search:",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isTablet ? 14.0 : 12.0,
+                            ),
+                          ),
+                          SizedBox(height: isTablet ? 4.0 : 2.0),
+                          TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search SOPs...',
+                              prefixIcon: const Icon(Icons.search),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10.0),
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 12.0),
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 12.0),
+
+                    // Category filter dropdown - takes less space
+                    Expanded(
+                      flex: isTablet ? 2 : 3, // Give more space on phones
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Show label for both tablet and phone, but smaller on phones
+                          Text(
+                            "Category:",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isTablet ? 14.0 : 12.0,
+                            ),
+                          ),
+                          SizedBox(height: isTablet ? 4.0 : 2.0),
+                          Container(
+                            height: 48, // Match the search bar height
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10.0),
+                              border: Border.all(color: Colors.grey.shade300),
+                              color: Colors.grey.shade50,
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              decoration: InputDecoration(
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: isTablet ? 16.0 : 8.0,
+                                    vertical: 0),
+                                border: InputBorder.none,
+                                prefixIcon: Icon(
+                                  Icons.category,
+                                  color: _selectedCategory != 'All'
+                                      ? _getCategoryColor(_selectedCategory)
+                                      : Colors.grey,
+                                  size: isTablet ? 24 : 20,
+                                ),
+                              ),
+                              value: _selectedCategory,
+                              items: categories.map((category) {
+                                return DropdownMenuItem<String>(
+                                  value: category,
+                                  child: Text(
+                                    category,
+                                    style: TextStyle(
+                                      color: category != 'All'
+                                          ? _getCategoryColor(category)
+                                          : Colors.black,
+                                      fontWeight: category == _selectedCategory
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      fontSize: isTablet ? 14 : 13,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _selectedCategory = value;
+                                    // Reset letter selection when category changes
+                                    _selectedLetter = null;
+                                  });
+                                }
+                              },
+                              dropdownColor: Colors.white,
+                              isExpanded: true,
+                              icon: const Icon(Icons.arrow_drop_down),
+                              isDense: !isTablet,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
               },
             ),
           ),
 
-          // Category filter - updated with more prominent UI
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Filter by Category:",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10.0),
-                    border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 0),
-                      border: InputBorder.none,
-                      prefixIcon: Icon(
-                        Icons.category,
-                        color: _selectedCategory != 'All'
-                            ? _getCategoryColor(_selectedCategory)
-                            : Colors.grey,
+          // Show selected category chip if not All
+          if (_selectedCategory != 'All')
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8.0),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getCategoryColor(_selectedCategory)
+                          .withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _getCategoryColor(_selectedCategory)
+                            .withOpacity(0.3),
+                        width: 1,
                       ),
                     ),
-                    value: _selectedCategory,
-                    items: categories.map((category) {
-                      return DropdownMenuItem<String>(
-                        value: category,
-                        child: Text(
-                          category,
-                          style: TextStyle(
-                            color: category != 'All'
-                                ? _getCategoryColor(category)
-                                : Colors.black,
-                            fontWeight: category == _selectedCategory
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedCategory = value;
-                          // Reset letter selection when category changes
-                          _selectedLetter = null;
-                        });
-                      }
-                    },
-                    dropdownColor: Colors.white,
-                    icon: Icon(
-                      Icons.arrow_drop_down_circle,
-                      color: _selectedCategory != 'All'
-                          ? _getCategoryColor(_selectedCategory)
-                          : Colors.grey,
-                    ),
-                  ),
-                ),
-                if (_selectedCategory != 'All')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _getCategoryColor(_selectedCategory)
-                                .withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                "Showing only $_selectedCategory SOPs",
-                                style: TextStyle(
-                                  color: _getCategoryColor(_selectedCategory),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedCategory = 'All';
-                                  });
-                                },
-                                child: Icon(
-                                  Icons.close,
-                                  size: 16,
-                                  color: _getCategoryColor(_selectedCategory),
-                                ),
-                              )
-                            ],
+                        Icon(
+                          Icons.category,
+                          size: 16,
+                          color: _getCategoryColor(_selectedCategory),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _selectedCategory,
+                          style: TextStyle(
+                            color: _getCategoryColor(_selectedCategory),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedCategory = 'All';
+                            });
+                          },
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: _getCategoryColor(_selectedCategory),
+                          ),
+                        )
                       ],
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
 
           // SOPs list with alphabet scroll
           Expanded(
