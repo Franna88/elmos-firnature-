@@ -150,7 +150,12 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final orientation = MediaQuery.of(context).orientation;
+    // Consider both screen size and orientation for layout decision
     final bool isTablet = size.width > 600;
+    // Use tablet layout only for landscape orientation on tablets
+    final bool useTabletLayout =
+        isTablet && orientation == Orientation.landscape;
 
     if (_isLoading) {
       return Scaffold(
@@ -349,8 +354,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
           // Main content with steps
           Expanded(
-            child:
-                isTablet ? _buildTabletStepContent() : _buildPhoneStepContent(),
+            child: useTabletLayout
+                ? _buildTabletStepContent()
+                : _buildPhoneStepContent(),
           ),
         ],
       ),
@@ -991,10 +997,11 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     );
   }
 
-  // Phone-optimized step content with vertical layout - description below the image
+  // Vertical layout (image on top, text below) - used for portrait mode on all devices
   Widget _buildPhoneStepContent() {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
+    final bool isLargeScreen = screenWidth > 600; // Is tablet in portrait mode
 
     return PageView.builder(
       controller: _pageController,
@@ -1012,13 +1019,21 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           children: [
             // Step number indicator
             Padding(
-              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+              padding: EdgeInsets.only(
+                top: isLargeScreen ? 16.0 : 8.0,
+                bottom: isLargeScreen ? 16.0 : 8.0,
+                left: isLargeScreen ? 24.0 : 16.0,
+                right: isLargeScreen ? 24.0 : 16.0,
+              ),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isLargeScreen ? 16.0 : 12.0,
+                  vertical: isLargeScreen ? 6.0 : 4.0,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius:
+                      BorderRadius.circular(isLargeScreen ? 20.0 : 16.0),
                   border:
                       Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
                 ),
@@ -1027,7 +1042,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                   style: TextStyle(
                     color: AppColors.primaryBlue,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: isLargeScreen ? 16.0 : 14.0,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1037,11 +1052,17 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
             // Image takes up most of the screen
             Expanded(
-              flex: 7,
+              flex: 6,
               child: Card(
-                margin: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 8.0),
+                margin: EdgeInsets.fromLTRB(
+                  isLargeScreen ? 24.0 : 16.0,
+                  4.0,
+                  isLargeScreen ? 24.0 : 16.0,
+                  isLargeScreen ? 16.0 : 8.0,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius:
+                      BorderRadius.circular(isLargeScreen ? 16.0 : 12.0),
                 ),
                 clipBehavior: Clip.antiAlias,
                 elevation: 2,
@@ -1111,7 +1132,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                             children: [
                               Icon(
                                 Icons.image_not_supported,
-                                size: 64,
+                                size: isLargeScreen ? 80 : 64,
                                 color: Colors.grey[400],
                               ),
                               const SizedBox(height: 16),
@@ -1119,7 +1140,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                                 "No Image Available",
                                 style: TextStyle(
                                   color: Colors.grey[600],
-                                  fontSize: 16,
+                                  fontSize: isLargeScreen ? 18.0 : 16.0,
                                 ),
                               ),
                             ],
@@ -1129,18 +1150,18 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       // Fullscreen indicator
                       if (step.imageUrl != null)
                         Positioned(
-                          right: 12,
-                          bottom: 12,
+                          right: isLargeScreen ? 16.0 : 12.0,
+                          bottom: isLargeScreen ? 16.0 : 12.0,
                           child: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: EdgeInsets.all(isLargeScreen ? 10.0 : 8.0),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(30),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.fullscreen,
                               color: Colors.white,
-                              size: 20,
+                              size: isLargeScreen ? 24.0 : 20.0,
                             ),
                           ),
                         ),
@@ -1152,16 +1173,22 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
             // Details below the image
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Card(
-                margin: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+                margin: EdgeInsets.fromLTRB(
+                  isLargeScreen ? 24.0 : 16.0,
+                  0,
+                  isLargeScreen ? 24.0 : 16.0,
+                  isLargeScreen ? 24.0 : 16.0,
+                ),
                 elevation: 2,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius:
+                      BorderRadius.circular(isLargeScreen ? 16.0 : 12.0),
                 ),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(isLargeScreen ? 24.0 : 16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1173,23 +1200,25 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                             children: [
                               Text(
                                 step.instruction,
-                                style: const TextStyle(
-                                  fontSize: 15,
+                                style: TextStyle(
+                                  fontSize: isLargeScreen ? 18.0 : 15.0,
                                   height: 1.4,
                                   color: Colors.black87,
                                 ),
                               ),
-                              const SizedBox(height: 12),
+                              SizedBox(height: isLargeScreen ? 16.0 : 12.0),
 
                               // Help note if available
                               if (step.helpNote != null &&
                                   step.helpNote!.isNotEmpty)
                                 Container(
                                   margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(8),
+                                  padding: EdgeInsets.all(
+                                      isLargeScreen ? 12.0 : 8.0),
                                   decoration: BoxDecoration(
                                     color: Colors.amber[50],
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(
+                                        isLargeScreen ? 12.0 : 8.0),
                                     border: Border.all(
                                         color: Colors.amber.shade200),
                                   ),
@@ -1198,13 +1227,16 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                                         CrossAxisAlignment.start,
                                     children: [
                                       Icon(Icons.lightbulb_outline,
-                                          color: Colors.amber[700], size: 14),
-                                      const SizedBox(width: 8),
+                                          color: Colors.amber[700],
+                                          size: isLargeScreen ? 18.0 : 14.0),
+                                      SizedBox(
+                                          width: isLargeScreen ? 12.0 : 8.0),
                                       Expanded(
                                         child: Text(
                                           step.helpNote!,
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize:
+                                                isLargeScreen ? 16.0 : 13.0,
                                             color: Colors.amber[900],
                                             fontStyle: FontStyle.italic,
                                           ),
@@ -1217,11 +1249,14 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                               // Tools if available
                               if (step.stepTools.isNotEmpty)
                                 Container(
-                                  margin: const EdgeInsets.only(top: 4),
-                                  padding: const EdgeInsets.all(8),
+                                  margin: EdgeInsets.only(
+                                      top: isLargeScreen ? 8.0 : 4.0),
+                                  padding: EdgeInsets.all(
+                                      isLargeScreen ? 12.0 : 8.0),
                                   decoration: BoxDecoration(
                                     color: Colors.blue[50],
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(
+                                        isLargeScreen ? 12.0 : 8.0),
                                     border:
                                         Border.all(color: Colors.blue.shade200),
                                   ),
@@ -1233,36 +1268,48 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                                         children: [
                                           Icon(Icons.build,
                                               color: Colors.blue[700],
-                                              size: 14),
-                                          const SizedBox(width: 8),
-                                          const Text(
+                                              size:
+                                                  isLargeScreen ? 18.0 : 14.0),
+                                          SizedBox(
+                                              width:
+                                                  isLargeScreen ? 12.0 : 8.0),
+                                          Text(
                                             "Required Tools:",
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 13,
+                                              fontSize:
+                                                  isLargeScreen ? 16.0 : 13.0,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 6),
+                                      SizedBox(
+                                          height: isLargeScreen ? 8.0 : 6.0),
                                       Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
+                                        spacing: isLargeScreen ? 8.0 : 6.0,
+                                        runSpacing: isLargeScreen ? 8.0 : 6.0,
                                         children: step.stepTools.map((tool) {
                                           return Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal:
+                                                    isLargeScreen ? 12.0 : 8.0,
+                                                vertical:
+                                                    isLargeScreen ? 4.0 : 2.0),
                                             decoration: BoxDecoration(
                                               color: Colors.white,
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(
+                                                      isLargeScreen
+                                                          ? 16.0
+                                                          : 12.0),
                                               border: Border.all(
                                                   color: Colors.blue.shade300),
                                             ),
                                             child: Text(
                                               tool,
                                               style: TextStyle(
-                                                fontSize: 12,
+                                                fontSize:
+                                                    isLargeScreen ? 14.0 : 12.0,
                                                 color: Colors.blue[800],
                                               ),
                                             ),
@@ -1285,22 +1332,33 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             // Complete button for the last step
             if (isLastStep)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+                padding: EdgeInsets.fromLTRB(isLargeScreen ? 24.0 : 16.0, 0,
+                    isLargeScreen ? 24.0 : 16.0, isLargeScreen ? 24.0 : 16.0),
                 child: ElevatedButton.icon(
                   onPressed: () {
                     // Navigate back to main page
                     context.go('/mobile/sops');
                   },
-                  icon: const Icon(Icons.check_circle),
-                  label: const Text('COMPLETE SOP'),
+                  icon: Icon(Icons.check_circle,
+                      size: isLargeScreen ? 24.0 : 20.0),
+                  label: Text(
+                    'COMPLETE SOP',
+                    style: TextStyle(
+                      fontSize: isLargeScreen ? 16.0 : 14.0,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 48),
+                    minimumSize:
+                        Size(double.infinity, isLargeScreen ? 56.0 : 48.0),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius:
+                          BorderRadius.circular(isLargeScreen ? 16.0 : 12.0),
                     ),
                     elevation: 4,
+                    padding: EdgeInsets.symmetric(
+                        vertical: isLargeScreen ? 16.0 : 12.0),
                   ),
                 ),
               ),
