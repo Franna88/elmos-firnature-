@@ -6,9 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/models/sop_model.dart';
-import '../../widgets/cross_platform_image.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../data/services/print_service.dart';
 import 'package:image_network/image_network.dart';
+import '../../../core/theme/app_theme.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
   final String sopId;
@@ -34,6 +34,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   bool _isFromQRScan = false;
   bool _isAnonymousAccess = false;
   bool _initialized = false;
+  final PrintService _printService = PrintService();
 
   @override
   void initState() {
@@ -214,6 +215,12 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             icon: const Icon(Icons.info_outline),
             tooltip: 'SOP Details',
             onPressed: () => _showSOPInfoDialog(context),
+          ),
+          // Print button to generate PDF
+          IconButton(
+            icon: const Icon(Icons.print),
+            tooltip: 'Print SOP',
+            onPressed: () => _printService.printSOP(context, _sop),
           ),
           // Add Edit button if user is logged in and not in anonymous mode
           if (!_isAnonymousAccess)
@@ -1560,6 +1567,17 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                 style: TextStyle(color: Colors.blue),
               ),
             ),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _printService.printSOP(context, _sop);
+            },
+            icon: const Icon(Icons.print, color: Colors.purple),
+            label: const Text(
+              'Print',
+              style: TextStyle(color: Colors.purple),
+            ),
+          ),
           if (_sop.youtubeUrl != null && _sop.youtubeUrl!.isNotEmpty)
             TextButton.icon(
               onPressed: () {
