@@ -7,6 +7,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/sop_model.dart';
 import 'qr_code_service.dart';
 import 'dart:convert';
+import 'package:flutter/rendering.dart';
+import 'package:image/image.dart' as img;
+import 'dart:ui' as ui;
+import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
+import '../../presentation/widgets/cross_platform_image.dart';
 
 class SOPService extends ChangeNotifier {
   // QR Code Service
@@ -300,6 +307,9 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('✅ Successfully loaded ${loadedSOPs.length} SOPs from Firestore');
       }
+
+      // Start preloading all thumbnails in the background
+      _preloadAllSOPThumbnails();
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error loading SOPs from Firestore: $e');
@@ -697,13 +707,17 @@ class SOPService extends ChangeNotifier {
         final base64String = dataUrl.split(',')[1];
         final bytes = base64Decode(base64String);
 
+        // Optimize the image before uploading
+        final optimizedBytes = await optimizeImage(bytes,
+            maxWidth: 800, maxHeight: 800, quality: 70);
+
         // Create a reference to the file location in Firebase Storage
         final storageRef =
             _storage!.ref().child('sop_images/$sopId/$stepId.jpg');
 
-        // Upload the data
+        // Upload the optimized data
         final metadata = SettableMetadata(contentType: contentType);
-        final uploadTask = storageRef.putData(bytes, metadata);
+        final uploadTask = storageRef.putData(optimizedBytes, metadata);
         final TaskSnapshot snapshot = await uploadTask;
 
         // Get the download URL from Firebase Storage
@@ -711,7 +725,9 @@ class SOPService extends ChangeNotifier {
 
         if (kDebugMode) {
           print(
-              'Successfully uploaded image to Firebase Storage: $downloadUrl');
+              'Successfully uploaded optimized image to Firebase Storage: $downloadUrl');
+          print(
+              'Original size: ${bytes.length} bytes, Optimized size: ${optimizedBytes.length} bytes');
         }
 
         return downloadUrl;
@@ -727,6 +743,87 @@ class SOPService extends ChangeNotifier {
         print('Error uploading image from data URL: $e');
       }
       return dataUrl; // Return the original data URL as fallback
+    }
+  }
+
+  // Helper method to optimize images before uploading
+  Future<Uint8List> optimizeImage(Uint8List bytes,
+      {required int maxWidth,
+      required int maxHeight,
+      required int quality}) async {
+    try {
+      // Use the image package to decode and resize the image
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final ui.Image image = frameInfo.image;
+
+      // Calculate scaling to maintain aspect ratio
+      final double widthRatio = maxWidth / image.width;
+      final double heightRatio = maxHeight / image.height;
+      final double scaleFactor =
+          widthRatio < heightRatio ? widthRatio : heightRatio;
+
+      // Only resize if the image is larger than our max dimensions
+      if (scaleFactor < 1.0) {
+        final int newWidth = (image.width * scaleFactor).round();
+        final int newHeight = (image.height * scaleFactor).round();
+
+        // Create a new image with the scaled dimensions
+        final ui.PictureRecorder recorder = ui.PictureRecorder();
+        final Canvas canvas = Canvas(recorder);
+
+        // Draw the image scaled to the new dimensions
+        canvas.drawImageRect(
+          image,
+          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+          Rect.fromLTWH(0, 0, newWidth.toDouble(), newHeight.toDouble()),
+          Paint()..filterQuality = FilterQuality.medium,
+        );
+
+        // Convert to an image
+        final ui.Picture picture = recorder.endRecording();
+        final ui.Image resizedImage =
+            await picture.toImage(newWidth, newHeight);
+
+        // Convert to bytes
+        final ByteData? byteData =
+            await resizedImage.toByteData(format: ui.ImageByteFormat.png);
+
+        if (byteData != null) {
+          // Convert ByteData to Uint8List
+          Uint8List resizedBytes = byteData.buffer.asUint8List();
+
+          // Convert to JPEG with specified quality
+          final img.Image imgImage = img.decodeImage(resizedBytes)!;
+          final Uint8List compressedBytes =
+              Uint8List.fromList(img.encodeJpg(imgImage, quality: quality));
+
+          if (kDebugMode) {
+            print(
+                'Image optimized: ${bytes.length} bytes -> ${compressedBytes.length} bytes');
+          }
+
+          return compressedBytes;
+        }
+      }
+
+      // If we can't resize or don't need to, compress the original image
+      final img.Image imgImage = img.decodeImage(bytes)!;
+      final Uint8List compressedBytes =
+          Uint8List.fromList(img.encodeJpg(imgImage, quality: quality));
+
+      if (kDebugMode) {
+        print(
+            'Image compressed: ${bytes.length} bytes -> ${compressedBytes.length} bytes');
+      }
+
+      return compressedBytes;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error optimizing image: $e');
+      }
+      // Return original bytes if optimization fails
+      return bytes;
     }
   }
 
@@ -936,6 +1033,254 @@ class SOPService extends ChangeNotifier {
         print('Error saving local SOP to Firebase: $e');
       }
       throw e;
+    }
+  }
+
+  // Preload all SOP thumbnails in the background to improve browsing experience
+  Future<void> _preloadAllSOPThumbnails() async {
+    if (_sops.isEmpty) return;
+
+    if (kDebugMode) {
+      print('Starting background preload of ${_sops.length} SOP thumbnails');
+    }
+
+    // Create a list of futures for thumbnail preloading
+    final List<Future<void>> thumbnailPreloadFutures = [];
+
+    // Add all valid thumbnail URLs to preload list
+    for (final sop in _sops) {
+      if (sop.thumbnailUrl != null &&
+          sop.thumbnailUrl!.isNotEmpty &&
+          sop.thumbnailUrl!.startsWith('http')) {
+        thumbnailPreloadFutures.add(_preloadNetworkImage(sop.thumbnailUrl!));
+      }
+    }
+
+    // Preload thumbnails in the background
+    if (thumbnailPreloadFutures.isNotEmpty) {
+      // Don't await this to let it run in the background
+      Future.wait(thumbnailPreloadFutures).then((_) {
+        if (kDebugMode) {
+          print(
+              '✅ Successfully preloaded ${thumbnailPreloadFutures.length} SOP thumbnails');
+        }
+
+        // After thumbnails are loaded, start preloading the first few SOPs' full images
+        _preloadTopSOPsFullImages(3); // Preload first 3 SOPs completely
+      });
+    }
+  }
+
+  // Preload complete images for the top N SOPs to improve first-view experience
+  Future<void> _preloadTopSOPsFullImages(int count) async {
+    if (_sops.isEmpty || count <= 0) return;
+
+    // Limit to available SOPs count
+    final effectiveCount = count > _sops.length ? _sops.length : count;
+
+    if (kDebugMode) {
+      print(
+          'Starting deep preload of first $effectiveCount SOPs with all images');
+    }
+
+    // Preload the first N SOPs completely (all steps)
+    for (int i = 0; i < effectiveCount; i++) {
+      final sop = _sops[i];
+
+      // Queue this preload without awaiting to allow parallel loading
+      preloadSOPImages(sop.id, highPriority: false).then((_) {
+        if (kDebugMode) {
+          print('✅ Completed deep preload of SOP: ${sop.title}');
+        }
+      });
+
+      // Small delay between starting each SOP preload to prioritize
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  // Preload all images for a specific SOP to improve viewing performance
+  Future<void> preloadSOPImages(String sopId,
+      {bool highPriority = true}) async {
+    try {
+      if (kDebugMode) {
+        print('Preloading images for SOP: $sopId' +
+            (highPriority ? ' (high priority)' : ''));
+      }
+
+      final sop = getSopById(sopId);
+      if (sop == null) {
+        if (kDebugMode) {
+          print('SOP not found for preloading: $sopId');
+        }
+        return;
+      }
+
+      // List to store all image loading futures
+      final List<Future<void>> preloadFutures = [];
+
+      // Preload the thumbnail if available (high priority)
+      if (sop.thumbnailUrl != null && sop.thumbnailUrl!.isNotEmpty) {
+        if (kDebugMode) {
+          print('Preloading thumbnail: ${sop.thumbnailUrl}');
+        }
+
+        if (sop.thumbnailUrl!.startsWith('data:image/')) {
+          // No need to preload data URLs, they're already in memory
+        } else if (sop.thumbnailUrl!.startsWith('https://') ||
+            sop.thumbnailUrl!.startsWith('http://')) {
+          // Preload network image with high priority (await this one directly)
+          await _preloadNetworkImage(sop.thumbnailUrl!);
+        }
+      }
+
+      // For each step with an image, add it to the preload list
+      for (int i = 0; i < sop.steps.length; i++) {
+        final step = sop.steps[i];
+        if (step.imageUrl != null && step.imageUrl!.isNotEmpty) {
+          if (kDebugMode) {
+            print('Preloading step ${i + 1} image: ${step.imageUrl}');
+          }
+
+          if (step.imageUrl!.startsWith('data:image/')) {
+            // No need to preload data URLs, they're already in memory
+          } else if (step.imageUrl!.startsWith('https://') ||
+              step.imageUrl!.startsWith('http://')) {
+            if (highPriority && i < 2) {
+              // If high priority and one of the first 2 steps, load immediately
+              await _preloadNetworkImage(step.imageUrl!);
+            } else {
+              // Otherwise add to parallel loading queue
+              preloadFutures.add(_preloadNetworkImage(step.imageUrl!));
+            }
+          }
+        }
+      }
+
+      // Wait for all remaining preloads to complete
+      if (preloadFutures.isNotEmpty) {
+        await Future.wait(preloadFutures);
+        if (kDebugMode) {
+          print(
+              'Successfully preloaded ${preloadFutures.length + (sop.thumbnailUrl != null ? 1 : 0)} images for SOP: $sopId');
+        }
+      } else {
+        if (kDebugMode) {
+          print('No additional images to preload for SOP: $sopId');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error preloading SOP images: $e');
+      }
+    }
+  }
+
+  // Force preload a specific SOP's images immediately
+  // Call this before navigating to a SOP detail screen
+  Future<void> forcePreloadSOP(String sopId) async {
+    if (kDebugMode) {
+      print('🔥 Force preloading SOP: $sopId');
+    }
+
+    try {
+      final sop = getSopById(sopId);
+      if (sop == null) {
+        if (kDebugMode) {
+          print('SOP not found for force preloading: $sopId');
+        }
+        return;
+      }
+
+      // Create a list of all image URLs to preload
+      final List<String> imagesToPreload = [];
+
+      // Add thumbnail if available
+      if (sop.thumbnailUrl != null &&
+          sop.thumbnailUrl!.isNotEmpty &&
+          sop.thumbnailUrl!.startsWith('http')) {
+        imagesToPreload.add(sop.thumbnailUrl!);
+      }
+
+      // Add all step images
+      for (final step in sop.steps) {
+        if (step.imageUrl != null &&
+            step.imageUrl!.isNotEmpty &&
+            step.imageUrl!.startsWith('http')) {
+          imagesToPreload.add(step.imageUrl!);
+        }
+      }
+
+      if (imagesToPreload.isEmpty) {
+        if (kDebugMode) {
+          print('No images to preload for SOP: $sopId');
+        }
+        return;
+      }
+
+      // Start a loading indicator or something here if needed
+
+      // Preload all images simultaneously and wait for all to complete
+      final futures =
+          imagesToPreload.map((url) => _preloadNetworkImage(url)).toList();
+      await Future.wait(futures);
+
+      if (kDebugMode) {
+        print(
+            '✅ Successfully force-preloaded ${imagesToPreload.length} images for SOP: $sopId');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during force preload: $e');
+      }
+    }
+  }
+
+  // Helper method to preload a network image more effectively
+  Future<void> _preloadNetworkImage(String url) async {
+    try {
+      if (kDebugMode) {
+        print('Starting preload for image: $url');
+      }
+
+      // Use a full GET request to actually download the image data
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode != 200) {
+        if (kDebugMode) {
+          print('Error preloading image: ${response.statusCode}');
+        }
+      } else {
+        if (kDebugMode) {
+          final fileSize = response.bodyBytes.length / 1024;
+          print(
+              'Successfully preloaded image (${fileSize.toStringAsFixed(1)} KB): $url');
+        }
+
+        // Add the image to the CrossPlatformImage static cache
+        CrossPlatformImage.addToCache(url, response.bodyBytes);
+
+        // For mobile platforms, explicitly create an image from the data
+        // to ensure it's cached in memory
+        if (!kIsWeb) {
+          try {
+            // Create an image from the downloaded data to keep it in memory cache
+            // This doesn't need a BuildContext
+            await ui.instantiateImageCodec(response.bodyBytes);
+            if (kDebugMode) {
+              print('Image loaded into codec cache: $url');
+            }
+          } catch (codecError) {
+            if (kDebugMode) {
+              print('Error loading image into codec: $codecError');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error preloading image $url: $e');
+      }
     }
   }
 }

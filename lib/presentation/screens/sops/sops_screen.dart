@@ -220,8 +220,41 @@ class _SOPsScreenState extends State<SOPsScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
-        onTap: () {
-          context.go('/editor/${sop.id}');
+        onTap: () async {
+          // Show a loading indicator
+          final sopService = Provider.of<SOPService>(context, listen: false);
+
+          // Show loading dialog
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return Dialog(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(width: 20),
+                      Text('Loading images for "${sop.title}"...'),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+
+          // Preload all images for this SOP before navigating
+          await sopService.forcePreloadSOP(sop.id);
+
+          // Close the dialog after preloading is complete
+          if (context.mounted) {
+            Navigator.of(context).pop();
+
+            // Now navigate to the SOP editor
+            context.go('/editor/${sop.id}');
+          }
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

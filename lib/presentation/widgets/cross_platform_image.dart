@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_network/image_network.dart';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 /// A widget that displays images across different platforms,
 /// using ImageNetwork for web to handle CORS issues and regular Image widgets for other platforms.
@@ -12,6 +14,11 @@ class CrossPlatformImage extends StatelessWidget {
   final BoxFit fit;
   final Widget? placeholder;
   final Widget? errorWidget;
+  final int? cacheWidth;
+  final int? cacheHeight;
+
+  // Static in-memory cache for images
+  static final Map<String, Uint8List> _imageCache = {};
 
   const CrossPlatformImage({
     super.key,
@@ -21,6 +28,8 @@ class CrossPlatformImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.placeholder,
     this.errorWidget,
+    this.cacheWidth,
+    this.cacheHeight,
   });
 
   @override
@@ -28,6 +37,12 @@ class CrossPlatformImage extends StatelessWidget {
     // Make sure we have actual dimensions, especially for web
     final double actualWidth = width == double.infinity ? 300.0 : width;
     final double actualHeight = height == double.infinity ? 200.0 : height;
+
+    // Use cacheWidth and cacheHeight if provided, otherwise calculate based on device pixel ratio
+    final int? effectiveCacheWidth = cacheWidth ??
+        (actualWidth * MediaQuery.of(context).devicePixelRatio).round();
+    final int? effectiveCacheHeight = cacheHeight ??
+        (actualHeight * MediaQuery.of(context).devicePixelRatio).round();
 
     // Default error widget if not provided
     final Widget defaultErrorWidget = Container(
@@ -78,6 +93,8 @@ class CrossPlatformImage extends StatelessWidget {
           width: actualWidth,
           height: actualHeight,
           fit: fit,
+          cacheWidth: effectiveCacheWidth,
+          cacheHeight: effectiveCacheHeight,
           errorBuilder: (context, error, stackTrace) =>
               errorWidget ?? defaultErrorWidget,
         );
@@ -92,10 +109,27 @@ class CrossPlatformImage extends StatelessWidget {
         width: actualWidth,
         height: actualHeight,
         fit: fit,
+        cacheWidth: effectiveCacheWidth,
+        cacheHeight: effectiveCacheHeight,
         errorBuilder: (context, error, stackTrace) =>
             errorWidget ?? defaultErrorWidget,
       );
     } else {
+      // Check if the image is already in our memory cache
+      if (!kIsWeb && _imageCache.containsKey(imageUrl)) {
+        // If image is in memory cache, display it directly without network request
+        return Image.memory(
+          _imageCache[imageUrl]!,
+          width: actualWidth,
+          height: actualHeight,
+          fit: fit,
+          cacheWidth: effectiveCacheWidth,
+          cacheHeight: effectiveCacheHeight,
+          errorBuilder: (context, error, stackTrace) =>
+              errorWidget ?? defaultErrorWidget,
+        );
+      }
+
       // Network image handling - use ImageNetwork for web
       if (kIsWeb) {
         return ImageNetwork(
@@ -108,17 +142,50 @@ class CrossPlatformImage extends StatelessWidget {
           onError: errorWidget ?? defaultErrorWidget,
         );
       } else {
-        // For mobile and other platforms, use regular Image.network
+        // For mobile and other platforms, use regular Image.network with explicit caching
         return Image.network(
           imageUrl!,
           width: actualWidth,
           height: actualHeight,
           fit: fit,
+          cacheWidth: effectiveCacheWidth,
+          cacheHeight: effectiveCacheHeight,
           errorBuilder: (context, error, stackTrace) =>
               errorWidget ?? defaultErrorWidget,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
-            return placeholder ?? defaultPlaceholder;
+
+            // Show a more informative loading indicator with progress
+            return Container(
+              width: actualWidth,
+              height: actualHeight,
+              color: Colors.grey[200],
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                      strokeWidth: 3.0,
+                      color: Colors.red[700],
+                    ),
+                    if (loadingProgress.expectedTotalBytes != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${((loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!) * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
           },
         );
       }
@@ -144,6 +211,21 @@ class CrossPlatformImage extends StatelessWidget {
         return BoxFitWeb.scaleDown;
       default:
         return BoxFitWeb.cover;
+    }
+  }
+
+  // Static method to add an image to the memory cache
+  // This should be called by the preloading system
+  static void addToCache(String url, Uint8List bytes) {
+    _imageCache[url] = bytes;
+  }
+
+  // Clear the entire cache or a specific image
+  static void clearCache([String? url]) {
+    if (url != null) {
+      _imageCache.remove(url);
+    } else {
+      _imageCache.clear();
     }
   }
 }

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../data/services/sop_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/cross_platform_image.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 class SOPViewer extends StatefulWidget {
   final SOP sop;
@@ -34,6 +35,16 @@ class _SOPViewerState extends State<SOPViewer> {
   void initState() {
     super.initState();
     _validateSelectedStepIndex();
+
+    // Preload all images for this SOP to improve viewing experience
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      sopService.preloadSOPImages(widget.sop.id).then((_) {
+        if (kDebugMode) {
+          print('All SOP images preloaded successfully in SOPViewer');
+        }
+      });
+    });
   }
 
   @override

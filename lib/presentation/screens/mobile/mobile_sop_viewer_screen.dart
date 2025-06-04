@@ -9,6 +9,7 @@ import '../../../data/models/sop_model.dart';
 import '../../../data/services/print_service.dart';
 import 'package:image_network/image_network.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
   final String sopId;
@@ -82,40 +83,51 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       _isLoading = true;
     });
 
-    final sopService = Provider.of<SOPService>(context, listen: false);
-
     try {
-      final sop = await sopService.getSopById(widget.sopId);
-      if (sop != null) {
-        setState(() {
-          _sop = sop;
-          _isLoading = false;
-        });
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      final sop = sopService.getSopById(widget.sopId);
 
-        // Play animation effect if this was from a QR scan
-        if (_isFromQRScan) {
-          _animationController.forward();
-        }
-      } else {
+      if (sop == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('SOP not found'),
-              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
             ),
           );
-          _navigateBack();
+          Navigator.of(context).pop();
         }
+        return;
+      }
+
+      setState(() {
+        _sop = sop;
+        _isLoading = false;
+      });
+
+      // Preload all images for this SOP to improve viewing experience
+      sopService.preloadSOPImages(sop.id).then((_) {
+        if (kDebugMode) {
+          print('All SOP images preloaded successfully');
+        }
+      });
+
+      // Play animation effect if this was accessed via QR code
+      if (_isFromQRScan) {
+        _animationController.forward();
       }
     } catch (e) {
+      if (kDebugMode) {
+        print('Error loading SOP: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading SOP: $e'),
-            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
-        _navigateBack();
+        Navigator.of(context).pop();
       }
     }
   }
