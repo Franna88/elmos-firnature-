@@ -203,7 +203,7 @@ class PrintService {
                 //   ],
                 // ),
 
-                pw.SizedBox(height: 20),
+                pw.SizedBox(height: 5),
 
                 // First 6 steps or all if <= 6
                 _buildStepsSection(sop, stepImages, pdfCategoryColor, 0,
@@ -909,7 +909,7 @@ class PrintService {
   // Build an individual step card with consistent image size and text limited to 4 lines
   pw.Widget _buildStepCard(SOPStep step, int stepNumber,
       pw.MemoryImage? stepImage, PdfColor categoryColor) {
-    final cardHeight = 210.0; // Increased card height
+    final cardHeight = 240.0; // Increased card height
     final imageHeight =
         130.0; // Slightly reduced image height to make room for text
     final textContainerHeight = 50.0; // Increased text container height
