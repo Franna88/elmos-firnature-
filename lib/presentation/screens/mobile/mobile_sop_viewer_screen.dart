@@ -212,39 +212,52 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           children: [
             Text(
               _sop.title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              'Category: ${_sop.categoryName}',
-              style: const TextStyle(fontSize: 12),
+              _sop.categoryName ?? 'Uncategorized',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.white70,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
         actions: [
-          // Info button to show SOP details
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'SOP Details',
-            onPressed: () => _showSOPInfoDialog(context),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+            child: IconButton(
+              icon: const Icon(Icons.info_outline, size: 20 * 0.85),
+              tooltip: 'SOP Details',
+              onPressed: () => _showSOPInfoDialog(context),
+            ),
           ),
-          // Print button to generate PDF
-          IconButton(
-            icon: const Icon(Icons.print),
-            tooltip: 'Print SOP',
-            onPressed: () => _printService.printSOP(context, _sop),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+            child: IconButton(
+              icon: const Icon(Icons.print, size: 24 * 0.85),
+              tooltip: 'Print SOP',
+              onPressed: () => _printService.printSOP(context, _sop),
+            ),
           ),
-          // Add Edit button if user is logged in and not in anonymous mode
           if (!_isAnonymousAccess)
-            IconButton(
-              icon: const Icon(Icons.edit),
-              tooltip: 'Edit SOP',
-              onPressed: () {
-                // Navigate to the editor screen with the current SOP id
-                // and pass the current step index to edit that specific step
-                context.go(
-                    '/mobile/editor/${widget.sopId}?stepIndex=$_currentStepIndex');
-              },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+              child: IconButton(
+                icon: const Icon(Icons.edit, size: 24 * 0.85),
+                tooltip: 'Edit SOP',
+                onPressed: () {
+                  context.go(
+                      '/mobile/editor/${widget.sopId}?stepIndex=$_currentStepIndex');
+                },
+              ),
             ),
         ],
       ),
