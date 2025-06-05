@@ -1109,24 +1109,23 @@ class PrintService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Expanded(
-            child: pw.Row(
-              children: [
-                pw.Text(
-                  "Created by: ${sop.createdBy}",
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.SizedBox(width: 10),
-                pw.Text(
-                  "Page ${context.pageNumber} of ${context.pagesCount}",
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-              ],
-            ),
-          ),
+          // Left: Print date
           pw.Text(
-            "Printed on: ${_formatDate(DateTime.now())}",
+            "Printed on: " + _formatDate(DateTime.now()),
             style: const pw.TextStyle(fontSize: 8),
+          ),
+          // Center: Page number
+          pw.Text(
+            "Page " +
+                context.pageNumber.toString() +
+                " of " +
+                context.pagesCount.toString(),
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+          // Right: Author
+          pw.Text(
+            "Author: ${sop.createdBy}",
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           ),
         ],
       ),
