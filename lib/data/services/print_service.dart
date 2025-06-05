@@ -757,7 +757,21 @@ class PrintService {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.start,
               children: [
-                pw.SizedBox(width: 5),
+                if (sop.youtubeUrl != null && sop.youtubeUrl!.isNotEmpty)
+                  pw.Container(
+                    width: 40,
+                    height: 40,
+                    padding: const pw.EdgeInsets.only(right: 4),
+                    child: pw.BarcodeWidget(
+                      barcode: pw.Barcode.qrCode(),
+                      data: sop.youtubeUrl!,
+                      width: 40,
+                      height: 40,
+                      drawText: false,
+                      color: PdfColors.white,
+                    ),
+                  ),
+                pw.SizedBox(width: 2),
                 pw.Text(
                   "Elmos",
                   style: pw.TextStyle(
