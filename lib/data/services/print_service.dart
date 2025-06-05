@@ -732,93 +732,85 @@ class PrintService {
   }
 
   // Build the PDF header with company logo, SOP information, and total time (more compact)
-  pw.Widget _buildPDFHeader(SOP sop, pw.MemoryImage? logoImage,
-      pw.MemoryImage? qrCodeImage, PdfColor categoryColor) {
-    // Calculate total SOP time
-    final totalTime = _calculateTotalSOPTime(sop);
-
-    // Remove emojis from the title
+  pw.Widget _buildPDFHeader(
+    SOP sop,
+    pw.MemoryImage? logoImage,
+    pw.MemoryImage? qrCodeImage,
+    PdfColor categoryColor,
+  ) {
     final String cleanTitle = _removeEmojis(sop.title);
 
     return pw.Container(
+      width: double.infinity,
+      height: 56,
       decoration: pw.BoxDecoration(
-        border: pw.Border(
-          bottom: pw.BorderSide(color: PdfColors.grey300, width: 1),
-        ),
+        color: categoryColor,
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
-      padding: const pw.EdgeInsets.only(bottom: 5),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          // QR Code and company name on the left
-          pw.Container(
-            width: 110,
+          // Left: Logo and company name
+          pw.Expanded(
+            flex: 2,
             child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              mainAxisAlignment: pw.MainAxisAlignment.start,
               children: [
-                // QR Code
-                pw.Container(
-                  width: 40,
-                  height: 40,
-                  child: qrCodeImage != null
-                      ? pw.Image(qrCodeImage)
-                      : pw.Container(
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(color: PdfColors.grey300),
-                            borderRadius: pw.BorderRadius.circular(4),
-                          ),
-                          alignment: pw.Alignment.center,
-                          child: pw.Text("QR Code",
-                              style: pw.TextStyle(color: PdfColors.grey)),
-                        ),
-                ),
-                // Company name
-                pw.SizedBox(width: 4),
+                if (sop.youtubeUrl != null && sop.youtubeUrl!.isNotEmpty)
+                  pw.Container(
+                    width: 38,
+                    height: 38,
+                    padding: const pw.EdgeInsets.only(right: 4),
+                    child: pw.BarcodeWidget(
+                      barcode: pw.Barcode.qrCode(),
+                      data: sop.youtubeUrl!,
+                      width: 38,
+                      height: 38,
+                      drawText: false,
+                      color: PdfColors.white,
+                    ),
+                  ),
+                pw.SizedBox(width: 2),
                 pw.Text(
                   "Elmos",
                   style: pw.TextStyle(
-                    fontSize: 14,
+                    fontSize: 22,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.black,
+                    color: PdfColors.white,
                   ),
                 ),
               ],
             ),
           ),
-
+          // Center: Title
           pw.Expanded(
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.Expanded(
-                  child: pw.Text(
-                    'Rev: ${sop.revisionNumber} | Cat: ${sop.categoryName ?? 'Uncategorized'} | Updated: ${_formatDate(sop.updatedAt)} | Est. Time: ${_formatTime(totalTime)}',
-                    style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey700,
-                    ),
-                    textAlign: pw.TextAlign.left,
-                  ),
+            flex: 3,
+            child: pw.Center(
+              child: pw.Text(
+                _truncateWithEllipsis(cleanTitle.toUpperCase(), 40),
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
                 ),
-                pw.SizedBox(
-                    width: 8), // Optional: spacing between the two texts
-                pw.Expanded(
-                  child: pw.Text(
-                    cleanTitle,
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.black,
-                    ),
-                    textAlign: pw.TextAlign.right,
-                  ),
-                ),
-              ],
+                textAlign: pw.TextAlign.center,
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+              ),
             ),
           ),
-
-          // No longer needed since QR code is already used on the left
+          // Right: QR code
+          pw.Expanded(
+            flex: 2,
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              children: [
+                if (qrCodeImage != null)
+                  pw.Image(qrCodeImage, width: 44, height: 44),
+              ],
+            ),
+          )
         ],
       ),
     );
@@ -909,9 +901,9 @@ class PrintService {
   // Build an individual step card with consistent image size and text limited to 4 lines
   pw.Widget _buildStepCard(SOPStep step, int stepNumber,
       pw.MemoryImage? stepImage, PdfColor categoryColor) {
-    final cardHeight = 240.0; // Increased card height
+    final cardHeight = 230.0; // Increased card height
     final imageHeight =
-        130.0; // Slightly reduced image height to make room for text
+        160.0; // Slightly reduced image height to make room for text
     final textContainerHeight = 50.0; // Increased text container height
 
     return pw.Container(
@@ -925,7 +917,7 @@ class PrintService {
         children: [
           // Step header with step number
           pw.Container(
-            height: 18, // Reduced from 20
+            height: 20, // Reduced from 20
             padding: const pw.EdgeInsets.all(3), // Reduced from 4
             decoration: pw.BoxDecoration(
               color: PdfColors.grey200,
@@ -936,12 +928,13 @@ class PrintService {
             ),
             child: pw.Row(
               children: [
+                pw.SizedBox(width: 2),
                 pw.Container(
-                  width: 14,
-                  height: 14,
+                  width: 18,
+                  height: 18,
                   decoration: pw.BoxDecoration(
                     color: categoryColor,
-                    shape: pw.BoxShape.circle,
+                    borderRadius: pw.BorderRadius.circular(2),
                   ),
                   alignment: pw.Alignment.center,
                   child: pw.Text(
@@ -949,17 +942,17 @@ class PrintService {
                     style: pw.TextStyle(
                       color: PdfColors.white,
                       fontWeight: pw.FontWeight.bold,
-                      fontSize: 8,
+                      fontSize: 12,
                     ),
                   ),
                 ),
                 pw.SizedBox(width: 4),
                 pw.Expanded(
                   child: pw.Text(
-                    step.title,
+                    step.title.toUpperCase(),
                     style: pw.TextStyle(
                       fontWeight: pw.FontWeight.bold,
-                      fontSize: 8,
+                      fontSize: 12,
                       color: PdfColors.black,
                     ),
                     maxLines: 1,
@@ -970,9 +963,9 @@ class PrintService {
                 if (step.estimatedTime != null)
                   pw.Text(
                     _formatTime(step.estimatedTime!),
-                    style: const pw.TextStyle(
-                      fontSize: 6,
-                      color: PdfColors.grey700,
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      color: PdfColors.black,
                     ),
                   ),
               ],
@@ -992,7 +985,7 @@ class PrintService {
                     padding: const pw.EdgeInsets.all(2),
                     child: pw.Image(
                       stepImage,
-                      fit: pw.BoxFit.contain,
+                      fit: pw.BoxFit.cover,
                     ),
                   )
                 : pw.Column(
@@ -1010,7 +1003,7 @@ class PrintService {
                         child: pw.Text(
                           "!",
                           style: pw.TextStyle(
-                            fontSize: 15,
+                            fontSize: 18,
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColors.grey800,
                           ),
@@ -1020,8 +1013,8 @@ class PrintService {
                       pw.Text(
                         'No image',
                         style: pw.TextStyle(
-                          fontSize: 7,
-                          color: PdfColors.grey600,
+                          fontSize: 15,
+                          color: PdfColors.black,
                           fontStyle: pw.FontStyle.italic,
                         ),
                       ),
@@ -1033,7 +1026,14 @@ class PrintService {
           pw.Container(
             width: double.infinity,
             height: textContainerHeight,
-            padding: const pw.EdgeInsets.all(4),
+            padding: const pw.EdgeInsets.all(2),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey100,
+              borderRadius: const pw.BorderRadius.only(
+                bottomLeft: pw.Radius.circular(4),
+                bottomRight: pw.Radius.circular(4),
+              ),
+            ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -1041,12 +1041,11 @@ class PrintService {
                 pw.Expanded(
                   child: pw.Text(
                     step.instruction,
-                    style: const pw.TextStyle(fontSize: 7),
+                    style: const pw.TextStyle(fontSize: 11),
                     overflow: pw.TextOverflow.clip,
-                    maxLines: 6, // Increased from 3 to 6
+                    maxLines: 3,
                   ),
                 ),
-
                 // If there are tools or hazards, show in single compact line
                 if (step.stepTools.isNotEmpty || step.stepHazards.isNotEmpty)
                   pw.Container(
@@ -1131,24 +1130,23 @@ class PrintService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Expanded(
-            child: pw.Row(
-              children: [
-                pw.Text(
-                  "Created by: ${sop.createdBy}",
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.SizedBox(width: 10),
-                pw.Text(
-                  "Page ${context.pageNumber} of ${context.pagesCount}",
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-              ],
-            ),
-          ),
+          // Left: Print date
           pw.Text(
-            "Printed on: ${_formatDate(DateTime.now())}",
-            style: const pw.TextStyle(fontSize: 8),
+            "Printed on: " + _formatDate(DateTime.now()),
+            style: const pw.TextStyle(fontSize: 10),
+          ),
+          // Center: Page number
+          pw.Text(
+            "Page " +
+                context.pageNumber.toString() +
+                " of " +
+                context.pagesCount.toString(),
+            style: const pw.TextStyle(fontSize: 10),
+          ),
+          // Right: Author
+          pw.Text(
+            "Author: ${sop.createdBy}",
+            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
           ),
         ],
       ),
@@ -1494,5 +1492,11 @@ class PrintService {
 
     // Replace emojis with empty string and trim any leading/trailing whitespace
     return input.replaceAll(emojiRegex, '').trim();
+  }
+
+  // Add this helper inside the PrintService class
+  String _truncateWithEllipsis(String text, int maxChars) {
+    if (text.length <= maxChars) return text;
+    return text.substring(0, maxChars - 3) + '...';
   }
 }
