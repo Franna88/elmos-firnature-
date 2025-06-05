@@ -887,9 +887,9 @@ class PrintService {
   // Build an individual step card with consistent image size and text limited to 4 lines
   pw.Widget _buildStepCard(SOPStep step, int stepNumber,
       pw.MemoryImage? stepImage, PdfColor categoryColor) {
-    final cardHeight = 240.0; // Increased card height
+    final cardHeight = 230.0; // Increased card height
     final imageHeight =
-        130.0; // Slightly reduced image height to make room for text
+        160.0; // Slightly reduced image height to make room for text
     final textContainerHeight = 50.0; // Increased text container height
 
     return pw.Container(
@@ -1013,6 +1013,13 @@ class PrintService {
             width: double.infinity,
             height: textContainerHeight,
             padding: const pw.EdgeInsets.all(4),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey200,
+              borderRadius: const pw.BorderRadius.only(
+                bottomLeft: pw.Radius.circular(4),
+                bottomRight: pw.Radius.circular(4),
+              ),
+            ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -1020,12 +1027,11 @@ class PrintService {
                 pw.Expanded(
                   child: pw.Text(
                     step.instruction,
-                    style: const pw.TextStyle(fontSize: 7),
+                    style: const pw.TextStyle(fontSize: 12),
                     overflow: pw.TextOverflow.clip,
-                    maxLines: 6, // Increased from 3 to 6
+                    maxLines: 3, // Increased from 3 to 6
                   ),
                 ),
-
                 // If there are tools or hazards, show in single compact line
                 if (step.stepTools.isNotEmpty || step.stepHazards.isNotEmpty)
                   pw.Container(
