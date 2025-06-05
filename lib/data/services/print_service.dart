@@ -203,7 +203,7 @@ class PrintService {
                 //   ],
                 // ),
 
-                pw.SizedBox(height: 1),
+                pw.SizedBox(height: 5),
 
                 // First 6 steps or all if <= 6
                 _buildStepsSection(sop, stepImages, pdfCategoryColor, 0,
@@ -774,7 +774,7 @@ class PrintService {
             flex: 3,
             child: pw.Center(
               child: pw.Text(
-                _truncateWithEllipsis(cleanTitle, 40),
+                _truncateWithEllipsis(cleanTitle.toUpperCase(), 40),
                 style: pw.TextStyle(
                   fontSize: 20,
                   fontWeight: pw.FontWeight.bold,
@@ -1012,9 +1012,9 @@ class PrintService {
           pw.Container(
             width: double.infinity,
             height: textContainerHeight,
-            padding: const pw.EdgeInsets.all(4),
+            padding: const pw.EdgeInsets.all(2),
             decoration: pw.BoxDecoration(
-              color: PdfColors.grey200,
+              color: PdfColors.grey100,
               borderRadius: const pw.BorderRadius.only(
                 bottomLeft: pw.Radius.circular(4),
                 bottomRight: pw.Radius.circular(4),
@@ -1027,9 +1027,9 @@ class PrintService {
                 pw.Expanded(
                   child: pw.Text(
                     step.instruction,
-                    style: const pw.TextStyle(fontSize: 12),
+                    style: const pw.TextStyle(fontSize: 11),
                     overflow: pw.TextOverflow.clip,
-                    maxLines: 3, // Increased from 3 to 6
+                    maxLines: 3,
                   ),
                 ),
                 // If there are tools or hazards, show in single compact line
@@ -1119,7 +1119,7 @@ class PrintService {
           // Left: Print date
           pw.Text(
             "Printed on: " + _formatDate(DateTime.now()),
-            style: const pw.TextStyle(fontSize: 8),
+            style: const pw.TextStyle(fontSize: 10),
           ),
           // Center: Page number
           pw.Text(
@@ -1127,12 +1127,12 @@ class PrintService {
                 context.pageNumber.toString() +
                 " of " +
                 context.pagesCount.toString(),
-            style: const pw.TextStyle(fontSize: 8),
+            style: const pw.TextStyle(fontSize: 10),
           ),
           // Right: Author
           pw.Text(
             "Author: ${sop.createdBy}",
-            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
           ),
         ],
       ),
