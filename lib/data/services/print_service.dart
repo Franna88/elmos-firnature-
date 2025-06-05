@@ -732,93 +732,71 @@ class PrintService {
   }
 
   // Build the PDF header with company logo, SOP information, and total time (more compact)
-  pw.Widget _buildPDFHeader(SOP sop, pw.MemoryImage? logoImage,
-      pw.MemoryImage? qrCodeImage, PdfColor categoryColor) {
-    // Calculate total SOP time
-    final totalTime = _calculateTotalSOPTime(sop);
-
-    // Remove emojis from the title
+  pw.Widget _buildPDFHeader(
+    SOP sop,
+    pw.MemoryImage? logoImage,
+    pw.MemoryImage? qrCodeImage,
+    PdfColor categoryColor,
+  ) {
     final String cleanTitle = _removeEmojis(sop.title);
 
     return pw.Container(
+      width: double.infinity,
+      height: 56,
       decoration: pw.BoxDecoration(
-        border: pw.Border(
-          bottom: pw.BorderSide(color: PdfColors.grey300, width: 1),
-        ),
+        color: categoryColor,
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
-      padding: const pw.EdgeInsets.only(bottom: 5),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          // QR Code and company name on the left
-          pw.Container(
-            width: 110,
+          // Left: Logo and company name
+          pw.Expanded(
+            flex: 2,
             child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              mainAxisAlignment: pw.MainAxisAlignment.start,
               children: [
-                // QR Code
-                pw.Container(
-                  width: 40,
-                  height: 40,
-                  child: qrCodeImage != null
-                      ? pw.Image(qrCodeImage)
-                      : pw.Container(
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(color: PdfColors.grey300),
-                            borderRadius: pw.BorderRadius.circular(4),
-                          ),
-                          alignment: pw.Alignment.center,
-                          child: pw.Text("QR Code",
-                              style: pw.TextStyle(color: PdfColors.grey)),
-                        ),
-                ),
-                // Company name
-                pw.SizedBox(width: 4),
+                pw.SizedBox(width: 5),
                 pw.Text(
                   "Elmos",
                   style: pw.TextStyle(
-                    fontSize: 14,
+                    fontSize: 24,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.black,
+                    color: PdfColors.white,
                   ),
                 ),
               ],
             ),
           ),
-
+          // Center: Title
           pw.Expanded(
+            flex: 3,
+            child: pw.Center(
+              child: pw.Text(
+                cleanTitle,
+                style: pw.TextStyle(
+                  fontSize: 22,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+                textAlign: pw.TextAlign.center,
+                maxLines: 2,
+                overflow: pw.TextOverflow.clip,
+              ),
+            ),
+          ),
+          // Right: QR code
+          pw.Expanded(
+            flex: 2,
             child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              mainAxisAlignment: pw.MainAxisAlignment.end,
               children: [
-                pw.Expanded(
-                  child: pw.Text(
-                    'Rev: ${sop.revisionNumber} | Cat: ${sop.categoryName ?? 'Uncategorized'} | Updated: ${_formatDate(sop.updatedAt)} | Est. Time: ${_formatTime(totalTime)}',
-                    style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey700,
-                    ),
-                    textAlign: pw.TextAlign.left,
-                  ),
-                ),
-                pw.SizedBox(
-                    width: 8), // Optional: spacing between the two texts
-                pw.Expanded(
-                  child: pw.Text(
-                    cleanTitle,
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.black,
-                    ),
-                    textAlign: pw.TextAlign.right,
-                  ),
-                ),
+                if (qrCodeImage != null)
+                  pw.Image(qrCodeImage, width: 44, height: 44),
               ],
             ),
           ),
-
-          // No longer needed since QR code is already used on the left
         ],
       ),
     );
