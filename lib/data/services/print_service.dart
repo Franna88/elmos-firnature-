@@ -761,7 +761,7 @@ class PrintService {
                 pw.Text(
                   "Elmos",
                   style: pw.TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.white,
                   ),
@@ -774,14 +774,14 @@ class PrintService {
             flex: 3,
             child: pw.Center(
               child: pw.Text(
-                cleanTitle,
+                _truncateWithEllipsis(cleanTitle, 40),
                 style: pw.TextStyle(
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: pw.FontWeight.bold,
                   color: PdfColors.white,
                 ),
                 textAlign: pw.TextAlign.center,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: pw.TextOverflow.clip,
               ),
             ),
@@ -796,7 +796,7 @@ class PrintService {
                   pw.Image(qrCodeImage, width: 44, height: 44),
               ],
             ),
-          ),
+          )
         ],
       ),
     );
@@ -1472,5 +1472,11 @@ class PrintService {
 
     // Replace emojis with empty string and trim any leading/trailing whitespace
     return input.replaceAll(emojiRegex, '').trim();
+  }
+
+  // Add this helper inside the PrintService class
+  String _truncateWithEllipsis(String text, int maxChars) {
+    if (text.length <= maxChars) return text;
+    return text.substring(0, maxChars - 3) + '...';
   }
 }
