@@ -203,7 +203,7 @@ class PrintService {
                 //   ],
                 // ),
 
-                pw.SizedBox(height: 5),
+                pw.SizedBox(height: 1),
 
                 // First 6 steps or all if <= 6
                 _buildStepsSection(sop, stepImages, pdfCategoryColor, 0,
@@ -903,7 +903,7 @@ class PrintService {
         children: [
           // Step header with step number
           pw.Container(
-            height: 18, // Reduced from 20
+            height: 20, // Reduced from 20
             padding: const pw.EdgeInsets.all(3), // Reduced from 4
             decoration: pw.BoxDecoration(
               color: PdfColors.grey200,
@@ -914,12 +914,13 @@ class PrintService {
             ),
             child: pw.Row(
               children: [
+                pw.SizedBox(width: 2),
                 pw.Container(
-                  width: 14,
-                  height: 14,
+                  width: 18,
+                  height: 18,
                   decoration: pw.BoxDecoration(
                     color: categoryColor,
-                    shape: pw.BoxShape.circle,
+                    borderRadius: pw.BorderRadius.circular(2),
                   ),
                   alignment: pw.Alignment.center,
                   child: pw.Text(
@@ -927,17 +928,17 @@ class PrintService {
                     style: pw.TextStyle(
                       color: PdfColors.white,
                       fontWeight: pw.FontWeight.bold,
-                      fontSize: 8,
+                      fontSize: 12,
                     ),
                   ),
                 ),
                 pw.SizedBox(width: 4),
                 pw.Expanded(
                   child: pw.Text(
-                    step.title,
+                    step.title.toUpperCase(),
                     style: pw.TextStyle(
                       fontWeight: pw.FontWeight.bold,
-                      fontSize: 8,
+                      fontSize: 12,
                       color: PdfColors.black,
                     ),
                     maxLines: 1,
@@ -948,9 +949,9 @@ class PrintService {
                 if (step.estimatedTime != null)
                   pw.Text(
                     _formatTime(step.estimatedTime!),
-                    style: const pw.TextStyle(
-                      fontSize: 6,
-                      color: PdfColors.grey700,
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      color: PdfColors.black,
                     ),
                   ),
               ],
@@ -970,7 +971,7 @@ class PrintService {
                     padding: const pw.EdgeInsets.all(2),
                     child: pw.Image(
                       stepImage,
-                      fit: pw.BoxFit.contain,
+                      fit: pw.BoxFit.cover,
                     ),
                   )
                 : pw.Column(
@@ -988,7 +989,7 @@ class PrintService {
                         child: pw.Text(
                           "!",
                           style: pw.TextStyle(
-                            fontSize: 15,
+                            fontSize: 18,
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColors.grey800,
                           ),
@@ -998,8 +999,8 @@ class PrintService {
                       pw.Text(
                         'No image',
                         style: pw.TextStyle(
-                          fontSize: 7,
-                          color: PdfColors.grey600,
+                          fontSize: 15,
+                          color: PdfColors.black,
                           fontStyle: pw.FontStyle.italic,
                         ),
                       ),
