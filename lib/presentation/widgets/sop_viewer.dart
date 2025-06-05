@@ -812,20 +812,31 @@ class _SOPViewerState extends State<SOPViewer> {
             Stack(
               key: ValueKey('step-image-stack-$index'),
               children: [
-                Container(
-                  width: double.infinity,
-                  height: 450, // Fixed container height
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey.shade200,
-                        width: 1,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Center(
+                    child: FractionallySizedBox(
+                      widthFactor: 0.8, // 80% of the card's width
+                      child: Container(
+                        child: Container(
+                          height: 450, // Fixed height for the image area
+                          width: double.infinity, // Take all available width
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                          ),
+                          child: CrossPlatformImage(
+                            key: ValueKey('step-image-${step.imageUrl}'),
+                            imageUrl: step.imageUrl!,
+                            width: 550, // Fill parent width
+                            height: 450, // Match container height
+                            fit: BoxFit
+                                .cover, // Fill the container, cropping if needed
+                            errorWidget: _buildImageError(),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  child: _buildStepImage(step.imageUrl!, context),
                 ),
                 // Fullscreen button overlay
                 Positioned(
@@ -1247,17 +1258,20 @@ class _SOPViewerState extends State<SOPViewer> {
   }
 
   Widget _buildStepImage(String imageUrl, BuildContext context) {
-    return InteractiveViewer(
-      minScale: 1.0, // Start at 100% (filling the container)
-      maxScale: 4.0,
-      child: Container(
-        width: double.infinity, // Take full width of container
-        height: double.infinity, // Take full height of container
-        child: CrossPlatformImage(
-          key: ValueKey('step-image-$imageUrl'),
-          imageUrl: imageUrl,
-          fit: BoxFit.contain, // Keep aspect ratio but maximize size
-          errorWidget: _buildImageError(),
+    return Center(
+      child: FractionallySizedBox(
+        widthFactor: 0.8, // 80% of the available width
+        child: Container(
+          // Optionally set a max height if you want to limit vertical size
+          constraints: BoxConstraints(
+            maxHeight: 350, // or any value you prefer
+          ),
+          child: CrossPlatformImage(
+            key: ValueKey('step-image-$imageUrl'),
+            imageUrl: imageUrl,
+            fit: BoxFit.contain, // or BoxFit.cover if you want to crop
+            errorWidget: _buildImageError(),
+          ),
         ),
       ),
     );
