@@ -759,14 +759,14 @@ class PrintService {
               children: [
                 if (sop.youtubeUrl != null && sop.youtubeUrl!.isNotEmpty)
                   pw.Container(
-                    width: 40,
-                    height: 40,
+                    width: 38,
+                    height: 38,
                     padding: const pw.EdgeInsets.only(right: 4),
                     child: pw.BarcodeWidget(
                       barcode: pw.Barcode.qrCode(),
                       data: sop.youtubeUrl!,
-                      width: 40,
-                      height: 40,
+                      width: 38,
+                      height: 38,
                       drawText: false,
                       color: PdfColors.white,
                     ),
