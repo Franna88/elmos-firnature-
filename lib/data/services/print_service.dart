@@ -775,7 +775,7 @@ class PrintService {
                 pw.Text(
                   "Elmos",
                   style: pw.TextStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.white,
                   ),
@@ -790,12 +790,12 @@ class PrintService {
               child: pw.Text(
                 _truncateWithEllipsis(cleanTitle.toUpperCase(), 40),
                 style: pw.TextStyle(
-                  fontSize: 20,
+                  fontSize: 17,
                   fontWeight: pw.FontWeight.bold,
                   color: PdfColors.white,
                 ),
                 textAlign: pw.TextAlign.center,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: pw.TextOverflow.clip,
               ),
             ),
