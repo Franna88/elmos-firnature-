@@ -406,7 +406,8 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                                 prefixIcon: Icon(
                                   Icons.category,
                                   color: _selectedCategory != 'All'
-                                      ? _getCategoryColor(_selectedCategory)
+                                      ? _getCategoryColorByName(
+                                          _selectedCategory, categoryService)
                                       : Colors.grey,
                                   size: isTablet ? 24 : 20,
                                 ),
@@ -419,7 +420,8 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                                     category,
                                     style: TextStyle(
                                       color: category != 'All'
-                                          ? _getCategoryColor(category)
+                                          ? _getCategoryColorByName(
+                                              category, categoryService)
                                           : Colors.black,
                                       fontWeight: category == _selectedCategory
                                           ? FontWeight.bold
@@ -464,11 +466,13 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _getCategoryColor(_selectedCategory)
+                      color: _getCategoryColorByName(
+                              _selectedCategory, categoryService)
                           .withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: _getCategoryColor(_selectedCategory)
+                        color: _getCategoryColorByName(
+                                _selectedCategory, categoryService)
                             .withOpacity(0.3),
                         width: 1,
                       ),
@@ -479,13 +483,15 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                         Icon(
                           Icons.category,
                           size: 16,
-                          color: _getCategoryColor(_selectedCategory),
+                          color: _getCategoryColorByName(
+                              _selectedCategory, categoryService),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           _selectedCategory,
                           style: TextStyle(
-                            color: _getCategoryColor(_selectedCategory),
+                            color: _getCategoryColorByName(
+                                _selectedCategory, categoryService),
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -500,7 +506,8 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                           child: Icon(
                             Icons.close,
                             size: 16,
-                            color: _getCategoryColor(_selectedCategory),
+                            color: _getCategoryColorByName(
+                                _selectedCategory, categoryService),
                           ),
                         )
                       ],
@@ -679,9 +686,11 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
             ? sop.steps.first.imageUrl
             : null);
 
-    // Get category color
+    // Get category color from the actual category data
+    final categoryService =
+        Provider.of<CategoryService>(context, listen: false);
     final Color categoryColor =
-        _getCategoryColor(sop.categoryName ?? 'Unknown');
+        _getCategoryColor(sop.categoryId, categoryService);
 
     // Check if we're on a tablet
     final bool isTablet = MediaQuery.of(context).size.width > 600;
@@ -881,21 +890,45 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     );
   }
 
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'assembly':
-        return AppColors.blueAccent;
-      case 'finishing':
-        return AppColors.greenAccent;
-      case 'machinery':
-        return AppColors.orangeAccent;
-      case 'quality':
-        return AppColors.purpleAccent;
-      case 'upholstery':
-        return Colors.redAccent;
-      default:
-        return AppColors.primaryBlue;
+  Color _getCategoryColor(String categoryId, CategoryService categoryService) {
+    // Default to a shade of blue if category is empty
+    if (categoryId.isEmpty) {
+      return AppColors.primaryBlue;
     }
+
+    // Look up the category and get its color
+    final category = categoryService.getCategoryById(categoryId);
+    if (category != null &&
+        category.color != null &&
+        category.color!.startsWith('#')) {
+      try {
+        // Parse hex color string to Color object
+        return Color(int.parse('FF${category.color!.substring(1)}', radix: 16));
+      } catch (e) {
+        // If parsing fails, fall back to default
+        return AppColors.primaryBlue;
+      }
+    }
+
+    // Fallback to a default color if category is not found or has no color
+    return AppColors.primaryBlue;
+  }
+
+  // Helper method to get category color by name (for the dropdown interface)
+  Color _getCategoryColorByName(
+      String categoryName, CategoryService categoryService) {
+    if (categoryName == 'All') {
+      return Colors.grey;
+    }
+
+    // Find category by name
+    final category = categoryService.categories.firstWhere(
+      (cat) => cat.name == categoryName,
+      orElse: () =>
+          categoryService.categories.first, // fallback to first category
+    );
+
+    return _getCategoryColor(category.id, categoryService);
   }
 
   String _formatDate(DateTime date) {

@@ -11,6 +11,7 @@ import '../../widgets/cross_platform_image.dart';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../utils/populate_firebase.dart';
+import '../../../data/services/category_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -344,9 +345,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? sop.steps.first.imageUrl
             : null);
 
-    // Get department color
+    // Get category color from the actual category data
+    final categoryService =
+        Provider.of<CategoryService>(context, listen: false);
     final Color departmentColor =
-        _getDepartmentColor(sop.categoryName ?? 'Unknown');
+        _getCategoryColor(sop.categoryId, categoryService);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -548,21 +551,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Color _getDepartmentColor(String department) {
-    switch (department.toLowerCase()) {
-      case 'assembly':
-        return AppColors.primaryBlue;
-      case 'finishing':
-        return AppColors.accentTeal;
-      case 'machinery':
-        return AppColors.orangeAccent;
-      case 'quality':
-        return AppColors.purpleAccent;
-      case 'upholstery':
-        return AppColors.tealAccent;
-      default:
-        return AppColors.primaryBlue;
+  Color _getCategoryColor(String categoryId, CategoryService categoryService) {
+    // Default to a shade of blue if category is empty
+    if (categoryId.isEmpty) {
+      return AppColors.primaryBlue;
     }
+
+    // Look up the category and get its color
+    final category = categoryService.getCategoryById(categoryId);
+    if (category != null &&
+        category.color != null &&
+        category.color!.startsWith('#')) {
+      try {
+        // Parse hex color string to Color object
+        return Color(int.parse('FF${category.color!.substring(1)}', radix: 16));
+      } catch (e) {
+        // If parsing fails, fall back to default
+        return AppColors.primaryBlue;
+      }
+    }
+
+    // Fallback to a default color if category is not found or has no color
+    return AppColors.primaryBlue;
   }
 
   Widget _buildImage(String? imageUrl) {

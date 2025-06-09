@@ -10,13 +10,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../models/sop_model.dart';
 import 'qr_code_service.dart';
+import 'category_service.dart';
 import 'package:image_network/image_network.dart';
 
 class PrintService {
   final QRCodeService _qrCodeService = QRCodeService();
 
   // Function to generate a print-friendly PDF for an SOP
-  Future<void> printSOP(BuildContext context, SOP sop) async {
+  Future<void> printSOP(
+      BuildContext context, SOP sop, CategoryService categoryService) async {
     debugPrint('Starting PDF generation for SOP #${sop.id} - ${sop.title}');
 
     // Show loading indicator
@@ -153,7 +155,7 @@ class PrintService {
       }
 
       // Get category color for consistent styling
-      final categoryColor = _getCategoryColor(sop.categoryId);
+      final categoryColor = _getCategoryColor(sop.categoryId, categoryService);
       final PdfColor pdfCategoryColor = PdfColor(categoryColor.red / 255,
           categoryColor.green / 255, categoryColor.blue / 255);
 
@@ -707,28 +709,28 @@ class PrintService {
   }
 
   // Get a consistent color based on the category ID
-  Color _getCategoryColor(String categoryId) {
+  Color _getCategoryColor(String categoryId, CategoryService categoryService) {
     // Default to a shade of blue if category is empty
     if (categoryId.isEmpty) {
       return Colors.blue.shade700;
     }
 
-    // Generate a consistent color based on the categoryId
-    final int hash = categoryId.hashCode;
+    // Look up the category and get its color
+    final category = categoryService.getCategoryById(categoryId);
+    if (category != null &&
+        category.color != null &&
+        category.color!.startsWith('#')) {
+      try {
+        // Parse hex color string to Color object
+        return Color(int.parse('FF${category.color!.substring(1)}', radix: 16));
+      } catch (e) {
+        // If parsing fails, fall back to default
+        return Colors.blue.shade700;
+      }
+    }
 
-    // Use a predefined set of professional colors
-    final List<Color> colors = [
-      Colors.blue.shade700,
-      Colors.green.shade700,
-      Colors.purple.shade700,
-      Colors.orange.shade800,
-      Colors.teal.shade700,
-      Colors.indigo.shade700,
-      Colors.red.shade700,
-      Colors.amber.shade800,
-    ];
-
-    return colors[hash.abs() % colors.length];
+    // Fallback to a default color if category is not found or has no color
+    return Colors.blue.shade700;
   }
 
   // Build the PDF header with company logo, SOP information, and total time (more compact)

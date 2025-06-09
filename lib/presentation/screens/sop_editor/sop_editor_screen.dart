@@ -271,7 +271,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
   // Method to handle printing
   void _printSOP() {
-    _printService.printSOP(context, _sop);
+    final categoryService =
+        Provider.of<CategoryService>(context, listen: false);
+    _printService.printSOP(context, _sop, categoryService);
   }
 
   // Method to download QR code

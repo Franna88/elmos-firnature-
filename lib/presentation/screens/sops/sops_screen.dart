@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import '../../widgets/cross_platform_image.dart';
+import '../../../data/services/category_service.dart';
 
 class SOPsScreen extends StatefulWidget {
   const SOPsScreen({super.key});
@@ -47,7 +48,9 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
   // Method to handle printing an SOP
   void _printSOP(SOP sop) {
-    _printService.printSOP(context, sop);
+    final categoryService =
+        Provider.of<CategoryService>(context, listen: false);
+    _printService.printSOP(context, sop, categoryService);
   }
 
   @override
@@ -209,9 +212,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
             ? sop.steps.first.imageUrl
             : null);
 
-    // Get department color
+    // Get category color from the actual category data
+    final categoryService =
+        Provider.of<CategoryService>(context, listen: false);
     final Color departmentColor =
-        _getDepartmentColor(sop.categoryName ?? 'Unknown');
+        _getCategoryColor(sop.categoryId, categoryService);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -387,21 +392,28 @@ class _SOPsScreenState extends State<SOPsScreen> {
     );
   }
 
-  Color _getDepartmentColor(String department) {
-    switch (department.toLowerCase()) {
-      case 'assembly':
-        return AppColors.blueAccent;
-      case 'finishing':
-        return AppColors.greenAccent;
-      case 'machinery':
-        return AppColors.orangeAccent;
-      case 'quality':
-        return AppColors.purpleAccent;
-      case 'upholstery':
-        return Colors.redAccent;
-      default:
-        return AppColors.primaryBlue;
+  Color _getCategoryColor(String categoryId, CategoryService categoryService) {
+    // Default to a shade of blue if category is empty
+    if (categoryId.isEmpty) {
+      return AppColors.primaryBlue;
     }
+
+    // Look up the category and get its color
+    final category = categoryService.getCategoryById(categoryId);
+    if (category != null &&
+        category.color != null &&
+        category.color!.startsWith('#')) {
+      try {
+        // Parse hex color string to Color object
+        return Color(int.parse('FF${category.color!.substring(1)}', radix: 16));
+      } catch (e) {
+        // If parsing fails, fall back to default
+        return AppColors.primaryBlue;
+      }
+    }
+
+    // Fallback to a default color if category is not found or has no color
+    return AppColors.primaryBlue;
   }
 
   Widget _buildImage(String? imageUrl) {

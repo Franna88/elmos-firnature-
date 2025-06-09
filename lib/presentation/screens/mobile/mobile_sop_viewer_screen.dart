@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
@@ -10,6 +12,10 @@ import '../../../data/services/print_service.dart';
 import 'package:image_network/image_network.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
+import '../../../data/services/category_service.dart';
+import '../../widgets/cross_platform_image.dart';
+import '../../widgets/app_scaffold.dart';
+import '../sop_editor/sop_editor_screen.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
   final String sopId;
@@ -244,7 +250,11 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             child: IconButton(
               icon: const Icon(Icons.print, size: 24 * 0.85),
               tooltip: 'Print SOP',
-              onPressed: () => _printService.printSOP(context, _sop),
+              onPressed: () {
+                final categoryService =
+                    Provider.of<CategoryService>(context, listen: false);
+                _printService.printSOP(context, _sop, categoryService);
+              },
             ),
           ),
           if (!_isAnonymousAccess)
@@ -1595,7 +1605,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           TextButton.icon(
             onPressed: () {
               Navigator.pop(context);
-              _printService.printSOP(context, _sop);
+              final categoryService =
+                  Provider.of<CategoryService>(context, listen: false);
+              _printService.printSOP(context, _sop, categoryService);
             },
             icon: const Icon(Icons.print, color: Colors.purple),
             label: const Text(
