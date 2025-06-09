@@ -379,7 +379,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    sop.categoryName ?? 'Unknown',
+                    sop.title,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -421,7 +421,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   // Title
                   Text(
-                    sop.title,
+                    "Cat | : ${sop.categoryName}" ?? "Unknown",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
