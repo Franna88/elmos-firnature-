@@ -421,11 +421,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   // Title
                   Text(
-                    "Cat | : ${sop.categoryName}" ?? "Unknown",
+                    "Category | : ${sop.categoryName ?? "Unknown"}",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: AppColors.textDark,
+                      fontSize: 12,
+                      color: Color(0xFF4A5363),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
