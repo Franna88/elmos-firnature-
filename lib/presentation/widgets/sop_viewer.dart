@@ -7,6 +7,8 @@ import '../../data/services/sop_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/cross_platform_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:image_network/image_network.dart';
+import 'package:flutter/rendering.dart';
 
 class SOPViewer extends StatefulWidget {
   final SOP sop;
@@ -818,21 +820,19 @@ class _SOPViewerState extends State<SOPViewer> {
                     child: FractionallySizedBox(
                       widthFactor: 0.8, // 80% of the card's width
                       child: Container(
-                        child: Container(
-                          height: 450, // Fixed height for the image area
-                          width: double.infinity, // Take all available width
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                          ),
-                          child: CrossPlatformImage(
-                            key: ValueKey('step-image-${step.imageUrl}'),
-                            imageUrl: step.imageUrl!,
-                            width: 550, // Fill parent width
-                            height: 450, // Match container height
-                            fit: BoxFit
-                                .cover, // Fill the container, cropping if needed
-                            errorWidget: _buildImageError(),
-                          ),
+                        height: 450, // Fixed height for the image area
+                        width: double.infinity, // Take all available width
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                        ),
+                        child: CrossPlatformImage(
+                          key: ValueKey('step-image-${step.imageUrl}'),
+                          imageUrl: step.imageUrl!,
+                          width: 550, // Fill parent width
+                          height: 450, // Match container height
+                          fit: BoxFit
+                              .cover, // Fill the container, cropping if needed
+                          errorWidget: _buildImageError(),
                         ),
                       ),
                     ),
@@ -877,27 +877,71 @@ class _SOPViewerState extends State<SOPViewer> {
                         // Show full-size image dialog
                         showDialog(
                           context: context,
-                          builder: (context) => Dialog(
-                            backgroundColor: Colors.transparent,
-                            insetPadding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                          barrierColor: Colors.black87,
+                          builder: (context) => Dialog.fullscreen(
+                            backgroundColor: Colors.black,
+                            child: Stack(
                               children: [
-                                Align(
-                                  alignment: Alignment.topRight,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.close,
-                                        color: Colors.white, size: 30),
-                                    onPressed: () => Navigator.pop(context),
+                                // Full screen image
+                                Center(
+                                  child: InteractiveViewer(
+                                    panEnabled: true,
+                                    minScale: 0.5,
+                                    maxScale: 3.0,
+                                    child: ImageNetwork(
+                                      image: step.imageUrl!,
+                                      height:
+                                          MediaQuery.of(context).size.height,
+                                      width: MediaQuery.of(context).size.width,
+                                      duration: 500,
+                                      curve: Curves.easeIn,
+                                      onPointer: true,
+                                      debugPrint: false,
+                                      borderRadius: BorderRadius.circular(0),
+                                      onLoading: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      onError: const Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.error_outline,
+                                              color: Colors.white,
+                                              size: 64,
+                                            ),
+                                            SizedBox(height: 16),
+                                            Text(
+                                              'Failed to load image',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 18,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                Flexible(
-                                  child: InteractiveViewer(
-                                    boundaryMargin: const EdgeInsets.all(20),
-                                    minScale: 0.5,
-                                    maxScale: 4,
-                                    child: _buildFullScreenImage(
-                                        step.imageUrl!, context),
+                                // Close button
+                                Positioned(
+                                  top: 40,
+                                  right: 20,
+                                  child: CircleAvatar(
+                                    backgroundColor: Colors.black54,
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1285,19 +1329,11 @@ class _SOPViewerState extends State<SOPViewer> {
       height: screenSize.height * 0.9,
       color: Colors.black,
       clipBehavior: Clip.antiAlias,
-      child: InteractiveViewer(
-        minScale: 1.0,
-        maxScale: 5.0,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          child: CrossPlatformImage(
-            key: ValueKey('fullscreen-image-$imageUrl'),
-            imageUrl: imageUrl,
-            fit: BoxFit.contain,
-            errorWidget: _buildImageError(),
-          ),
-        ),
+      child: CrossPlatformImage(
+        key: ValueKey('fullscreen-image-$imageUrl'),
+        imageUrl: imageUrl,
+        fit: BoxFit.contain,
+        errorWidget: _buildImageError(),
       ),
     );
   }
@@ -1306,6 +1342,7 @@ class _SOPViewerState extends State<SOPViewer> {
     return Container(
       height: 300,
       color: Colors.grey.shade100,
+      clipBehavior: Clip.none,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
