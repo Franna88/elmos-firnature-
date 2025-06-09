@@ -12,10 +12,10 @@ import '../../../data/services/print_service.dart';
 import 'package:image_network/image_network.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
-import '../../../data/services/category_service.dart';
 import '../../widgets/cross_platform_image.dart';
 import '../../widgets/app_scaffold.dart';
 import '../sop_editor/sop_editor_screen.dart';
+import '../../../data/services/category_service.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
   final String sopId;
@@ -175,6 +175,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     // Use tablet layout only for landscape orientation on tablets
     final bool useTabletLayout =
         isTablet && orientation == Orientation.landscape;
+
+    final imageHeight = isTablet ? 320.0 : 220.0;
+    final imageWidth = isTablet ? 400.0 : double.infinity;
 
     if (_isLoading) {
       return Scaffold(
@@ -410,6 +413,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     // Check orientation
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    final imageHeight = isTablet ? 400.0 : 220.0;
+    final imageWidth = isTablet ? 450.0 : double.infinity;
 
     return PageView.builder(
       controller: _pageController,
@@ -432,8 +438,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Image section (left side) - Direct image without container decorations
-                // Increased flex to 8 (from 6) to make image take up ~80% of the left side
+                // Image section (left side) - Use CrossPlatformImage as in desktop
                 Expanded(
                   flex: 8,
                   child: Card(
@@ -442,99 +447,34 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                     ),
                     clipBehavior: Clip.antiAlias,
                     elevation: 2,
-                    child: GestureDetector(
-                      onTap: () {
-                        if (step.imageUrl != null) {
-                          showDialog(
-                            context: context,
-                            builder: (context) => Dialog(
-                              insetPadding: EdgeInsets.zero,
-                              backgroundColor: Colors.black.withOpacity(0.9),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  InteractiveViewer(
-                                    minScale: 0.5,
-                                    maxScale: 4.0,
-                                    child: Center(
-                                      child: _buildStepImageFullscreen(
-                                          step.imageUrl!),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 40,
-                                    right: 16,
-                                    child: IconButton(
-                                      icon: const Icon(Icons.close,
-                                          color: Colors.white, size: 30),
-                                      onPressed: () => Navigator.pop(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
-                      },
+                    child: Container(
+                      height: imageHeight,
+                      width: imageWidth,
                       child: step.imageUrl != null
-                          ? Center(
-                              child: Stack(
-                                children: [
-                                  ImageNetwork(
-                                    image: step.imageUrl!,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    fitAndroidIos: BoxFit.contain,
-                                    fitWeb: BoxFitWeb.contain,
-                                    onLoading: const Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                    onError: const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.red,
-                                      size: 40,
-                                    ),
+                          ? CrossPlatformImage(
+                              imageUrl: step.imageUrl!,
+                              fit: BoxFit.cover,
+                              width: imageWidth,
+                              height: imageHeight,
+                              errorWidget: Container(
+                                color: Colors.grey[100],
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    size: 40,
+                                    color: Colors.grey,
                                   ),
-                                  // Fullscreen indicator
-                                  Positioned(
-                                    right: 16,
-                                    bottom: 16,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.6),
-                                        borderRadius: BorderRadius.circular(30),
-                                      ),
-                                      child: const Icon(
-                                        Icons.fullscreen,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             )
                           : Container(
-                              height: double.infinity,
-                              width: double.infinity,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.image_not_supported,
-                                    size: 80,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    "No Image Available",
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                ],
+                              color: Colors.grey[100],
+                              child: Center(
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  size: 40,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ),
                     ),
@@ -740,119 +680,45 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Image section (left side)
+                // Image section (left side) - Use CrossPlatformImage as in desktop
                 Expanded(
                   flex: 6,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (step.imageUrl != null) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => Dialog(
-                            insetPadding: EdgeInsets.zero,
-                            backgroundColor: Colors.black.withOpacity(0.9),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                InteractiveViewer(
-                                  minScale: 0.5,
-                                  maxScale: 4.0,
-                                  child: Center(
-                                    child: _buildStepImageFullscreen(
-                                        step.imageUrl!),
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 40,
-                                  right: 16,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.close,
-                                        color: Colors.white, size: 30),
-                                    onPressed: () => Navigator.pop(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                    },
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    elevation: 2,
                     child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: step.imageUrl != null
-                                ? ImageNetwork(
-                                    image: step.imageUrl!,
-                                    height: double.infinity,
-                                    width: double.infinity,
-                                    fitAndroidIos: BoxFit.contain,
-                                    fitWeb: BoxFitWeb.contain,
-                                    onLoading:
-                                        const CircularProgressIndicator(),
-                                    onError: const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.red,
-                                      size: 40,
-                                    ),
-                                  )
-                                : Container(
-                                    color: Colors.grey[100],
-                                    height: double.infinity,
-                                    width: double.infinity,
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.image_not_supported,
-                                          size: 80,
-                                          color: Colors.grey[400],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          "No Image Available",
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                      height: 220,
+                      width: double.infinity,
+                      child: step.imageUrl != null
+                          ? CrossPlatformImage(
+                              imageUrl: step.imageUrl!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: 220,
+                              errorWidget: Container(
+                                color: Colors.grey[100],
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    size: 40,
+                                    color: Colors.grey,
                                   ),
-                          ),
-
-                          // Fullscreen indicator
-                          if (step.imageUrl != null)
-                            Positioned(
-                              right: 16,
-                              bottom: 16,
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(30),
                                 ),
-                                child: const Icon(
-                                  Icons.fullscreen,
-                                  color: Colors.white,
-                                  size: 24,
+                              ),
+                            )
+                          : Container(
+                              color: Colors.grey[100],
+                              child: Center(
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  size: 40,
+                                  color: Colors.grey,
                                 ),
                               ),
                             ),
-                        ],
-                      ),
                     ),
                   ),
                 ),
@@ -1092,7 +958,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
               ),
             ),
 
-            // Image takes up most of the screen
+            // Image takes up most of the screen (phone view) - Use CrossPlatformImage as in desktop
             Expanded(
               flex: 6,
               child: Card(
@@ -1108,107 +974,36 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                 ),
                 clipBehavior: Clip.antiAlias,
                 elevation: 2,
-                child: GestureDetector(
-                  onTap: () {
-                    if (step.imageUrl != null) {
-                      // Show fullscreen image view
-                      showDialog(
-                        context: context,
-                        builder: (context) => Dialog(
-                          insetPadding: EdgeInsets.zero, // Full screen dialog
-                          backgroundColor: Colors.black.withOpacity(0.9),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // Interactive image viewer for zooming and panning
-                              InteractiveViewer(
-                                minScale: 0.5,
-                                maxScale: 4.0,
-                                child: Center(
-                                  child:
-                                      _buildStepImageFullscreen(step.imageUrl!),
-                                ),
-                              ),
-                              // Close button positioned at the top
-                              Positioned(
-                                top: 40,
-                                right: 16,
-                                child: IconButton(
-                                  icon: const Icon(Icons.close,
-                                      color: Colors.white, size: 30),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Stack(
-                    children: [
-                      // Main image that fills the container
-                      if (step.imageUrl != null)
-                        ImageNetwork(
-                          image: step.imageUrl!,
+                child: Container(
+                  height: 220,
+                  width: double.infinity,
+                  child: step.imageUrl != null
+                      ? CrossPlatformImage(
+                          imageUrl: step.imageUrl!,
+                          fit: BoxFit.cover,
                           width: double.infinity,
-                          height: double.infinity,
-                          fitAndroidIos: BoxFit.contain,
-                          fitWeb: BoxFitWeb.contain,
-                          onLoading: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                          onError: const Icon(
-                            Icons.broken_image,
-                            color: Colors.red,
-                            size: 40,
+                          height: 220,
+                          errorWidget: Container(
+                            color: Colors.grey[100],
+                            child: Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ),
                         )
-                      else
-                        Container(
-                          width: double.infinity,
-                          height: double.infinity,
+                      : Container(
                           color: Colors.grey[100],
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported,
-                                size: isLargeScreen ? 80 : 64,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                "No Image Available",
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: isLargeScreen ? 18.0 : 16.0,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // Fullscreen indicator
-                      if (step.imageUrl != null)
-                        Positioned(
-                          right: isLargeScreen ? 16.0 : 12.0,
-                          bottom: isLargeScreen ? 16.0 : 12.0,
-                          child: Container(
-                            padding: EdgeInsets.all(isLargeScreen ? 10.0 : 8.0),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
+                          child: Center(
                             child: Icon(
-                              Icons.fullscreen,
-                              color: Colors.white,
-                              size: isLargeScreen ? 24.0 : 20.0,
+                              Icons.image_not_supported,
+                              size: 40,
+                              color: Colors.grey,
                             ),
                           ),
                         ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -1407,59 +1202,6 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           ],
         );
       },
-    );
-  }
-
-  // Helper method for fullscreen image viewing
-  Widget _buildStepImageFullscreen(String imageUrl) {
-    return ImageNetwork(
-      image: imageUrl,
-      width: MediaQuery.of(context).size.width,
-      height: MediaQuery.of(context).size.height * 0.7,
-      fitAndroidIos: BoxFit.contain,
-      fitWeb: BoxFitWeb.contain,
-      onLoading: const CircularProgressIndicator(),
-      onError: const Icon(
-        Icons.broken_image,
-        color: Colors.red,
-        size: 40,
-      ),
-    );
-  }
-
-  // Helper methods for image display
-  Widget _buildStepImage(String imageUrl) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: ImageNetwork(
-        image: imageUrl,
-        width: MediaQuery.of(context).size.width,
-        height: 250,
-        fitAndroidIos: BoxFit.contain,
-        fitWeb: BoxFitWeb.contain,
-        onLoading: const CircularProgressIndicator(),
-        onError: const Icon(
-          Icons.broken_image,
-          color: Colors.red,
-          size: 40,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnailImage(String imageUrl) {
-    return ImageNetwork(
-      image: imageUrl,
-      width: 150,
-      height: 150,
-      fitAndroidIos: BoxFit.contain,
-      fitWeb: BoxFitWeb.contain,
-      onLoading: const CircularProgressIndicator(),
-      onError: const Icon(
-        Icons.broken_image,
-        color: Colors.red,
-        size: 20,
-      ),
     );
   }
 
