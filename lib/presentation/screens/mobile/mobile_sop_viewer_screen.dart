@@ -414,7 +414,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
     final isTablet = MediaQuery.of(context).size.width > 600;
-    final imageHeight = isTablet ? 400.0 : 220.0;
+    final imageHeight = isTablet ? 350.0 : 220.0;
     final imageWidth = isTablet ? 450.0 : double.infinity;
 
     return PageView.builder(
@@ -454,7 +454,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                           ? CrossPlatformImage(
                               imageUrl: step.imageUrl!,
                               fit: BoxFit.cover,
-                              width: imageWidth,
+                              width: double.infinity,
                               height: imageHeight,
                               errorWidget: Container(
                                 color: Colors.grey[100],
@@ -690,14 +690,14 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                     clipBehavior: Clip.antiAlias,
                     elevation: 2,
                     child: Container(
-                      height: 220,
-                      width: double.infinity,
+                      height: 400,
+                      width: 450,
                       child: step.imageUrl != null
                           ? CrossPlatformImage(
                               imageUrl: step.imageUrl!,
                               fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: 220,
+                              width: 450,
+                              height: 400,
                               errorWidget: Container(
                                 color: Colors.grey[100],
                                 child: Center(
@@ -975,7 +975,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                 clipBehavior: Clip.antiAlias,
                 elevation: 2,
                 child: Container(
-                  height: 220,
+                  height: 250,
                   width: double.infinity,
                   child: step.imageUrl != null
                       ? CrossPlatformImage(
