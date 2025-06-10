@@ -736,9 +736,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading thumbnail: $e')),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('Error uploading thumbnail: $e')),
+      // );
     }
   }
 
@@ -803,7 +803,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
       // Optimize the image before uploading
       final Uint8List optimizedBytes =
-          await _optimizeImage(image, isThumbnail: false);
+          await _optimizeImage(image, isThumbnail: true);
 
       // Create data URL for the optimized image
       final String dataUrl =
