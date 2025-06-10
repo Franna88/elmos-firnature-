@@ -280,7 +280,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      sop.categoryName ?? 'Unknown',
+                      sop.title,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -325,11 +325,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
                 children: [
                   // Title
                   Text(
-                    sop.title,
+                    "Category | : ${sop.categoryName ?? "Unknown"}",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: AppColors.textDark,
+                      fontSize: 12,
+                      color: Color(0xFF4A5363),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

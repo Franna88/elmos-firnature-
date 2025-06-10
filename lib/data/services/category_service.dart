@@ -8,6 +8,8 @@ class CategoryService extends ChangeNotifier {
   FirebaseFirestore? _firestore;
 
   List<models.Category> _categories = [];
+  bool _isLoading = false;
+  bool _hasLoaded = false;
 
   // Flag to track if we're using local data
   bool _usingLocalData = false;
@@ -143,11 +145,20 @@ class CategoryService extends ChangeNotifier {
   }
 
   Future<void> _loadCategories() async {
+    // Prevent duplicate loading
+    if (_isLoading || _hasLoaded) {
+      return;
+    }
+
+    _isLoading = true;
+
     if (_usingLocalData) {
       if (kDebugMode) {
         print('Using local data: Loading sample categories');
       }
       _loadSampleCategories();
+      _isLoading = false;
+      _hasLoaded = true;
       return;
     }
 
@@ -172,6 +183,7 @@ class CategoryService extends ChangeNotifier {
       }
 
       _categories = loadedCategories;
+      _hasLoaded = true;
       notifyListeners();
 
       if (kDebugMode) {
@@ -188,6 +200,9 @@ class CategoryService extends ChangeNotifier {
         print('Using sample categories instead');
       }
       _loadSampleCategories();
+      _hasLoaded = true;
+    } finally {
+      _isLoading = false;
     }
   }
 

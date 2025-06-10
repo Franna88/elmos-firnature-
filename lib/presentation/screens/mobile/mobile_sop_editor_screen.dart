@@ -5,6 +5,9 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
@@ -14,6 +17,7 @@ import '../../widgets/cross_platform_image.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import '../../../utils/permission_handler.dart';
+import 'package:image/image.dart' as img;
 
 class MobileSOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -693,11 +697,14 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
     try {
       final sopService = Provider.of<SOPService>(context, listen: false);
-      final imageBytes = await image.readAsBytes();
 
-      // Create data URL for the image
+      // Optimize the image before uploading
+      final Uint8List optimizedBytes =
+          await _optimizeImage(image, isThumbnail: true);
+
+      // Create data URL for the optimized image
       final String dataUrl =
-          'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+          'data:image/jpeg;base64,${base64Encode(optimizedBytes)}';
 
       // Upload the thumbnail to Firebase Storage
       final String thumbnailId =
@@ -729,9 +736,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading thumbnail: $e')),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('Error uploading thumbnail: $e')),
+      // );
     }
   }
 
@@ -793,11 +800,14 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
     try {
       final sopService = Provider.of<SOPService>(context, listen: false);
-      final Uint8List imageBytes = await image.readAsBytes();
 
-      // Create data URL for the image
+      // Optimize the image before uploading
+      final Uint8List optimizedBytes =
+          await _optimizeImage(image, isThumbnail: true);
+
+      // Create data URL for the optimized image
       final String dataUrl =
-          'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+          'data:image/jpeg;base64,${base64Encode(optimizedBytes)}';
 
       // If this is a new SOP (not saved to Firebase yet), store the image as a base64 string temporarily
       if (widget.sopId == 'new' && !_sop.id.startsWith('firebase')) {
@@ -999,7 +1009,13 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   // SOP Build Step 1: Basic Information
   Widget _buildBasicInfoSection() {
     final categoryService = Provider.of<CategoryService>(context);
-    final categories = categoryService.categories;
+    final categories = categoryService.categories
+        .fold<Map<String, Category>>({}, (map, cat) {
+          map[cat.name] = cat;
+          return map;
+        })
+        .values
+        .toList();
 
     return Form(
       key: _formKey,
@@ -2503,6 +2519,134 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     // Ensure current section index is valid
     if (_currentSection >= _sectionTitles.length) {
       _currentSection = 0;
+    }
+  }
+
+  /// Optimizes an image by resizing and compressing it
+  Future<Uint8List> _optimizeImage(XFile image,
+      {bool isThumbnail = false}) async {
+    try {
+      final Uint8List imageBytes = await image.readAsBytes();
+
+      // Get image dimensions
+      final decodedImage = await decodeImageFromList(imageBytes);
+      final int originalWidth = decodedImage.width;
+      final int originalHeight = decodedImage.height;
+
+      // Calculate target dimensions
+      final int maxDimension = isThumbnail ? 400 : 800;
+      int targetWidth = originalWidth;
+      int targetHeight = originalHeight;
+
+      if (originalWidth > maxDimension || originalHeight > maxDimension) {
+        if (originalWidth > originalHeight) {
+          targetWidth = maxDimension;
+          targetHeight =
+              (originalHeight * maxDimension / originalWidth).round();
+        } else {
+          targetHeight = maxDimension;
+          targetWidth = (originalWidth * maxDimension / originalHeight).round();
+        }
+      }
+
+      if (kIsWeb) {
+        // For web platform, use the image package for optimization
+        final img.Image? decodedImage = img.decodeImage(imageBytes);
+        if (decodedImage == null) {
+          if (kDebugMode) {
+            print('Failed to decode image for web optimization');
+          }
+          return imageBytes;
+        }
+
+        // Resize the image
+        final img.Image resizedImage = img.copyResize(
+          decodedImage,
+          width: targetWidth,
+          height: targetHeight,
+          interpolation: img.Interpolation.linear,
+        );
+
+        // Try different quality levels to find the best compression
+        List<int> compressedBytes = img.encodeJpg(resizedImage, quality: 65);
+        if (compressedBytes.length >= imageBytes.length) {
+          // If 65% quality didn't help, try 50%
+          compressedBytes = img.encodeJpg(resizedImage, quality: 50);
+          if (compressedBytes.length >= imageBytes.length) {
+            // If still not better, try 35%
+            compressedBytes = img.encodeJpg(resizedImage, quality: 35);
+          }
+        }
+
+        final Uint8List optimizedBytes = Uint8List.fromList(compressedBytes);
+
+        if (kDebugMode) {
+          print('Web platform detected - using image package optimization');
+          print('Original size: ${imageBytes.length} bytes');
+          print('Optimized size: ${optimizedBytes.length} bytes');
+          print('Original dimensions: ${originalWidth}x$originalHeight');
+          print('Target dimensions: ${targetWidth}x$targetHeight');
+          print(
+              'Size reduction: ${((imageBytes.length - optimizedBytes.length) / imageBytes.length * 100).toStringAsFixed(1)}%');
+        }
+
+        // Only return optimized bytes if they're actually smaller
+        return optimizedBytes.length < imageBytes.length
+            ? optimizedBytes
+            : imageBytes;
+      } else {
+        // For mobile platforms, use flutter_image_compress
+        // Try different quality levels
+        Uint8List optimizedBytes = await FlutterImageCompress.compressWithList(
+          imageBytes,
+          minWidth: targetWidth,
+          minHeight: targetHeight,
+          quality: 65,
+          format: CompressFormat.jpeg,
+        );
+
+        // If 65% quality didn't help, try 50%
+        if (optimizedBytes.length >= imageBytes.length) {
+          optimizedBytes = await FlutterImageCompress.compressWithList(
+            imageBytes,
+            minWidth: targetWidth,
+            minHeight: targetHeight,
+            quality: 50,
+            format: CompressFormat.jpeg,
+          );
+
+          // If still not better, try 35%
+          if (optimizedBytes.length >= imageBytes.length) {
+            optimizedBytes = await FlutterImageCompress.compressWithList(
+              imageBytes,
+              minWidth: targetWidth,
+              minHeight: targetHeight,
+              quality: 35,
+              format: CompressFormat.jpeg,
+            );
+          }
+        }
+
+        if (kDebugMode) {
+          print('Mobile platform detected - using flutter_image_compress');
+          print('Original size: ${imageBytes.length} bytes');
+          print('Optimized size: ${optimizedBytes.length} bytes');
+          print('Original dimensions: ${originalWidth}x$originalHeight');
+          print('Target dimensions: ${targetWidth}x$targetHeight');
+          print(
+              'Size reduction: ${((imageBytes.length - optimizedBytes.length) / imageBytes.length * 100).toStringAsFixed(1)}%');
+        }
+
+        // Only return optimized bytes if they're actually smaller
+        return optimizedBytes.length < imageBytes.length
+            ? optimizedBytes
+            : imageBytes;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error optimizing image: $e');
+      }
+      return await image.readAsBytes();
     }
   }
 }
