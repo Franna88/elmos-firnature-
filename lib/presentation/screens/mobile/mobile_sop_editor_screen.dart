@@ -1009,7 +1009,13 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   // SOP Build Step 1: Basic Information
   Widget _buildBasicInfoSection() {
     final categoryService = Provider.of<CategoryService>(context);
-    final categories = categoryService.categories;
+    final categories = categoryService.categories
+        .fold<Map<String, Category>>({}, (map, cat) {
+          map[cat.name] = cat;
+          return map;
+        })
+        .values
+        .toList();
 
     return Form(
       key: _formKey,
