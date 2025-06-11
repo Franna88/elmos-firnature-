@@ -841,34 +841,17 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       if (_currentStepIndex < _sop.steps.length) {
         List<SOPStep> updatedSteps = List.from(_sop.steps);
         final currentStep = updatedSteps[_currentStepIndex];
-
-        // Update the step with the new image URL
         updatedSteps[_currentStepIndex] =
-            currentStep.copyWith(imageUrl: imageUrl);
-        final updatedSop = _sop.copyWith(steps: updatedSteps);
-
-        // Update SOP in Firestore
-        await sopService.updateSop(updatedSop);
-
+            currentStep.copyWith(imageUrl: dataUrl);
         setState(() {
-          _sop = updatedSop;
+          _sop = _sop.copyWith(steps: updatedSteps);
           _isLoading = false;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image uploaded successfully')),
-        );
       } else {
-        // We're creating a new step, store the image URL temporarily
         setState(() {
-          _tempImageUrl = imageUrl;
+          _tempImageUrl = dataUrl;
           _isLoading = false;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Image added - save step to apply changes')),
-        );
       }
     } catch (e) {
       setState(() {
@@ -2112,9 +2095,10 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   // Build the step editor form
   Widget _buildStepEditorForm() {
     final bool isNewStep = _currentStepIndex >= _sop.steps.length;
+    // For existing steps, use the step's imageUrl, for new steps use _tempImageUrl
     final String imageUrl = !isNewStep && _currentStepIndex < _sop.steps.length
         ? _sop.steps[_currentStepIndex].imageUrl ?? ''
-        : _tempImageUrl ?? ''; // Use temp image URL for new steps
+        : _tempImageUrl ?? '';
 
     return Stack(
       children: [
