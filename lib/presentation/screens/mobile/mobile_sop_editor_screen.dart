@@ -2517,8 +2517,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       final int originalWidth = decodedImage.width;
       final int originalHeight = decodedImage.height;
 
-      // Calculate target dimensions
-      final int maxDimension = isThumbnail ? 400 : 800;
+      final int maxDimension = 1200;
       int targetWidth = originalWidth;
       int targetHeight = originalHeight;
 
@@ -2534,7 +2533,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       }
 
       if (kIsWeb) {
-        // For web platform, use the image package for optimization
         final img.Image? decodedImage = img.decodeImage(imageBytes);
         if (decodedImage == null) {
           if (kDebugMode) {
@@ -2548,10 +2546,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           decodedImage,
           width: targetWidth,
           height: targetHeight,
-          interpolation: img.Interpolation.linear,
+          interpolation: img.Interpolation.cubic,
         );
 
-        // Try different quality levels to find the best compression
         List<int> compressedBytes = img.encodeJpg(resizedImage, quality: 85);
 
         final Uint8List optimizedBytes = Uint8List.fromList(compressedBytes);
@@ -2566,13 +2563,10 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               'Size reduction: ${((imageBytes.length - optimizedBytes.length) / imageBytes.length * 100).toStringAsFixed(1)}%');
         }
 
-        // Only return optimized bytes if they're actually smaller
-        return optimizedBytes.length < imageBytes.length
+        return optimizedBytes.length < imageBytes.length * 0.9
             ? optimizedBytes
             : imageBytes;
       } else {
-        // For mobile platforms, use flutter_image_compress
-        // Try different quality levels
         Uint8List optimizedBytes = await FlutterImageCompress.compressWithList(
           imageBytes,
           minWidth: targetWidth,
@@ -2591,8 +2585,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               'Size reduction: ${((imageBytes.length - optimizedBytes.length) / imageBytes.length * 100).toStringAsFixed(1)}%');
         }
 
-        // Only return optimized bytes if they're actually smaller
-        return optimizedBytes.length < imageBytes.length
+        return optimizedBytes.length < imageBytes.length * 0.9
             ? optimizedBytes
             : imageBytes;
       }
