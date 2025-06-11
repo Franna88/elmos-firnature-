@@ -2552,15 +2552,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         );
 
         // Try different quality levels to find the best compression
-        List<int> compressedBytes = img.encodeJpg(resizedImage, quality: 65);
-        if (compressedBytes.length >= imageBytes.length) {
-          // If 65% quality didn't help, try 50%
-          compressedBytes = img.encodeJpg(resizedImage, quality: 50);
-          if (compressedBytes.length >= imageBytes.length) {
-            // If still not better, try 35%
-            compressedBytes = img.encodeJpg(resizedImage, quality: 35);
-          }
-        }
+        List<int> compressedBytes = img.encodeJpg(resizedImage, quality: 85);
 
         final Uint8List optimizedBytes = Uint8List.fromList(compressedBytes);
 
@@ -2585,31 +2577,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           imageBytes,
           minWidth: targetWidth,
           minHeight: targetHeight,
-          quality: 65,
+          quality: 85,
           format: CompressFormat.jpeg,
         );
-
-        // If 65% quality didn't help, try 50%
-        if (optimizedBytes.length >= imageBytes.length) {
-          optimizedBytes = await FlutterImageCompress.compressWithList(
-            imageBytes,
-            minWidth: targetWidth,
-            minHeight: targetHeight,
-            quality: 50,
-            format: CompressFormat.jpeg,
-          );
-
-          // If still not better, try 35%
-          if (optimizedBytes.length >= imageBytes.length) {
-            optimizedBytes = await FlutterImageCompress.compressWithList(
-              imageBytes,
-              minWidth: targetWidth,
-              minHeight: targetHeight,
-              quality: 35,
-              format: CompressFormat.jpeg,
-            );
-          }
-        }
 
         if (kDebugMode) {
           print('Mobile platform detected - using flutter_image_compress');
