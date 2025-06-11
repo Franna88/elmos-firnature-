@@ -1098,6 +1098,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                 fit: StackFit.expand,
                                                 children: [
                                                   CrossPlatformImage(
+                                                    key: ValueKey(
+                                                        'step-nav-image-${step.imageUrl}'),
                                                     imageUrl: step.imageUrl!,
                                                     fit: BoxFit.cover,
                                                   ),
@@ -1797,6 +1799,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
     }
 
     String? imageUrl = step.imageUrl;
+    bool isUploadingImage = false;
+    String? tempImageUrl; // Temporary URL for preview during upload
     List<String> stepTools = List<String>.from(step.stepTools);
     List<String> stepHazards = List<String>.from(step.stepHazards);
 
@@ -2180,7 +2184,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                             const SizedBox(height: 12),
 
                                             // Image preview
-                                            if (imageUrl != null) ...[
+                                            if (imageUrl != null ||
+                                                tempImageUrl != null) ...[
                                               Container(
                                                 height: 160,
                                                 clipBehavior: Clip.antiAlias,
@@ -2193,7 +2198,41 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                   fit: StackFit.expand,
                                                   children: [
                                                     _buildStepImage(
-                                                        imageUrl, context),
+                                                        tempImageUrl ??
+                                                            imageUrl!,
+                                                        context),
+                                                    if (isUploadingImage)
+                                                      Container(
+                                                        color: Colors.black
+                                                            .withOpacity(0.5),
+                                                        child: const Center(
+                                                          child: Column(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .center,
+                                                            children: [
+                                                              CircularProgressIndicator(
+                                                                valueColor:
+                                                                    AlwaysStoppedAnimation<
+                                                                            Color>(
+                                                                        Colors
+                                                                            .white),
+                                                              ),
+                                                              SizedBox(
+                                                                  height: 8),
+                                                              Text(
+                                                                'Uploading...',
+                                                                style:
+                                                                    TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  fontSize: 12,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
                                                     Positioned(
                                                       top: 8,
                                                       right: 8,
@@ -2216,7 +2255,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                             // Show full-size image dialog
                                                             _showFullSizeImageDialog(
                                                                 context,
-                                                                imageUrl);
+                                                                tempImageUrl ??
+                                                                    imageUrl!);
                                                           },
                                                           iconSize: 20,
                                                           padding:
@@ -2248,23 +2288,44 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                         .withOpacity(0.3),
                                                   ),
                                                 ),
-                                                child: const Center(
-                                                  child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Icon(Icons.image_outlined,
-                                                          size: 40,
-                                                          color: Colors.grey),
-                                                      SizedBox(height: 8),
-                                                      Text('No image selected',
-                                                          style: TextStyle(
-                                                              color:
-                                                                  Colors.grey)),
-                                                    ],
-                                                  ),
-                                                ),
+                                                child: isUploadingImage
+                                                    ? const Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            CircularProgressIndicator(),
+                                                            SizedBox(height: 8),
+                                                            Text(
+                                                                'Uploading image...',
+                                                                style: TextStyle(
+                                                                    color: Colors
+                                                                        .grey)),
+                                                          ],
+                                                        ),
+                                                      )
+                                                    : const Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            Icon(
+                                                                Icons
+                                                                    .image_outlined,
+                                                                size: 40,
+                                                                color: Colors
+                                                                    .grey),
+                                                            SizedBox(height: 8),
+                                                            Text(
+                                                                'No image selected',
+                                                                style: TextStyle(
+                                                                    color: Colors
+                                                                        .grey)),
+                                                          ],
+                                                        ),
+                                                      ),
                                               ),
                                               const SizedBox(height: 12),
                                             ],
@@ -2276,28 +2337,129 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                               children: [
                                                 Expanded(
                                                   child: ElevatedButton.icon(
-                                                    icon: const Icon(
-                                                        Icons.photo_camera,
-                                                        size: 18),
+                                                    icon: isUploadingImage
+                                                        ? const SizedBox(
+                                                            width: 18,
+                                                            height: 18,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              valueColor:
+                                                                  AlwaysStoppedAnimation<
+                                                                          Color>(
+                                                                      Colors
+                                                                          .white),
+                                                            ),
+                                                          )
+                                                        : const Icon(
+                                                            Icons.photo_camera,
+                                                            size: 18),
                                                     label: Text(imageUrl == null
                                                         ? 'Add Image'
                                                         : 'Change'),
-                                                    onPressed: () async {
-                                                      final stepId = DateTime
-                                                              .now()
-                                                          .millisecondsSinceEpoch
-                                                          .toString();
-                                                      final url =
-                                                          await _pickAndUploadImage(
-                                                              context,
-                                                              _sop.id,
-                                                              stepId);
-                                                      if (url != null) {
-                                                        setState(() {
-                                                          imageUrl = url;
-                                                        });
-                                                      }
-                                                    },
+                                                    onPressed: isUploadingImage
+                                                        ? null
+                                                        : () async {
+                                                            final stepId = DateTime
+                                                                    .now()
+                                                                .millisecondsSinceEpoch
+                                                                .toString();
+
+                                                            // First pick the image
+                                                            final ImagePicker
+                                                                picker =
+                                                                ImagePicker();
+                                                            final XFile? image =
+                                                                await picker
+                                                                    .pickImage(
+                                                              source:
+                                                                  ImageSource
+                                                                      .gallery,
+                                                              imageQuality: 80,
+                                                              maxWidth: 1200,
+                                                              maxHeight: 1200,
+                                                            );
+
+                                                            if (image != null) {
+                                                              // Create a temporary data URL for preview
+                                                              final Uint8List
+                                                                  imageBytes =
+                                                                  await image
+                                                                      .readAsBytes();
+                                                              final String
+                                                                  tempDataUrl =
+                                                                  'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+                                                              setState(() {
+                                                                isUploadingImage =
+                                                                    true;
+                                                                tempImageUrl =
+                                                                    tempDataUrl;
+                                                              });
+
+                                                              try {
+                                                                // Upload the image directly using the bytes
+                                                                final sopService =
+                                                                    Provider.of<
+                                                                            SOPService>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                final String?
+                                                                    url =
+                                                                    await sopService.uploadImageFromDataUrl(
+                                                                        tempDataUrl,
+                                                                        _sop.id,
+                                                                        stepId);
+
+                                                                setState(() {
+                                                                  isUploadingImage =
+                                                                      false;
+                                                                  tempImageUrl =
+                                                                      null;
+                                                                  if (url !=
+                                                                      null) {
+                                                                    imageUrl =
+                                                                        url;
+
+                                                                    // Update the step in the main SOP state
+                                                                    final updatedSteps =
+                                                                        List<SOPStep>.from(
+                                                                            _sop.steps);
+                                                                    updatedSteps[
+                                                                        index] = updatedSteps[
+                                                                            index]
+                                                                        .copyWith(
+                                                                      imageUrl:
+                                                                          url,
+                                                                    );
+                                                                    _sop = _sop
+                                                                        .copyWith(
+                                                                            steps:
+                                                                                updatedSteps);
+                                                                  }
+                                                                });
+                                                              } catch (e) {
+                                                                setState(() {
+                                                                  isUploadingImage =
+                                                                      false;
+                                                                  tempImageUrl =
+                                                                      null;
+                                                                });
+                                                                if (kDebugMode) {
+                                                                  print(
+                                                                      'Error uploading image: $e');
+                                                                }
+                                                                ScaffoldMessenger.of(
+                                                                        context)
+                                                                    .showSnackBar(
+                                                                  SnackBar(
+                                                                      content: Text(
+                                                                          'Error uploading image: $e')),
+                                                                );
+                                                              }
+                                                            }
+                                                          },
                                                     style: ElevatedButton
                                                         .styleFrom(
                                                       backgroundColor:
@@ -2319,11 +2481,13 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                         Icons.delete_outline,
                                                         size: 18),
                                                     label: const Text('Remove'),
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        imageUrl = null;
-                                                      });
-                                                    },
+                                                    onPressed: isUploadingImage
+                                                        ? null
+                                                        : () {
+                                                            setState(() {
+                                                              imageUrl = null;
+                                                            });
+                                                          },
                                                     style: OutlinedButton
                                                         .styleFrom(
                                                       foregroundColor:
