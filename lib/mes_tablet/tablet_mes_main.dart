@@ -57,7 +57,7 @@ class MyApp extends StatelessWidget {
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          cardTheme: CardTheme(
+          cardTheme: CardThemeData(
             color: const Color(0xFFFFFFFF), // White
             elevation: 4,
             shape: RoundedRectangleBorder(
