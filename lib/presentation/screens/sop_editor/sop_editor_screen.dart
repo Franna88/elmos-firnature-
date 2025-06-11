@@ -1798,6 +1798,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
     String? imageUrl = step.imageUrl;
     bool isUploadingImage = false;
+    String? tempImageUrl; // Temporary URL for preview during upload
     List<String> stepTools = List<String>.from(step.stepTools);
     List<String> stepHazards = List<String>.from(step.stepHazards);
 
@@ -2181,7 +2182,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                             const SizedBox(height: 12),
 
                                             // Image preview
-                                            if (imageUrl != null) ...[
+                                            if (imageUrl != null ||
+                                                tempImageUrl != null) ...[
                                               Container(
                                                 height: 160,
                                                 clipBehavior: Clip.antiAlias,
@@ -2194,7 +2196,9 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                   fit: StackFit.expand,
                                                   children: [
                                                     _buildStepImage(
-                                                        imageUrl, context),
+                                                        tempImageUrl ??
+                                                            imageUrl!,
+                                                        context),
                                                     if (isUploadingImage)
                                                       Container(
                                                         color: Colors.black
@@ -2249,7 +2253,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                             // Show full-size image dialog
                                                             _showFullSizeImageDialog(
                                                                 context,
-                                                                imageUrl);
+                                                                tempImageUrl ??
+                                                                    imageUrl!);
                                                           },
                                                           iconSize: 20,
                                                           padding:
@@ -2357,22 +2362,85 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                                     .now()
                                                                 .millisecondsSinceEpoch
                                                                 .toString();
-                                                            setState(() {
-                                                              isUploadingImage =
-                                                                  true;
-                                                            });
-                                                            final url =
-                                                                await _pickAndUploadImage(
-                                                                    context,
-                                                                    _sop.id,
-                                                                    stepId);
-                                                            setState(() {
-                                                              isUploadingImage =
-                                                                  false;
-                                                              if (url != null) {
-                                                                imageUrl = url;
+
+                                                            // First pick the image
+                                                            final ImagePicker
+                                                                picker =
+                                                                ImagePicker();
+                                                            final XFile? image =
+                                                                await picker
+                                                                    .pickImage(
+                                                              source:
+                                                                  ImageSource
+                                                                      .gallery,
+                                                              imageQuality: 80,
+                                                              maxWidth: 1200,
+                                                              maxHeight: 1200,
+                                                            );
+
+                                                            if (image != null) {
+                                                              // Create a temporary data URL for preview
+                                                              final Uint8List
+                                                                  imageBytes =
+                                                                  await image
+                                                                      .readAsBytes();
+                                                              final String
+                                                                  tempDataUrl =
+                                                                  'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+                                                              setState(() {
+                                                                isUploadingImage =
+                                                                    true;
+                                                                tempImageUrl =
+                                                                    tempDataUrl;
+                                                              });
+
+                                                              try {
+                                                                // Upload the image directly using the bytes
+                                                                final sopService =
+                                                                    Provider.of<
+                                                                            SOPService>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                final String?
+                                                                    url =
+                                                                    await sopService.uploadImageFromDataUrl(
+                                                                        tempDataUrl,
+                                                                        _sop.id,
+                                                                        stepId);
+
+                                                                setState(() {
+                                                                  isUploadingImage =
+                                                                      false;
+                                                                  tempImageUrl =
+                                                                      null;
+                                                                  if (url !=
+                                                                      null) {
+                                                                    imageUrl =
+                                                                        url;
+                                                                  }
+                                                                });
+                                                              } catch (e) {
+                                                                setState(() {
+                                                                  isUploadingImage =
+                                                                      false;
+                                                                  tempImageUrl =
+                                                                      null;
+                                                                });
+                                                                if (kDebugMode) {
+                                                                  print(
+                                                                      'Error uploading image: $e');
+                                                                }
+                                                                ScaffoldMessenger.of(
+                                                                        context)
+                                                                    .showSnackBar(
+                                                                  SnackBar(
+                                                                      content: Text(
+                                                                          'Error uploading image: $e')),
+                                                                );
                                                               }
-                                                            });
+                                                            }
                                                           },
                                                     style: ElevatedButton
                                                         .styleFrom(
