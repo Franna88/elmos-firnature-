@@ -1098,6 +1098,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                 fit: StackFit.expand,
                                                 children: [
                                                   CrossPlatformImage(
+                                                    key: ValueKey(
+                                                        'step-nav-image-${step.imageUrl}'),
                                                     imageUrl: step.imageUrl!,
                                                     fit: BoxFit.cover,
                                                   ),
@@ -2419,6 +2421,22 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                                       null) {
                                                                     imageUrl =
                                                                         url;
+
+                                                                    // Update the step in the main SOP state
+                                                                    final updatedSteps =
+                                                                        List<SOPStep>.from(
+                                                                            _sop.steps);
+                                                                    updatedSteps[
+                                                                        index] = updatedSteps[
+                                                                            index]
+                                                                        .copyWith(
+                                                                      imageUrl:
+                                                                          url,
+                                                                    );
+                                                                    _sop = _sop
+                                                                        .copyWith(
+                                                                            steps:
+                                                                                updatedSteps);
                                                                   }
                                                                 });
                                                               } catch (e) {
