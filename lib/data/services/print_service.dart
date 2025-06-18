@@ -987,7 +987,7 @@ class PrintService {
                     padding: const pw.EdgeInsets.all(2),
                     child: pw.Image(
                       stepImage,
-                      fit: pw.BoxFit.cover,
+                      fit: pw.BoxFit.contain,
                     ),
                   )
                 : pw.Column(
@@ -1043,9 +1043,9 @@ class PrintService {
                 pw.Expanded(
                   child: pw.Text(
                     step.instruction,
-                    style: const pw.TextStyle(fontSize: 11),
+                    style: const pw.TextStyle(fontSize: 10),
                     overflow: pw.TextOverflow.clip,
-                    maxLines: 3,
+                    maxLines: 4,
                   ),
                 ),
                 // If there are tools or hazards, show in single compact line

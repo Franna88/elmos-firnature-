@@ -1342,18 +1342,20 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
     final instructionController = TextEditingController();
     final helpNoteController = TextEditingController();
     final assignedToController = TextEditingController();
-    final hoursController = TextEditingController(text: '0');
-    final minutesController = TextEditingController(text: '0');
-    final secondsController = TextEditingController(text: '0');
+    final estimatedHoursController = TextEditingController(text: '0');
+    final estimatedMinutesController = TextEditingController(text: '0');
+    final estimatedSecondsController = TextEditingController(text: '0');
 
     String? imageUrl;
+    bool isUploadingImage = false;
+    String? tempImageUrl; // Temporary URL for preview during upload
     List<String> stepTools = [];
     List<String> stepHazards = [];
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setState) => Dialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1363,22 +1365,30 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
               const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Dialog header with step number and actions
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
                     children: [
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor:
                             Theme.of(context).colorScheme.onPrimary,
-                        child: Text(
-                          (this._sop.steps.length + 1).toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        child: Text('${_sop.steps.length + 1}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -1393,216 +1403,925 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                       ),
                     ],
                   ),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  Expanded(
+                ),
+
+                Expanded(
+                  child: Scrollbar(
                     child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Step basic info
-                          TextField(
-                            controller: titleController,
-                            decoration: const InputDecoration(
-                              labelText: 'Step Title',
-                              border: OutlineInputBorder(),
-                              hintText: 'Enter a clear title for this step',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: instructionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Step Instructions',
-                              border: OutlineInputBorder(),
-                              hintText:
-                                  'Provide detailed instructions for this step',
-                            ),
-                            maxLines: 5,
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: helpNoteController,
-                            decoration: const InputDecoration(
-                              labelText: 'Help Note (Optional)',
-                              border: OutlineInputBorder(),
-                              hintText:
-                                  'Add any helpful notes, tips, or additional context',
-                            ),
-                            maxLines: 3,
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: assignedToController,
-                            decoration: const InputDecoration(
-                              labelText: 'Assigned To (Optional)',
-                              border: OutlineInputBorder(),
-                              hintText: 'Specify a role or person responsible',
-                            ),
-                          ),
-
-                          // Step completion time
-                          const SizedBox(height: 16),
-                          Text(
-                            'Estimated Completion Time',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
+                          // Two-column layout for main content
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Hours TextField
+                              // Left column - Basic info and instruction
                               Expanded(
-                                child: TextField(
-                                  controller: hoursController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Hours',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Minutes TextField
-                              Expanded(
-                                child: TextField(
-                                  controller: minutesController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Minutes',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Seconds TextField
-                              Expanded(
-                                child: TextField(
-                                  controller: secondsController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Seconds',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // Step image
-                          const SizedBox(height: 16),
-                          Text(
-                            'Step Image',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          if (imageUrl != null)
-                            Container(
-                              height: 200,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .outline
-                                        .withOpacity(0.5)),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: _displayImage(
-                                imageUrl,
-                              ),
-                            )
-                          else
-                            Container(
-                              height: 150,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .outline
-                                        .withOpacity(0.5)),
-                                borderRadius: BorderRadius.circular(8),
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceVariant
-                                    .withOpacity(0.3),
-                              ),
-                              child: Center(
+                                flex: 3,
                                 child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(Icons.image_outlined,
-                                        size: 48,
-                                        color: Theme.of(context)
+                                    // Title field
+                                    TextField(
+                                      controller: titleController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Step Title',
+                                        hintText:
+                                            'Enter a clear, descriptive title',
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .outline,
+                                          ),
+                                        ),
+                                        prefixIcon: Icon(Icons.title,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary),
+                                        filled: true,
+                                        fillColor: Theme.of(context)
                                             .colorScheme
-                                            .outline),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'No image added',
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outline),
+                                            .surfaceContainerLowest,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 12),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+
+                                    // Instructions field
+                                    TextField(
+                                      controller: instructionController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Instructions',
+                                        hintText:
+                                            'Describe what to do in this step',
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .outline,
+                                          ),
+                                        ),
+                                        alignLabelWithHint: true,
+                                        prefixIcon: Icon(Icons.description,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary),
+                                        filled: true,
+                                        fillColor: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerLowest,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 12),
+                                      ),
+                                      maxLines: 4,
+                                    ),
+                                    const SizedBox(height: 16),
+
+                                    // Help note field
+                                    TextField(
+                                      controller: helpNoteController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Help Note (Optional)',
+                                        hintText:
+                                            'Add helpful tips or additional information',
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .outline,
+                                          ),
+                                        ),
+                                        prefixIcon: Icon(Icons.help_outline,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary),
+                                        filled: true,
+                                        fillColor: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerLowest,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 12),
+                                      ),
+                                      maxLines: 2,
+                                    ),
+                                    const SizedBox(height: 16),
+
+                                    // Additional details in a row
+                                    Row(
+                                      children: [
+                                        // Assigned to field
+                                        Expanded(
+                                          child: TextField(
+                                            controller: assignedToController,
+                                            decoration: InputDecoration(
+                                              labelText: 'Assigned To',
+                                              hintText: 'Person or role',
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                borderSide: BorderSide(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .outline,
+                                                ),
+                                              ),
+                                              prefixIcon: Icon(
+                                                  Icons.person_outline,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary),
+                                              filled: true,
+                                              fillColor: Theme.of(context)
+                                                  .colorScheme
+                                                  .surfaceContainerLowest,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 12),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+
+                                        // Estimated time fields (hours, minutes, seconds)
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Estimated Time',
+                                                style: TextStyle(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface
+                                                      .withOpacity(0.7),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  // Hours
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedHoursController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Hours',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Minutes
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedMinutesController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Mins',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Seconds
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          estimatedSecondsController,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText: 'Secs',
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .outline,
+                                                          ),
+                                                        ),
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 12),
+                                                        filled: true,
+                                                        fillColor: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .surfaceContainerLowest,
+                                                      ),
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  final stepId = DateTime.now()
-                                      .millisecondsSinceEpoch
-                                      .toString();
-                                  final url = await _pickAndUploadImage(
-                                      context, _sop.id, stepId);
-                                  if (url != null) {
-                                    setState(() {
-                                      imageUrl = url;
-                                    });
-                                  }
-                                },
-                                icon: const Icon(Icons.image),
-                                label: Text(imageUrl != null
-                                    ? 'Change Image'
-                                    : 'Add Image'),
+
+                              const SizedBox(width: 24),
+
+                              // Right column - Image and attachments
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Image section
+                                    Card(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .outline
+                                              .withOpacity(0.3),
+                                        ),
+                                      ),
+                                      elevation: 0,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerLow,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Step Image',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 12),
+
+                                            // Image preview
+                                            if (imageUrl != null ||
+                                                tempImageUrl != null) ...[
+                                              Container(
+                                                height: 160,
+                                                clipBehavior: Clip.antiAlias,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey[200],
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Stack(
+                                                  fit: StackFit.expand,
+                                                  children: [
+                                                    _buildStepImage(
+                                                        tempImageUrl ??
+                                                            imageUrl!,
+                                                        context),
+                                                    if (isUploadingImage)
+                                                      Container(
+                                                        color: Colors.black
+                                                            .withOpacity(0.5),
+                                                        child: const Center(
+                                                          child: Column(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .center,
+                                                            children: [
+                                                              CircularProgressIndicator(
+                                                                valueColor:
+                                                                    AlwaysStoppedAnimation<
+                                                                            Color>(
+                                                                        Colors
+                                                                            .white),
+                                                              ),
+                                                              SizedBox(
+                                                                  height: 8),
+                                                              Text(
+                                                                'Uploading...',
+                                                                style:
+                                                                    TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  fontSize: 12,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    Positioned(
+                                                      top: 8,
+                                                      right: 8,
+                                                      child: Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: Colors.black
+                                                              .withOpacity(0.5),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(16),
+                                                        ),
+                                                        child: IconButton(
+                                                          icon: const Icon(
+                                                              Icons.fullscreen,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 20),
+                                                          onPressed: () {
+                                                            // Show full-size image dialog
+                                                            _showFullSizeImageDialog(
+                                                                context,
+                                                                tempImageUrl ??
+                                                                    imageUrl!);
+                                                          },
+                                                          iconSize: 20,
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(4),
+                                                          constraints:
+                                                              const BoxConstraints(),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                            ] else ...[
+                                              Container(
+                                                height: 160,
+                                                width: double.infinity,
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerLowest,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .outline
+                                                        .withOpacity(0.3),
+                                                  ),
+                                                ),
+                                                child: isUploadingImage
+                                                    ? const Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            CircularProgressIndicator(),
+                                                            SizedBox(height: 8),
+                                                            Text(
+                                                                'Uploading image...',
+                                                                style: TextStyle(
+                                                                    color: Colors
+                                                                        .grey)),
+                                                          ],
+                                                        ),
+                                                      )
+                                                    : const Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            Icon(
+                                                                Icons
+                                                                    .image_outlined,
+                                                                size: 40,
+                                                                color: Colors
+                                                                    .grey),
+                                                            SizedBox(height: 8),
+                                                            Text(
+                                                                'No image selected',
+                                                                style: TextStyle(
+                                                                    color: Colors
+                                                                        .grey)),
+                                                          ],
+                                                        ),
+                                                      ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                            ],
+
+                                            // Image buttons
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceEvenly,
+                                              children: [
+                                                Expanded(
+                                                  child: ElevatedButton.icon(
+                                                    icon: isUploadingImage
+                                                        ? const SizedBox(
+                                                            width: 18,
+                                                            height: 18,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              valueColor:
+                                                                  AlwaysStoppedAnimation<
+                                                                          Color>(
+                                                                      Colors
+                                                                          .white),
+                                                            ),
+                                                          )
+                                                        : const Icon(
+                                                            Icons.photo_camera,
+                                                            size: 18),
+                                                    label: Text(imageUrl == null
+                                                        ? 'Add Image'
+                                                        : 'Change'),
+                                                    onPressed: isUploadingImage
+                                                        ? null
+                                                        : () async {
+                                                            final stepId = DateTime
+                                                                    .now()
+                                                                .millisecondsSinceEpoch
+                                                                .toString();
+                                                            final url =
+                                                                await _pickAndUploadImage(
+                                                                    context,
+                                                                    _sop.id,
+                                                                    stepId);
+                                                            if (url != null) {
+                                                              setState(() {
+                                                                imageUrl = url;
+                                                              });
+                                                            }
+                                                          },
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          const Color(
+                                                              0xFFBB2222),
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 8,
+                                                          horizontal: 12),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (imageUrl != null) ...[
+                                                  const SizedBox(width: 8),
+                                                  OutlinedButton.icon(
+                                                    icon: const Icon(
+                                                        Icons.delete_outline,
+                                                        size: 18),
+                                                    label: const Text('Remove'),
+                                                    onPressed: isUploadingImage
+                                                        ? null
+                                                        : () {
+                                                            setState(() {
+                                                              imageUrl = null;
+                                                            });
+                                                          },
+                                                    style: OutlinedButton
+                                                        .styleFrom(
+                                                      foregroundColor:
+                                                          Colors.red,
+                                                      side: const BorderSide(
+                                                          color: Colors.red),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 8,
+                                                          horizontal: 12),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              if (imageUrl != null) ...[
-                                const SizedBox(width: 8),
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      imageUrl = null;
-                                    });
-                                  },
-                                  icon: const Icon(Icons.delete_outline),
-                                  label: const Text('Remove Image'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.red,
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+                          const Divider(),
+                          const SizedBox(height: 16),
+
+                          // Tools and hazards sections in tabs
+                          Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outline
+                                    .withOpacity(0.3),
+                              ),
+                            ),
+                            elevation: 0,
+                            child: Column(
+                              children: [
+                                DefaultTabController(
+                                  length: 2,
+                                  child: Column(
+                                    children: [
+                                      TabBar(
+                                        dividerColor: Colors.transparent,
+                                        tabs: [
+                                          Tab(
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.build,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary),
+                                                const SizedBox(width: 8),
+                                                const Text('Tools Needed'),
+                                              ],
+                                            ),
+                                          ),
+                                          Tab(
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(Icons.warning,
+                                                    color: Colors.orange),
+                                                const SizedBox(width: 8),
+                                                const Text(
+                                                    'Hazards & Warnings'),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        indicatorSize: TabBarIndicatorSize.tab,
+                                        labelColor: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        unselectedLabelColor: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                        indicatorColor: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                      ),
+                                      Container(
+                                        height: 1,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .outline
+                                            .withOpacity(0.2),
+                                      ),
+                                      SizedBox(
+                                        height: 200,
+                                        child: TabBarView(
+                                          children: [
+                                            // Tools tab
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Text(
+                                                        'Step-Specific Tools',
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .titleMedium,
+                                                      ),
+                                                      ElevatedButton.icon(
+                                                        icon: const Icon(
+                                                            Icons.add,
+                                                            size: 18),
+                                                        label: const Text(
+                                                            'Add Tool'),
+                                                        onPressed: () {
+                                                          _showAddItemToListDialog(
+                                                              'Tool', (tool) {
+                                                            setState(() {
+                                                              stepTools
+                                                                  .add(tool);
+                                                            });
+                                                          });
+                                                        },
+                                                        style: ElevatedButton
+                                                            .styleFrom(
+                                                          backgroundColor:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .primary,
+                                                          foregroundColor:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onPrimary,
+                                                          visualDensity:
+                                                              VisualDensity
+                                                                  .compact,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Expanded(
+                                                    child: stepTools.isEmpty
+                                                        ? Center(
+                                                            child: Text(
+                                                              'No tools specified for this step',
+                                                              style: TextStyle(
+                                                                  color: Theme.of(
+                                                                          context)
+                                                                      .colorScheme
+                                                                      .outline),
+                                                            ),
+                                                          )
+                                                        : ListView.separated(
+                                                            itemCount: stepTools
+                                                                .length,
+                                                            separatorBuilder: (_,
+                                                                    __) =>
+                                                                const Divider(
+                                                                    height: 1),
+                                                            itemBuilder:
+                                                                (context,
+                                                                    index) {
+                                                              return ListTile(
+                                                                dense: true,
+                                                                leading:
+                                                                    const Icon(
+                                                                        Icons
+                                                                            .build,
+                                                                        size:
+                                                                            20),
+                                                                title: Text(
+                                                                    stepTools[
+                                                                        index]),
+                                                                trailing:
+                                                                    IconButton(
+                                                                  icon: const Icon(
+                                                                      Icons
+                                                                          .delete_outline,
+                                                                      size: 20),
+                                                                  onPressed:
+                                                                      () {
+                                                                    setState(
+                                                                        () {
+                                                                      stepTools
+                                                                          .removeAt(
+                                                                              index);
+                                                                    });
+                                                                  },
+                                                                  visualDensity:
+                                                                      VisualDensity
+                                                                          .compact,
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            // Hazards tab
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Text(
+                                                        'Step-Specific Hazards',
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .titleMedium,
+                                                      ),
+                                                      FilledButton.tonalIcon(
+                                                        icon: const Icon(
+                                                            Icons.add,
+                                                            size: 18),
+                                                        label: const Text(
+                                                            'Add Hazard'),
+                                                        onPressed: () {
+                                                          _showAddItemToListDialog(
+                                                              'Hazard',
+                                                              (hazard) {
+                                                            setState(() {
+                                                              stepHazards
+                                                                  .add(hazard);
+                                                            });
+                                                          });
+                                                        },
+                                                        style: FilledButton
+                                                            .styleFrom(
+                                                          backgroundColor:
+                                                              Colors.orange
+                                                                  .shade100,
+                                                          foregroundColor:
+                                                              Colors.orange
+                                                                  .shade900,
+                                                          visualDensity:
+                                                              VisualDensity
+                                                                  .compact,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Expanded(
+                                                    child: stepHazards.isEmpty
+                                                        ? Center(
+                                                            child: Text(
+                                                              'No hazards specified for this step',
+                                                              style: TextStyle(
+                                                                  color: Theme.of(
+                                                                          context)
+                                                                      .colorScheme
+                                                                      .outline),
+                                                            ),
+                                                          )
+                                                        : ListView.separated(
+                                                            itemCount:
+                                                                stepHazards
+                                                                    .length,
+                                                            separatorBuilder: (_,
+                                                                    __) =>
+                                                                const Divider(
+                                                                    height: 1),
+                                                            itemBuilder:
+                                                                (context,
+                                                                    index) {
+                                                              return ListTile(
+                                                                dense: true,
+                                                                leading: const Icon(
+                                                                    Icons
+                                                                        .warning,
+                                                                    size: 20,
+                                                                    color: Colors
+                                                                        .orange),
+                                                                title: Text(
+                                                                    stepHazards[
+                                                                        index]),
+                                                                trailing:
+                                                                    IconButton(
+                                                                  icon: const Icon(
+                                                                      Icons
+                                                                          .delete_outline,
+                                                                      size: 20),
+                                                                  onPressed:
+                                                                      () {
+                                                                    setState(
+                                                                        () {
+                                                                      stepHazards
+                                                                          .removeAt(
+                                                                              index);
+                                                                    });
+                                                                  },
+                                                                  visualDensity:
+                                                                      VisualDensity
+                                                                          .compact,
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
-                            ],
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  Row(
+                ),
+
+                // Bottom action buttons
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                    border: Border(
+                      top: BorderSide(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outline
+                              .withOpacity(0.2)),
+                    ),
+                  ),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(
+                      OutlinedButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+                        child: const Text('Cancel',
+                            style: TextStyle(fontSize: 14)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                        ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 16),
                       FilledButton.icon(
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add Step',
+                            style: TextStyle(fontSize: 14)),
                         onPressed: () {
                           // Validate required fields
                           if (titleController.text.trim().isEmpty ||
@@ -1617,12 +2336,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                           }
 
                           // Calculate total time in seconds
-                          int hours =
-                              int.tryParse(hoursController.text.trim()) ?? 0;
-                          int minutes =
-                              int.tryParse(minutesController.text.trim()) ?? 0;
-                          int seconds =
-                              int.tryParse(secondsController.text.trim()) ?? 0;
+                          int hours = int.tryParse(
+                                  estimatedHoursController.text.trim()) ??
+                              0;
+                          int minutes = int.tryParse(
+                                  estimatedMinutesController.text.trim()) ??
+                              0;
+                          int seconds = int.tryParse(
+                                  estimatedSecondsController.text.trim()) ??
+                              0;
 
                           int totalSeconds =
                               (hours * 3600) + (minutes * 60) + seconds;
@@ -1646,13 +2368,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                     : null,
                             estimatedTime:
                                 totalSeconds > 0 ? totalSeconds : null,
-                            stepTools: const [], // Use empty list for tools
-                            stepHazards: const [], // Use empty list for hazards
+                            stepTools: stepTools,
+                            stepHazards: stepHazards,
                           );
 
                           if (kDebugMode) {
                             print(
                                 'Created step with ID: ${newStep.id}, Image URL: ${newStep.imageUrl}');
+                            print('Step tools: ${newStep.stepTools}');
+                            print('Step hazards: ${newStep.stepHazards}');
                           }
 
                           // Add the step to the SOP
@@ -1672,13 +2396,17 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
                           Navigator.pop(context);
                         },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Step'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFBB2222),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                        ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2364,100 +3092,15 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                                     .now()
                                                                 .millisecondsSinceEpoch
                                                                 .toString();
-
-                                                            // First pick the image
-                                                            final ImagePicker
-                                                                picker =
-                                                                ImagePicker();
-                                                            final XFile? image =
-                                                                await picker
-                                                                    .pickImage(
-                                                              source:
-                                                                  ImageSource
-                                                                      .gallery,
-                                                              imageQuality: 80,
-                                                              maxWidth: 1200,
-                                                              maxHeight: 1200,
-                                                            );
-
-                                                            if (image != null) {
-                                                              // Create a temporary data URL for preview
-                                                              final Uint8List
-                                                                  imageBytes =
-                                                                  await image
-                                                                      .readAsBytes();
-                                                              final String
-                                                                  tempDataUrl =
-                                                                  'data:image/jpeg;base64,${base64Encode(imageBytes)}';
-
+                                                            final url =
+                                                                await _pickAndUploadImage(
+                                                                    context,
+                                                                    _sop.id,
+                                                                    stepId);
+                                                            if (url != null) {
                                                               setState(() {
-                                                                isUploadingImage =
-                                                                    true;
-                                                                tempImageUrl =
-                                                                    tempDataUrl;
+                                                                imageUrl = url;
                                                               });
-
-                                                              try {
-                                                                // Upload the image directly using the bytes
-                                                                final sopService =
-                                                                    Provider.of<
-                                                                            SOPService>(
-                                                                        context,
-                                                                        listen:
-                                                                            false);
-                                                                final String?
-                                                                    url =
-                                                                    await sopService.uploadImageFromDataUrl(
-                                                                        tempDataUrl,
-                                                                        _sop.id,
-                                                                        stepId);
-
-                                                                setState(() {
-                                                                  isUploadingImage =
-                                                                      false;
-                                                                  tempImageUrl =
-                                                                      null;
-                                                                  if (url !=
-                                                                      null) {
-                                                                    imageUrl =
-                                                                        url;
-
-                                                                    // Update the step in the main SOP state
-                                                                    final updatedSteps =
-                                                                        List<SOPStep>.from(
-                                                                            _sop.steps);
-                                                                    updatedSteps[
-                                                                        index] = updatedSteps[
-                                                                            index]
-                                                                        .copyWith(
-                                                                      imageUrl:
-                                                                          url,
-                                                                    );
-                                                                    _sop = _sop
-                                                                        .copyWith(
-                                                                            steps:
-                                                                                updatedSteps);
-                                                                  }
-                                                                });
-                                                              } catch (e) {
-                                                                setState(() {
-                                                                  isUploadingImage =
-                                                                      false;
-                                                                  tempImageUrl =
-                                                                      null;
-                                                                });
-                                                                if (kDebugMode) {
-                                                                  print(
-                                                                      'Error uploading image: $e');
-                                                                }
-                                                                ScaffoldMessenger.of(
-                                                                        context)
-                                                                    .showSnackBar(
-                                                                  SnackBar(
-                                                                      content: Text(
-                                                                          'Error uploading image: $e')),
-                                                                );
-                                                              }
                                                             }
                                                           },
                                                     style: ElevatedButton
