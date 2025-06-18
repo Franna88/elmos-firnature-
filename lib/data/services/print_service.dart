@@ -911,7 +911,7 @@ class PrintService {
     return pw.Container(
       height: cardHeight,
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: categoryColor),
+        border: pw.Border.all(color: PdfColors.grey400),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
       ),
       child: pw.Column(
@@ -935,7 +935,7 @@ class PrintService {
                   width: 18,
                   height: 18,
                   decoration: pw.BoxDecoration(
-                    color: categoryColor,
+                    color: PdfColors.grey600,
                     borderRadius: pw.BorderRadius.circular(2),
                   ),
                   alignment: pw.Alignment.center,
