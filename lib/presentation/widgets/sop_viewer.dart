@@ -9,6 +9,7 @@ import '../widgets/cross_platform_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:image_network/image_network.dart';
 import 'package:flutter/rendering.dart';
+import 'package:go_router/go_router.dart';
 
 class SOPViewer extends StatefulWidget {
   final SOP sop;
@@ -1149,12 +1150,16 @@ class _SOPViewerState extends State<SOPViewer> {
                     icon: const Icon(Icons.check_circle),
                     label: const Text('Complete'),
                     onPressed: () {
-                      // Show completion dialog or action
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('SOP completed successfully!'),
                           backgroundColor: Colors.green,
+                          duration: Duration(seconds: 1),
                         ),
+                      );
+                      Future.delayed(
+                        const Duration(seconds: 1),
+                        () => context.go('/sops'),
                       );
                     },
                   ),
