@@ -819,20 +819,19 @@ class _SOPViewerState extends State<SOPViewer> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Center(
                     child: FractionallySizedBox(
-                      widthFactor: 0.8, // 80% of the card's width
+                      widthFactor: 0.95,
                       child: Container(
-                        height: 450, // Fixed height for the image area
-                        width: double.infinity, // Take all available width
+                        height: 500,
+                        width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.white,
                         ),
                         child: CrossPlatformImage(
                           key: ValueKey('step-image-${step.imageUrl}'),
                           imageUrl: step.imageUrl!,
-                          width: 550, // Fill parent width
-                          height: 450, // Match container height
-                          fit: BoxFit
-                              .cover, // Fill the container, cropping if needed
+                          width: 650,
+                          height: 500,
+                          fit: BoxFit.contain,
                           errorWidget: _buildImageError(),
                         ),
                       ),
