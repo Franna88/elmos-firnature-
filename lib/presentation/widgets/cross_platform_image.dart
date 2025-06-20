@@ -25,7 +25,7 @@ class CrossPlatformImage extends StatelessWidget {
     required this.imageUrl,
     this.width = 200.0,
     this.height = 140.0,
-    this.fit = BoxFit.cover,
+    this.fit = BoxFit.contain,
     this.placeholder,
     this.errorWidget,
     this.cacheWidth,
@@ -34,9 +34,9 @@ class CrossPlatformImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Make sure we have actual dimensions, especially for web
-    final double actualWidth = width == double.infinity ? 300.0 : width;
-    final double actualHeight = height == double.infinity ? 200.0 : height;
+    // Only apply default dimensions if no width/height provided
+    final double actualWidth = width;
+    final double actualHeight = height;
 
     // Use cacheWidth and cacheHeight if provided, otherwise calculate based on device pixel ratio
     final int? effectiveCacheWidth = cacheWidth ??
@@ -85,65 +85,31 @@ class CrossPlatformImage extends StatelessWidget {
 
     // Handle different image types
     if (imageUrl!.startsWith('data:image/')) {
-      // Data URL handling is the same across platforms
       try {
         final bytes = base64Decode(imageUrl!.split(',')[1]);
-        return Image.memory(
-          bytes,
+        return SizedBox(
           width: actualWidth,
           height: actualHeight,
-          fit: fit,
-          cacheWidth: effectiveCacheWidth,
-          cacheHeight: effectiveCacheHeight,
-          errorBuilder: (context, error, stackTrace) =>
-              errorWidget ?? defaultErrorWidget,
+          child: Image.memory(
+            bytes,
+            width: actualWidth,
+            height: actualHeight,
+            fit: fit,
+            cacheWidth: effectiveCacheWidth,
+            cacheHeight: effectiveCacheHeight,
+            errorBuilder: (context, error, stackTrace) =>
+                errorWidget ?? defaultErrorWidget,
+          ),
         );
       } catch (e) {
         debugPrint('Error decoding data URL: $e');
         return errorWidget ?? defaultErrorWidget;
       }
     } else if (imageUrl!.startsWith('assets/')) {
-      // Asset image handling is the same across platforms
-      return Image.asset(
-        imageUrl!,
+      return SizedBox(
         width: actualWidth,
         height: actualHeight,
-        fit: fit,
-        cacheWidth: effectiveCacheWidth,
-        cacheHeight: effectiveCacheHeight,
-        errorBuilder: (context, error, stackTrace) =>
-            errorWidget ?? defaultErrorWidget,
-      );
-    } else {
-      // Check if the image is already in our memory cache
-      if (!kIsWeb && _imageCache.containsKey(imageUrl)) {
-        // If image is in memory cache, display it directly without network request
-        return Image.memory(
-          _imageCache[imageUrl]!,
-          width: actualWidth,
-          height: actualHeight,
-          fit: fit,
-          cacheWidth: effectiveCacheWidth,
-          cacheHeight: effectiveCacheHeight,
-          errorBuilder: (context, error, stackTrace) =>
-              errorWidget ?? defaultErrorWidget,
-        );
-      }
-
-      // Network image handling - use ImageNetwork for web
-      if (kIsWeb) {
-        return ImageNetwork(
-          image: imageUrl!,
-          height: actualHeight,
-          width: actualWidth,
-          duration: 1000,
-          fitWeb: _mapBoxFitToWeb(fit),
-          onLoading: placeholder ?? defaultPlaceholder,
-          onError: errorWidget ?? defaultErrorWidget,
-        );
-      } else {
-        // For mobile and other platforms, use regular Image.network with explicit caching
-        return Image.network(
+        child: Image.asset(
           imageUrl!,
           width: actualWidth,
           height: actualHeight,
@@ -152,41 +118,90 @@ class CrossPlatformImage extends StatelessWidget {
           cacheHeight: effectiveCacheHeight,
           errorBuilder: (context, error, stackTrace) =>
               errorWidget ?? defaultErrorWidget,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
+        ),
+      );
+    } else {
+      // Check if the image is already in our memory cache
+      if (!kIsWeb && _imageCache.containsKey(imageUrl)) {
+        return SizedBox(
+          width: actualWidth,
+          height: actualHeight,
+          child: Image.memory(
+            _imageCache[imageUrl]!,
+            width: actualWidth,
+            height: actualHeight,
+            fit: fit,
+            cacheWidth: effectiveCacheWidth,
+            cacheHeight: effectiveCacheHeight,
+            errorBuilder: (context, error, stackTrace) =>
+                errorWidget ?? defaultErrorWidget,
+          ),
+        );
+      }
 
-            // Show a more informative loading indicator with progress
-            return Container(
-              width: actualWidth,
-              height: actualHeight,
-              color: Colors.grey[200],
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                      strokeWidth: 3.0,
-                      color: Colors.red[700],
-                    ),
-                    if (loadingProgress.expectedTotalBytes != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '${((loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!) * 100).toStringAsFixed(0)}%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+      // Network image handling - use ImageNetwork for web
+      if (kIsWeb) {
+        return SizedBox(
+          width: actualWidth,
+          height: actualHeight,
+          child: ImageNetwork(
+            image: imageUrl!,
+            height: actualHeight,
+            width: actualWidth,
+            duration: 1000,
+            fitWeb: _mapBoxFitToWeb(fit),
+            onLoading: placeholder ?? defaultPlaceholder,
+            onError: errorWidget ?? defaultErrorWidget,
+          ),
+        );
+      } else {
+        return SizedBox(
+          width: actualWidth,
+          height: actualHeight,
+          child: Image.network(
+            imageUrl!,
+            width: actualWidth,
+            height: actualHeight,
+            fit: fit,
+            cacheWidth: effectiveCacheWidth,
+            cacheHeight: effectiveCacheHeight,
+            errorBuilder: (context, error, stackTrace) =>
+                errorWidget ?? defaultErrorWidget,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+
+              return Container(
+                width: actualWidth,
+                height: actualHeight,
+                color: Colors.grey[200],
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        strokeWidth: 3.0,
+                        color: Colors.red[700],
                       ),
+                      if (loadingProgress.expectedTotalBytes != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '${((loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!) * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       }
     }

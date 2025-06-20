@@ -911,7 +911,7 @@ class PrintService {
     return pw.Container(
       height: cardHeight,
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: categoryColor),
+        border: pw.Border.all(color: PdfColors.grey400),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
       ),
       child: pw.Column(
@@ -935,7 +935,7 @@ class PrintService {
                   width: 18,
                   height: 18,
                   decoration: pw.BoxDecoration(
-                    color: categoryColor,
+                    color: PdfColors.grey600,
                     borderRadius: pw.BorderRadius.circular(2),
                   ),
                   alignment: pw.Alignment.center,
@@ -987,7 +987,7 @@ class PrintService {
                     padding: const pw.EdgeInsets.all(2),
                     child: pw.Image(
                       stepImage,
-                      fit: pw.BoxFit.cover,
+                      fit: pw.BoxFit.contain,
                     ),
                   )
                 : pw.Column(
@@ -1043,9 +1043,9 @@ class PrintService {
                 pw.Expanded(
                   child: pw.Text(
                     step.instruction,
-                    style: const pw.TextStyle(fontSize: 11),
+                    style: const pw.TextStyle(fontSize: 10),
                     overflow: pw.TextOverflow.clip,
-                    maxLines: 3,
+                    maxLines: 4,
                   ),
                 ),
                 // If there are tools or hazards, show in single compact line

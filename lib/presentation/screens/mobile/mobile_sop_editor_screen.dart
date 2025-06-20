@@ -2517,8 +2517,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       final int originalWidth = decodedImage.width;
       final int originalHeight = decodedImage.height;
 
-      // Calculate target dimensions
-      final int maxDimension = isThumbnail ? 400 : 800;
+      final int maxDimension = 1200;
       int targetWidth = originalWidth;
       int targetHeight = originalHeight;
 
@@ -2534,7 +2533,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       }
 
       if (kIsWeb) {
-        // For web platform, use the image package for optimization
         final img.Image? decodedImage = img.decodeImage(imageBytes);
         if (decodedImage == null) {
           if (kDebugMode) {
@@ -2548,19 +2546,10 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           decodedImage,
           width: targetWidth,
           height: targetHeight,
-          interpolation: img.Interpolation.linear,
+          interpolation: img.Interpolation.cubic,
         );
 
-        // Try different quality levels to find the best compression
-        List<int> compressedBytes = img.encodeJpg(resizedImage, quality: 65);
-        if (compressedBytes.length >= imageBytes.length) {
-          // If 65% quality didn't help, try 50%
-          compressedBytes = img.encodeJpg(resizedImage, quality: 50);
-          if (compressedBytes.length >= imageBytes.length) {
-            // If still not better, try 35%
-            compressedBytes = img.encodeJpg(resizedImage, quality: 35);
-          }
-        }
+        List<int> compressedBytes = img.encodeJpg(resizedImage, quality: 85);
 
         final Uint8List optimizedBytes = Uint8List.fromList(compressedBytes);
 
@@ -2574,42 +2563,17 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               'Size reduction: ${((imageBytes.length - optimizedBytes.length) / imageBytes.length * 100).toStringAsFixed(1)}%');
         }
 
-        // Only return optimized bytes if they're actually smaller
-        return optimizedBytes.length < imageBytes.length
+        return optimizedBytes.length < imageBytes.length * 0.9
             ? optimizedBytes
             : imageBytes;
       } else {
-        // For mobile platforms, use flutter_image_compress
-        // Try different quality levels
         Uint8List optimizedBytes = await FlutterImageCompress.compressWithList(
           imageBytes,
           minWidth: targetWidth,
           minHeight: targetHeight,
-          quality: 65,
+          quality: 85,
           format: CompressFormat.jpeg,
         );
-
-        // If 65% quality didn't help, try 50%
-        if (optimizedBytes.length >= imageBytes.length) {
-          optimizedBytes = await FlutterImageCompress.compressWithList(
-            imageBytes,
-            minWidth: targetWidth,
-            minHeight: targetHeight,
-            quality: 50,
-            format: CompressFormat.jpeg,
-          );
-
-          // If still not better, try 35%
-          if (optimizedBytes.length >= imageBytes.length) {
-            optimizedBytes = await FlutterImageCompress.compressWithList(
-              imageBytes,
-              minWidth: targetWidth,
-              minHeight: targetHeight,
-              quality: 35,
-              format: CompressFormat.jpeg,
-            );
-          }
-        }
 
         if (kDebugMode) {
           print('Mobile platform detected - using flutter_image_compress');
@@ -2621,8 +2585,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               'Size reduction: ${((imageBytes.length - optimizedBytes.length) / imageBytes.length * 100).toStringAsFixed(1)}%');
         }
 
-        // Only return optimized bytes if they're actually smaller
-        return optimizedBytes.length < imageBytes.length
+        return optimizedBytes.length < imageBytes.length * 0.9
             ? optimizedBytes
             : imageBytes;
       }
