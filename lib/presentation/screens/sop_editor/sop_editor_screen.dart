@@ -1736,93 +1736,33 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                 tempImageUrl != null) ...[
                                               Container(
                                                 height: 160,
+                                                width:
+                                                    240, // Add a fixed width for consistency
+                                                alignment: Alignment
+                                                    .center, // Center the child
                                                 clipBehavior: Clip.antiAlias,
                                                 decoration: BoxDecoration(
                                                   color: Colors.grey[200],
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                 ),
-                                                child: Stack(
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    _buildStepImage(
-                                                        tempImageUrl ??
-                                                            imageUrl!,
-                                                        context),
-                                                    if (isUploadingImage)
-                                                      Container(
-                                                        color: Colors.black
-                                                            .withOpacity(0.5),
-                                                        child: const Center(
-                                                          child: Column(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .center,
-                                                            children: [
-                                                              CircularProgressIndicator(
-                                                                valueColor:
-                                                                    AlwaysStoppedAnimation<
-                                                                            Color>(
-                                                                        Colors
-                                                                            .white),
-                                                              ),
-                                                              SizedBox(
-                                                                  height: 8),
-                                                              Text(
-                                                                'Uploading...',
-                                                                style:
-                                                                    TextStyle(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  fontSize: 12,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    Positioned(
-                                                      top: 8,
-                                                      right: 8,
-                                                      child: Container(
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: Colors.black
-                                                              .withOpacity(0.5),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(16),
-                                                        ),
-                                                        child: IconButton(
-                                                          icon: const Icon(
-                                                              Icons.fullscreen,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 20),
-                                                          onPressed: () {
-                                                            // Show full-size image dialog
-                                                            _showFullSizeImageDialog(
-                                                                context,
-                                                                tempImageUrl ??
-                                                                    imageUrl!);
-                                                          },
-                                                          iconSize: 20,
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .all(4),
-                                                          constraints:
-                                                              const BoxConstraints(),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(
+                                                      8.0), // Add padding for better appearance
+                                                  child: _buildStepImage(
+                                                    tempImageUrl ?? imageUrl!,
+                                                    context,
+                                                  ),
                                                 ),
                                               ),
                                               const SizedBox(height: 12),
                                             ] else ...[
                                               Container(
                                                 height: 160,
-                                                width: double.infinity,
+                                                width:
+                                                    240, // Add a fixed width for consistency
+                                                alignment: Alignment
+                                                    .center, // Center the child
                                                 decoration: BoxDecoration(
                                                   color: Theme.of(context)
                                                       .colorScheme
@@ -2962,94 +2902,34 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                             if (imageUrl != null ||
                                                 tempImageUrl != null) ...[
                                               Container(
-                                                height: 160,
+                                                height: 200,
+                                                width:
+                                                    240, // Add a fixed width for consistency
+                                                alignment: Alignment
+                                                    .center, // Center the child
                                                 clipBehavior: Clip.antiAlias,
                                                 decoration: BoxDecoration(
                                                   color: Colors.grey[200],
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                 ),
-                                                child: Stack(
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    _buildStepImage(
-                                                        tempImageUrl ??
-                                                            imageUrl!,
-                                                        context),
-                                                    if (isUploadingImage)
-                                                      Container(
-                                                        color: Colors.black
-                                                            .withOpacity(0.5),
-                                                        child: const Center(
-                                                          child: Column(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .center,
-                                                            children: [
-                                                              CircularProgressIndicator(
-                                                                valueColor:
-                                                                    AlwaysStoppedAnimation<
-                                                                            Color>(
-                                                                        Colors
-                                                                            .white),
-                                                              ),
-                                                              SizedBox(
-                                                                  height: 8),
-                                                              Text(
-                                                                'Uploading...',
-                                                                style:
-                                                                    TextStyle(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  fontSize: 12,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    Positioned(
-                                                      top: 8,
-                                                      right: 8,
-                                                      child: Container(
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: Colors.black
-                                                              .withOpacity(0.5),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(16),
-                                                        ),
-                                                        child: IconButton(
-                                                          icon: const Icon(
-                                                              Icons.fullscreen,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 20),
-                                                          onPressed: () {
-                                                            // Show full-size image dialog
-                                                            _showFullSizeImageDialog(
-                                                                context,
-                                                                tempImageUrl ??
-                                                                    imageUrl!);
-                                                          },
-                                                          iconSize: 20,
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .all(4),
-                                                          constraints:
-                                                              const BoxConstraints(),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(
+                                                      8.0), // Add padding for better appearance
+                                                  child: _buildStepImage(
+                                                    tempImageUrl ?? imageUrl!,
+                                                    context,
+                                                  ),
                                                 ),
                                               ),
                                               const SizedBox(height: 12),
                                             ] else ...[
                                               Container(
-                                                height: 160,
-                                                width: double.infinity,
+                                                height: 200,
+                                                width:
+                                                    240, // Add a fixed width for consistency
+                                                alignment: Alignment
+                                                    .center, // Center the child
                                                 decoration: BoxDecoration(
                                                   color: Theme.of(context)
                                                       .colorScheme
@@ -3652,18 +3532,21 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
     // Common image container with constraints, adjusted for mobile
     Widget buildConstrainedImage(Widget imageWidget) {
-      return GestureDetector(
-        onTap: () {
-          // Show full-size image dialog optimized for mobile when tapped
-          _showFullSizeImageDialog(context, imageUrl);
-        },
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: 500,
-            minHeight: 100,
-            maxHeight: 300,
+      return Center(
+        child: GestureDetector(
+          onTap: () {
+            // Show full-size image dialog optimized for mobile when tapped
+            _showFullSizeImageDialog(context, imageUrl);
+          },
+          child: Container(
+            constraints: const BoxConstraints(
+              maxWidth: 220,
+              minHeight: 100,
+              maxHeight: 180,
+            ),
+            alignment: Alignment.center,
+            child: imageWidget,
           ),
-          child: imageWidget,
         ),
       );
     }
@@ -3672,8 +3555,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
     return buildConstrainedImage(
       CrossPlatformImage(
         imageUrl: imageUrl,
-        width: 500,
-        height: 300,
+        width: 200,
+        height: 180,
         fit: BoxFit.contain,
       ),
     );
@@ -4502,7 +4385,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       imageUrl: imageUrl,
       width: width ?? 200,
       height: height ?? 150,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
     );
   }
 
