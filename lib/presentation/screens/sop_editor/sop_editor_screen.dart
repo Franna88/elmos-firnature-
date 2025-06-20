@@ -1908,18 +1908,65 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                     onPressed: isUploadingImage
                                                         ? null
                                                         : () async {
-                                                            final stepId = DateTime
-                                                                    .now()
-                                                                .millisecondsSinceEpoch
-                                                                .toString();
-                                                            final url =
-                                                                await _pickAndUploadImage(
-                                                                    context,
-                                                                    _sop.id,
-                                                                    stepId);
-                                                            if (url != null) {
+                                                            setState(() {
+                                                              isUploadingImage =
+                                                                  true;
+                                                            });
+
+                                                            try {
+                                                              // First, pick image and show immediate preview
+                                                              final previewUrl =
+                                                                  await _pickImageWithPreview();
+                                                              if (previewUrl !=
+                                                                  null) {
+                                                                setState(() {
+                                                                  tempImageUrl =
+                                                                      previewUrl;
+                                                                });
+                                                              }
+
+                                                              // Then upload to storage in background
+                                                              if (previewUrl !=
+                                                                  null) {
+                                                                final stepId = DateTime
+                                                                        .now()
+                                                                    .millisecondsSinceEpoch
+                                                                    .toString();
+                                                                final uploadedUrl =
+                                                                    await _uploadImageToStorage(
+                                                                        previewUrl,
+                                                                        _sop.id,
+                                                                        stepId);
+                                                                if (uploadedUrl !=
+                                                                    null) {
+                                                                  setState(() {
+                                                                    imageUrl =
+                                                                        uploadedUrl;
+                                                                    tempImageUrl =
+                                                                        null;
+                                                                    isUploadingImage =
+                                                                        false;
+                                                                  });
+                                                                } else {
+                                                                  setState(() {
+                                                                    tempImageUrl =
+                                                                        null;
+                                                                    isUploadingImage =
+                                                                        false;
+                                                                  });
+                                                                }
+                                                              } else {
+                                                                setState(() {
+                                                                  isUploadingImage =
+                                                                      false;
+                                                                });
+                                                              }
+                                                            } catch (e) {
                                                               setState(() {
-                                                                imageUrl = url;
+                                                                tempImageUrl =
+                                                                    null;
+                                                                isUploadingImage =
+                                                                    false;
                                                               });
                                                             }
                                                           },
@@ -3088,18 +3135,65 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                     onPressed: isUploadingImage
                                                         ? null
                                                         : () async {
-                                                            final stepId = DateTime
-                                                                    .now()
-                                                                .millisecondsSinceEpoch
-                                                                .toString();
-                                                            final url =
-                                                                await _pickAndUploadImage(
-                                                                    context,
-                                                                    _sop.id,
-                                                                    stepId);
-                                                            if (url != null) {
+                                                            setState(() {
+                                                              isUploadingImage =
+                                                                  true;
+                                                            });
+
+                                                            try {
+                                                              // First, pick image and show immediate preview
+                                                              final previewUrl =
+                                                                  await _pickImageWithPreview();
+                                                              if (previewUrl !=
+                                                                  null) {
+                                                                setState(() {
+                                                                  tempImageUrl =
+                                                                      previewUrl;
+                                                                });
+                                                              }
+
+                                                              // Then upload to storage in background
+                                                              if (previewUrl !=
+                                                                  null) {
+                                                                final stepId = DateTime
+                                                                        .now()
+                                                                    .millisecondsSinceEpoch
+                                                                    .toString();
+                                                                final uploadedUrl =
+                                                                    await _uploadImageToStorage(
+                                                                        previewUrl,
+                                                                        _sop.id,
+                                                                        stepId);
+                                                                if (uploadedUrl !=
+                                                                    null) {
+                                                                  setState(() {
+                                                                    imageUrl =
+                                                                        uploadedUrl;
+                                                                    tempImageUrl =
+                                                                        null;
+                                                                    isUploadingImage =
+                                                                        false;
+                                                                  });
+                                                                } else {
+                                                                  setState(() {
+                                                                    tempImageUrl =
+                                                                        null;
+                                                                    isUploadingImage =
+                                                                        false;
+                                                                  });
+                                                                }
+                                                              } else {
+                                                                setState(() {
+                                                                  isUploadingImage =
+                                                                      false;
+                                                                });
+                                                              }
+                                                            } catch (e) {
                                                               setState(() {
-                                                                imageUrl = url;
+                                                                tempImageUrl =
+                                                                    null;
+                                                                isUploadingImage =
+                                                                    false;
                                                               });
                                                             }
                                                           },
@@ -3699,6 +3793,52 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
     }
   }
 
+  // New method to handle image selection with immediate preview
+  Future<String?> _pickImageWithPreview() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+
+      if (image != null) {
+        final Uint8List imageBytes = await image.readAsBytes();
+
+        // Return a data URL immediately for preview
+        return 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error in image picking process: $e');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not select image: $e')),
+      );
+      return null;
+    }
+  }
+
+  // New method to upload image to Firebase Storage
+  Future<String?> _uploadImageToStorage(
+      String dataUrl, String sopId, String stepId) async {
+    try {
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      return await sopService.uploadImageFromDataUrl(dataUrl, sopId, stepId);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error uploading image to storage: $e');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading image: $e')),
+      );
+      return null;
+    }
+  }
+
   void _showUnsavedChangesDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -4020,12 +4160,24 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                   final stepId = DateTime.now()
                                       .millisecondsSinceEpoch
                                       .toString();
-                                  final url = await _pickAndUploadImage(
-                                      context, _sop.id, stepId);
-                                  if (url != null) {
+
+                                  // First, pick image and show immediate preview
+                                  final previewUrl =
+                                      await _pickImageWithPreview();
+                                  if (previewUrl != null) {
                                     setState(() {
-                                      imageUrl = url;
+                                      imageUrl = previewUrl;
                                     });
+
+                                    // Then upload to storage in background
+                                    final uploadedUrl =
+                                        await _uploadImageToStorage(
+                                            previewUrl, _sop.id, stepId);
+                                    if (uploadedUrl != null) {
+                                      setState(() {
+                                        imageUrl = uploadedUrl;
+                                      });
+                                    }
                                   }
                                 },
                                 icon: const Icon(Icons.image),
