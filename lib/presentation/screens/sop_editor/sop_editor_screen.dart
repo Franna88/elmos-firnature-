@@ -1934,9 +1934,24 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                     onPressed: isUploadingImage
                                                         ? null
                                                         : () {
-                                                            setState(() {
-                                                              imageUrl = null;
-                                                            });
+                                                            _showImageDeletionConfirmationDialog(
+                                                              imageType:
+                                                                  'step image',
+                                                              onConfirm: () {
+                                                                setState(() {
+                                                                  imageUrl =
+                                                                      null;
+                                                                });
+                                                                Navigator.pop(
+                                                                    context);
+                                                              },
+                                                              onCancel: () {
+                                                                Navigator.pop(
+                                                                    context);
+                                                              },
+                                                              sopId: _sop.id,
+                                                              // Don't pass stepId for new steps since they haven't been saved yet
+                                                            );
                                                           },
                                                     style: OutlinedButton
                                                         .styleFrom(
@@ -3101,9 +3116,24 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                     onPressed: isUploadingImage
                                                         ? null
                                                         : () {
-                                                            setState(() {
-                                                              imageUrl = null;
-                                                            });
+                                                            _showImageDeletionConfirmationDialog(
+                                                              imageType:
+                                                                  'step image',
+                                                              onConfirm: () {
+                                                                setState(() {
+                                                                  imageUrl =
+                                                                      null;
+                                                                });
+                                                                Navigator.pop(
+                                                                    context);
+                                                              },
+                                                              onCancel: () {
+                                                                Navigator.pop(
+                                                                    context);
+                                                              },
+                                                              sopId: _sop.id,
+                                                              stepId: step.id,
+                                                            );
                                                           },
                                                     style: OutlinedButton
                                                         .styleFrom(
@@ -4072,9 +4102,23 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                 const SizedBox(width: 8),
                                 OutlinedButton.icon(
                                   onPressed: () {
-                                    setState(() {
-                                      imageUrl = null;
-                                    });
+                                    _showImageDeletionConfirmationDialog(
+                                      imageType: 'step image',
+                                      onConfirm: () {
+                                        setState(() {
+                                          imageUrl = null;
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                      onCancel: () {
+                                        setState(() {
+                                          imageUrl = null;
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                      sopId: _sop.id,
+                                      // Don't pass stepId for new steps since they haven't been saved yet
+                                    );
                                   },
                                   icon: const Icon(Icons.delete_outline),
                                   label: const Text('Remove Image'),
@@ -5465,5 +5509,47 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         _showEditStepDialog(step, stepIndex);
       });
     }
+  }
+
+  // Helper method to show image deletion confirmation dialog
+  void _showImageDeletionConfirmationDialog({
+    required String imageType,
+    required VoidCallback onConfirm,
+    required VoidCallback onCancel,
+    String? sopId,
+    String? stepId,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.red, size: 24),
+            const SizedBox(width: 8),
+            Text('Delete $imageType'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete this $imageType? This action cannot be undone.',
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: onCancel,
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: onConfirm,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Delete'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      ),
+    );
   }
 }
