@@ -184,33 +184,10 @@ class PrintService {
                 // Header with logo and basic info
                 _buildPDFHeader(sop, logoImage, qrCodeImage, pdfCategoryColor),
                 pw.SizedBox(height: 4),
-
-                // // Description section - much more compact
-                // pw.Row(
-                //   crossAxisAlignment: pw.CrossAxisAlignment.start,
-                //   children: [
-                //     // Global information in a single row
-                //     pw.Expanded(
-                //       flex: 4,
-                //       child: _buildGlobalInfoSection(sop),
-                //     ),
-
-                //     pw.SizedBox(width: 8),
-
-                //     // Description to the right
-                //     pw.Expanded(
-                //       flex: 2,
-                //       child: _buildSummarySection(sop, pdfCategoryColor),
-                //     ),
-                //   ],
-                // ),
-
-                pw.SizedBox(height: 5),
-
+                pw.SizedBox(height: 2),
                 // First 6 steps or all if <= 6
                 _buildStepsSection(sop, stepImages, pdfCategoryColor, 0,
                     stepsCount <= 6 ? stepsCount : 6),
-
                 pw.Spacer(),
                 _buildFooter(context, sop, qrCodeImage),
               ],
@@ -235,7 +212,7 @@ class PrintService {
                   children: [
                     _buildPDFHeader(
                         sop, logoImage, qrCodeImage, pdfCategoryColor),
-                    pw.SizedBox(height: 4),
+                    pw.SizedBox(height: 3),
                     _buildStepsSection(
                         sop, stepImages, pdfCategoryColor, i, endIndex),
                     pw.Spacer(),
@@ -903,10 +880,10 @@ class PrintService {
   // Build an individual step card with consistent image size and text limited to 4 lines
   pw.Widget _buildStepCard(SOPStep step, int stepNumber,
       pw.MemoryImage? stepImage, PdfColor categoryColor) {
-    final cardHeight = 230.0; // Increased card height
+    final cardHeight = 240.0; // Increased card height
     final imageHeight =
-        160.0; // Slightly reduced image height to make room for text
-    final textContainerHeight = 50.0; // Increased text container height
+        150.0; // Slightly reduced image height to make room for text
+    final textContainerHeight = 70.0; // Increased text container height
 
     return pw.Container(
       height: cardHeight,
@@ -1043,9 +1020,9 @@ class PrintService {
                 pw.Expanded(
                   child: pw.Text(
                     step.instruction,
-                    style: const pw.TextStyle(fontSize: 10),
+                    style: const pw.TextStyle(fontSize: 9.5),
                     overflow: pw.TextOverflow.clip,
-                    maxLines: 4,
+                    maxLines: 6,
                   ),
                 ),
                 // If there are tools or hazards, show in single compact line
@@ -1126,7 +1103,7 @@ class PrintService {
   pw.Widget _buildFooter(
       pw.Context context, SOP sop, pw.MemoryImage? qrCodeImage) {
     return pw.Container(
-      padding: const pw.EdgeInsets.only(top: 5),
+      padding: const pw.EdgeInsets.only(top: 0),
       decoration: const pw.BoxDecoration(
           border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300))),
       child: pw.Row(
