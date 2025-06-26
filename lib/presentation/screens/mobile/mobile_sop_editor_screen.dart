@@ -1843,9 +1843,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
             onPressed: _isLoading
                 ? null // Disable back button when loading
                 : () {
-                    setState(() {
-                      _currentStepIndex = -1;
-                    });
+                    context.go(
+                        '/mobile/sop/${_sop.id}?stepIndex=${_currentStepIndex}');
                   },
           ),
         ),
