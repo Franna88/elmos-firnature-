@@ -505,6 +505,12 @@ class SOPService extends ChangeNotifier {
     try {
       final now = DateTime.now();
 
+      // Increment revision number for existing SOPs (not new ones)
+      final currentSop = getSopById(updatedSop.id);
+      final newRevisionNumber = currentSop != null
+          ? currentSop.revisionNumber + 1
+          : updatedSop.revisionNumber;
+
       // Ensure we have a QR code URL
       final qrCodeUrl = updatedSop.qrCodeUrl ??
           _qrCodeService.generateQRDataForSOP(updatedSop.id);
@@ -512,6 +518,8 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('Updating SOP in Firestore with ID: ${updatedSop.id}');
         print('Thumbnail URL: ${updatedSop.thumbnailUrl}');
+        print(
+            'Revision number incremented from ${currentSop?.revisionNumber ?? 0} to $newRevisionNumber');
       }
 
       // Process thumbnailUrl - upload to Firebase Storage if it's a data URL
@@ -585,11 +593,12 @@ class SOPService extends ChangeNotifier {
         };
       }).toList();
 
-      // Create updated SOP object with processed images
+      // Create updated SOP object with processed images and incremented revision number
       final processedSop = updatedSop.copyWith(
         thumbnailUrl: finalThumbnailUrl,
         steps: processedSteps,
         updatedAt: now,
+        revisionNumber: newRevisionNumber,
       );
 
       final sopData = {
