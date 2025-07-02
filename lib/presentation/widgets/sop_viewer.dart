@@ -43,9 +43,9 @@ class _SOPViewerState extends State<SOPViewer> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sopService = Provider.of<SOPService>(context, listen: false);
       sopService.preloadSOPImages(widget.sop.id).then((_) {
-        if (kDebugMode) {
-          print('All SOP images preloaded successfully in SOPViewer');
-        }
+        // if (kDebugMode) {
+        //   print('All SOP images preloaded successfully in SOPViewer');
+        // }
       });
     });
   }

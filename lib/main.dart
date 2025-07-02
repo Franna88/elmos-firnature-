@@ -4,9 +4,10 @@ import 'package:elmos_furniture_app/data/services/analytics_service.dart';
 import 'package:elmos_furniture_app/data/services/category_service.dart';
 import 'package:elmos_furniture_app/data/services/mes_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'utils/deep_link_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -46,17 +47,30 @@ import 'core/theme/app_theme.dart';
 // import 'utils/constants.dart';
 
 void main() async {
+  debugPrint('🚀 APP: Starting application...');
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure URL strategy for Flutter web - ESSENTIAL for proper URL handling
+  if (kIsWeb) {
+    usePathUrlStrategy();
+    debugPrint('🌐 APP: Configured path URL strategy for web');
+  }
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  debugPrint('Starting Firebase initialization...');
+  debugPrint('🔥 APP: Firebase initialized successfully');
+  debugPrint(
+      'Firebase project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
 
   // Initialize services
+  debugPrint('🔧 APP: Setting up services...');
   setupServices();
+  debugPrint('🔧 APP: Services setup complete');
 
+  debugPrint('🎬 APP: Running MyApp...');
   runApp(const MyApp());
-  debugPrint('✅ Firebase initialized successfully');
+  debugPrint('✅ APP: Firebase initialized successfully');
   debugPrint(
       'Firebase project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
 }
@@ -66,6 +80,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🏗️ MYAPP: Building MyApp widget...');
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => AuthService()),
@@ -87,6 +103,9 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer<AuthService>(
         builder: (context, authService, child) {
+          debugPrint(
+              '🔄 MYAPP: Consumer<AuthService> rebuilding - isLoggedIn: ${authService.isLoggedIn}');
+          debugPrint('🔄 MYAPP: Creating router with authService...');
           return MaterialApp.router(
             title: "Elmo's Furniture SOP Manager",
             theme: AppTheme.lightTheme,
@@ -100,10 +119,15 @@ class MyApp extends StatelessWidget {
   }
 
   GoRouter _createRouter(AuthService authService) {
+    debugPrint('🛣️ ROUTER: Creating GoRouter...');
+    debugPrint(
+        '🛣️ ROUTER: Initial auth state - isLoggedIn: ${authService.isLoggedIn}, userEmail: ${authService.userEmail}');
+
     return GoRouter(
-      initialLocation: '/dashboard',
+      initialLocation: Uri.base.path,
       redirect: (context, state) {
         final bool isLoggedIn = authService.isLoggedIn;
+        final bool isInitialized = authService.isInitialized;
         final bool isLoginRoute = state.matchedLocation == '/login' ||
             state.matchedLocation == '/mobile/login';
         final bool isRegisterRoute = state.matchedLocation == '/register';
@@ -111,35 +135,84 @@ class MyApp extends StatelessWidget {
         // Check if the user is on a mobile device
         final bool isMobileDevice = _isMobileDevice(context);
 
+        // Add comprehensive logging for debugging
+        debugPrint('🔄 ROUTER REDIRECT DEBUG:');
+        debugPrint('  📍 Current location: ${state.matchedLocation}');
+        debugPrint('  🔐 Is logged in: $isLoggedIn');
+        debugPrint('  ⚙️ Is initialized: $isInitialized');
+        debugPrint('  📱 Is mobile device: $isMobileDevice');
+        debugPrint('  🚪 Is login route: $isLoginRoute');
+        debugPrint('  📝 Is register route: $isRegisterRoute');
+        debugPrint('  👤 User email: ${authService.userEmail}');
+        debugPrint('  🆔 User ID: ${authService.userId}');
+
+        // If AuthService is not yet initialized, don't redirect yet
+        if (!isInitialized) {
+          debugPrint('  ⏳ AuthService not initialized yet, waiting...');
+          return null;
+        }
+
         // Special case: Allow direct access to specific SOPs via mobile web (for QR code scanning)
         // This bypasses authentication for mobile SOP viewer when accessed directly
         if (state.matchedLocation.startsWith('/mobile/sop/')) {
+          debugPrint('  ✅ Allowing direct access to mobile SOP viewer');
           // No redirect needed - allow direct access to the SOP without login
           return null;
         }
 
         // If logged in, redirect to appropriate dashboard based on device
         if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
-          return isMobileDevice ? '/mobile/selection' : '/dashboard';
+          final redirectPath =
+              isMobileDevice ? '/mobile/selection' : '/dashboard';
+          debugPrint(
+              '  🔄 Logged in user on auth route, redirecting to: $redirectPath');
+          return redirectPath;
         }
 
         // If not logged in, redirect to appropriate login page based on device
         if (!isLoggedIn && !isLoginRoute && !isRegisterRoute) {
-          return isMobileDevice ? '/mobile/login' : '/login';
+          final redirectPath = isMobileDevice ? '/mobile/login' : '/login';
+          debugPrint('  🔄 Not logged in, redirecting to: $redirectPath');
+          return redirectPath;
         }
 
+        debugPrint('  ✅ No redirect needed');
         return null;
       },
       routes: [
         GoRoute(
           path: '/',
           redirect: (context, state) {
-            if (authService.isLoggedIn) {
-              return _isMobileDevice(context)
-                  ? '/mobile/selection'
-                  : '/dashboard';
+            // If AuthService is not yet initialized, don't redirect yet
+            if (!authService.isInitialized) {
+              debugPrint(
+                  '  ⏳ Root route: AuthService not initialized yet, waiting...');
+              return null;
             }
-            return _isMobileDevice(context) ? '/mobile/login' : '/login';
+
+            // Check if this is the very first app start (no current location)
+            final currentLocation = state.matchedLocation;
+            final browserUrl = Uri.base.path;
+
+            debugPrint(
+                '  🔍 Root route check - currentLocation: $currentLocation, browserUrl: $browserUrl');
+
+            // Only redirect if we're actually on the root path (first app start)
+            if (currentLocation == '/' && browserUrl == '/') {
+              debugPrint(
+                  '  🚀 First app start detected, redirecting to dashboard');
+              // First app start - redirect to appropriate dashboard
+              if (authService.isLoggedIn) {
+                return _isMobileDevice(context)
+                    ? '/mobile/selection'
+                    : '/dashboard';
+              }
+              return _isMobileDevice(context) ? '/mobile/login' : '/login';
+            }
+
+            // For any other route, don't redirect (preserve current location)
+            debugPrint('  ✅ Preserving current location: $currentLocation');
+            return null;
           },
         ),
         GoRoute(

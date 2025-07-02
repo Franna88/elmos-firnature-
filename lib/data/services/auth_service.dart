@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService extends ChangeNotifier {
   // Firebase dependencies with nullable instantiation to handle initialization errors
@@ -16,6 +17,9 @@ class AuthService extends ChangeNotifier {
 
   // Flag to track if we're using local auth
   bool _usingLocalAuth = false;
+
+  // Flag to track initialization status
+  bool _isInitialized = false;
 
   // Flag to enable auto-login for development
   bool _enableDevAutoLogin = false; // Disabled to prevent automatic login
@@ -65,24 +69,36 @@ class AuthService extends ChangeNotifier {
     }
   };
 
-  bool get isLoggedIn => _isLoggedIn;
+  bool get isLoggedIn {
+    debugPrint(
+        '🔍 AUTH SERVICE: isLoggedIn getter called - returning: $_isLoggedIn (initialized: $_isInitialized)');
+    // Only return true if we're both logged in AND initialized
+    return _isLoggedIn && _isInitialized;
+  }
+
   String? get userId => _userId;
   String? get userEmail => _userEmail;
   String? get userName => _userName;
   String? get userRole => _userRole;
   bool get usingLocalAuth => _usingLocalAuth;
+  bool get isInitialized => _isInitialized;
 
   AuthService() {
     _initializeServices();
   }
 
   Future<void> _initializeServices() async {
+    debugPrint('🚀 AUTH SERVICE: Starting initialization...');
     try {
       // First try to load persisted login state
+      debugPrint('📂 AUTH SERVICE: Loading from storage...');
       await _loadFromStorage();
+      debugPrint(
+          '📂 AUTH SERVICE: Storage loaded. isLoggedIn: $_isLoggedIn, userEmail: $_userEmail');
 
       // Then attempt to initialize Firebase (if available)
       try {
+        debugPrint('🔥 AUTH SERVICE: Initializing Firebase...');
         _auth = FirebaseAuth.instance;
         _firestore = FirebaseFirestore.instance;
 
@@ -97,17 +113,26 @@ class AuthService extends ChangeNotifier {
         // Check if there's already a current user
         final currentUser = _auth!.currentUser;
         if (currentUser != null) {
+          debugPrint(
+              '👤 AUTH SERVICE: Found existing Firebase user: ${currentUser.email}');
           if (kDebugMode) {
             print('Found existing Firebase user: ${currentUser.email}');
           }
           await _setUserData(currentUser);
+        } else {
+          debugPrint('👤 AUTH SERVICE: No existing Firebase user found');
         }
 
         // If using Firebase, listen for authentication state changes
         _auth!.authStateChanges().listen((User? user) {
+          debugPrint(
+              '🔄 AUTH SERVICE: Firebase auth state changed - user: ${user?.email}');
           if (user != null && !_usingLocalAuth) {
+            debugPrint('✅ AUTH SERVICE: Setting user data from Firebase');
             _setUserData(user);
           } else if (!_usingLocalAuth && _isLoggedIn) {
+            debugPrint(
+                '❌ AUTH SERVICE: Clearing user data - no Firebase user but was logged in');
             // Only clear user data if we're not using local auth
             // and no Firebase user exists but we think we're logged in
             _clearUserData();
@@ -119,6 +144,7 @@ class AuthService extends ChangeNotifier {
           await autoLogin();
         }
       } catch (e) {
+        debugPrint('❌ AUTH SERVICE: Firebase initialization error: $e');
         if (kDebugMode) {
           print('Firebase initialization error: $e');
           print('Falling back to local authentication');
@@ -126,6 +152,7 @@ class AuthService extends ChangeNotifier {
         _usingLocalAuth = true;
       }
     } catch (e) {
+      debugPrint('❌ AUTH SERVICE: Service initialization error: $e');
       if (kDebugMode) {
         print('Service initialization error: $e');
         print('Falling back to local authentication');
@@ -139,14 +166,22 @@ class AuthService extends ChangeNotifier {
         await _loadFromStorage();
       }
     }
+    debugPrint(
+        '✅ AUTH SERVICE: Initialization complete. isLoggedIn: $_isLoggedIn, userEmail: $_userEmail');
+    _isInitialized = true;
+    notifyListeners();
   }
 
   Future<void> _loadFromStorage() async {
+    debugPrint('📂 AUTH SERVICE: Loading auth state from SharedPreferences...');
     try {
       final prefs = await SharedPreferences.getInstance();
 
       final savedIsLoggedIn = prefs.getBool('isLoggedIn') ?? false;
       final savedUsingLocalAuth = prefs.getBool('usingLocalAuth') ?? false;
+
+      debugPrint(
+          '📂 AUTH SERVICE: SharedPreferences values - isLoggedIn: $savedIsLoggedIn, usingLocalAuth: $savedUsingLocalAuth');
 
       if (savedIsLoggedIn) {
         _isLoggedIn = true;
@@ -156,13 +191,19 @@ class AuthService extends ChangeNotifier {
         _userRole = prefs.getString('userRole') ?? 'user';
         _usingLocalAuth = savedUsingLocalAuth;
 
+        debugPrint(
+            '✅ AUTH SERVICE: Restored login session for: $_userName ($_userEmail)');
+
         if (kDebugMode) {
           print('Restored login session for: $_userName ($_userEmail)');
         }
 
         notifyListeners();
+      } else {
+        debugPrint('📂 AUTH SERVICE: No saved login session found');
       }
     } catch (e) {
+      debugPrint('❌ AUTH SERVICE: Error loading auth from storage: $e');
       if (kDebugMode) {
         print('Error loading auth from storage: $e');
       }
