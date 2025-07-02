@@ -216,34 +216,34 @@ class SOPService extends ChangeNotifier {
 
   Future<void> _loadSOPs() async {
     try {
-      if (kDebugMode) {
-        print('Attempting to load SOPs from Firestore...');
-      }
+      // if (kDebugMode) {
+      //   print('Attempting to load SOPs from Firestore...');
+      // }
 
       // Get all SOPs from Firestore
       final snapshot = await _firestore!.collection('sops').get();
 
-      if (kDebugMode) {
-        print('Retrieved ${snapshot.docs.length} SOPs from Firestore');
-      }
+      // if (kDebugMode) {
+      //   print('Retrieved ${snapshot.docs.length} SOPs from Firestore');
+      // }
 
       final List<SOP> loadedSOPs = [];
 
       for (var doc in snapshot.docs) {
         final sopData = doc.data();
 
-        // Debug thumbnail URLs
-        if (kDebugMode) {
-          print('SOP ID: ${doc.id}, Title: ${sopData['title']}');
-          print('  thumbnailUrl: ${sopData['thumbnailUrl']}');
+        // Debug thumbnail URLs - COMMENTED OUT TO REDUCE CLUTTER
+        // if (kDebugMode) {
+        //   print('SOP ID: ${doc.id}, Title: ${sopData['title']}');
+        //   print('  thumbnailUrl: ${sopData['thumbnailUrl']}');
 
-          // Check if any steps have images
-          final steps = sopData['steps'] as List<dynamic>? ?? [];
-          for (int i = 0; i < steps.length; i++) {
-            final step = steps[i] as Map<String, dynamic>;
-            print('  Step ${i + 1} imageUrl: ${step['imageUrl']}');
-          }
-        }
+        //   // Check if any steps have images
+        //   final steps = sopData['steps'] as List<dynamic>? ?? [];
+        //   for (int i = 0; i < steps.length; i++) {
+        //     final step = steps[i] as Map<String, dynamic>;
+        //     print('  Step ${i + 1} imageUrl: ${step['imageUrl']}');
+        //   }
+        // }
 
         // Parse steps
         final List<dynamic> stepsData =
@@ -304,19 +304,15 @@ class SOPService extends ChangeNotifier {
       _sops = loadedSOPs;
       notifyListeners();
 
-      if (kDebugMode) {
-        print('✅ Successfully loaded ${loadedSOPs.length} SOPs from Firestore');
-      }
+      // if (kDebugMode) {
+      //   print('✅ Successfully loaded ${loadedSOPs.length} SOPs from Firestore');
+      // }
 
-      // Start preloading all thumbnails in the background
+      // Start background preloading after SOPs are loaded
       _preloadAllSOPThumbnails();
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error loading SOPs from Firestore: $e');
-        if (e is FirebaseException) {
-          print('Firebase error code: ${e.code}');
-          print('Firebase error message: ${e.message}');
-        }
       }
       throw Exception('Failed to load SOPs: $e');
     }
@@ -1045,15 +1041,10 @@ class SOPService extends ChangeNotifier {
     }
   }
 
-  // Preload all SOP thumbnails in the background to improve browsing experience
-  Future<void> _preloadAllSOPThumbnails() async {
+  // Start background preloading of all SOP thumbnails
+  void _preloadAllSOPThumbnails() {
     if (_sops.isEmpty) return;
 
-    if (kDebugMode) {
-      print('Starting background preload of ${_sops.length} SOP thumbnails');
-    }
-
-    // Create a list of futures for thumbnail preloading
     final List<Future<void>> thumbnailPreloadFutures = [];
 
     // Add all valid thumbnail URLs to preload list
@@ -1069,10 +1060,10 @@ class SOPService extends ChangeNotifier {
     if (thumbnailPreloadFutures.isNotEmpty) {
       // Don't await this to let it run in the background
       Future.wait(thumbnailPreloadFutures).then((_) {
-        if (kDebugMode) {
-          print(
-              '✅ Successfully preloaded ${thumbnailPreloadFutures.length} SOP thumbnails');
-        }
+        // if (kDebugMode) {
+        //   print(
+        //       '✅ Successfully preloaded ${thumbnailPreloadFutures.length} SOP thumbnails');
+        // }
 
         // After thumbnails are loaded, start preloading the first few SOPs' full images
         _preloadTopSOPsFullImages(3); // Preload first 3 SOPs completely
@@ -1087,10 +1078,10 @@ class SOPService extends ChangeNotifier {
     // Limit to available SOPs count
     final effectiveCount = count > _sops.length ? _sops.length : count;
 
-    if (kDebugMode) {
-      print(
-          'Starting deep preload of first $effectiveCount SOPs with all images');
-    }
+    // if (kDebugMode) {
+    //   print(
+    //       'Starting deep preload of first $effectiveCount SOPs with all images');
+    // }
 
     // Preload the first N SOPs completely (all steps)
     for (int i = 0; i < effectiveCount; i++) {
@@ -1098,9 +1089,9 @@ class SOPService extends ChangeNotifier {
 
       // Queue this preload without awaiting to allow parallel loading
       preloadSOPImages(sop.id, highPriority: false).then((_) {
-        if (kDebugMode) {
-          print('✅ Completed deep preload of SOP: ${sop.title}');
-        }
+        // if (kDebugMode) {
+        //   print('✅ Completed deep preload of SOP: ${sop.title}');
+        // }
       });
 
       // Small delay between starting each SOP preload to prioritize
@@ -1112,16 +1103,16 @@ class SOPService extends ChangeNotifier {
   Future<void> preloadSOPImages(String sopId,
       {bool highPriority = true}) async {
     try {
-      if (kDebugMode) {
-        print('Preloading images for SOP: $sopId' +
-            (highPriority ? ' (high priority)' : ''));
-      }
+      // if (kDebugMode) {
+      //   print('Preloading images for SOP: $sopId' +
+      //       (highPriority ? ' (high priority)' : ''));
+      // }
 
       final sop = getSopById(sopId);
       if (sop == null) {
-        if (kDebugMode) {
-          print('SOP not found for preloading: $sopId');
-        }
+        // if (kDebugMode) {
+        //   print('SOP not found for preloading: $sopId');
+        // }
         return;
       }
 
@@ -1130,9 +1121,9 @@ class SOPService extends ChangeNotifier {
 
       // Preload the thumbnail if available (high priority)
       if (sop.thumbnailUrl != null && sop.thumbnailUrl!.isNotEmpty) {
-        if (kDebugMode) {
-          print('Preloading thumbnail: ${sop.thumbnailUrl}');
-        }
+        // if (kDebugMode) {
+        //   print('Preloading thumbnail: ${sop.thumbnailUrl}');
+        // }
 
         if (sop.thumbnailUrl!.startsWith('data:image/')) {
           // No need to preload data URLs, they're already in memory
@@ -1147,9 +1138,9 @@ class SOPService extends ChangeNotifier {
       for (int i = 0; i < sop.steps.length; i++) {
         final step = sop.steps[i];
         if (step.imageUrl != null && step.imageUrl!.isNotEmpty) {
-          if (kDebugMode) {
-            print('Preloading step ${i + 1} image: ${step.imageUrl}');
-          }
+          // if (kDebugMode) {
+          //   print('Preloading step ${i + 1} image: ${step.imageUrl}');
+          // }
 
           if (step.imageUrl!.startsWith('data:image/')) {
             // No need to preload data URLs, they're already in memory
@@ -1169,14 +1160,14 @@ class SOPService extends ChangeNotifier {
       // Wait for all remaining preloads to complete
       if (preloadFutures.isNotEmpty) {
         await Future.wait(preloadFutures);
-        if (kDebugMode) {
-          print(
-              'Successfully preloaded ${preloadFutures.length + (sop.thumbnailUrl != null ? 1 : 0)} images for SOP: $sopId');
-        }
+        // if (kDebugMode) {
+        //   print(
+        //       'Successfully preloaded ${preloadFutures.length + (sop.thumbnailUrl != null ? 1 : 0)} images for SOP: $sopId');
+        // }
       } else {
-        if (kDebugMode) {
-          print('No additional images to preload for SOP: $sopId');
-        }
+        // if (kDebugMode) {
+        //   print('No additional images to preload for SOP: $sopId');
+        // }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -1188,16 +1179,16 @@ class SOPService extends ChangeNotifier {
   // Force preload a specific SOP's images immediately
   // Call this before navigating to a SOP detail screen
   Future<void> forcePreloadSOP(String sopId) async {
-    if (kDebugMode) {
-      print('🔥 Force preloading SOP: $sopId');
-    }
+    // if (kDebugMode) {
+    //   print('🔥 Force preloading SOP: $sopId');
+    // }
 
     try {
       final sop = getSopById(sopId);
       if (sop == null) {
-        if (kDebugMode) {
-          print('SOP not found for force preloading: $sopId');
-        }
+        // if (kDebugMode) {
+        //   print('SOP not found for force preloading: $sopId');
+        // }
         return;
       }
 
@@ -1221,9 +1212,9 @@ class SOPService extends ChangeNotifier {
       }
 
       if (imagesToPreload.isEmpty) {
-        if (kDebugMode) {
-          print('No images to preload for SOP: $sopId');
-        }
+        // if (kDebugMode) {
+        //   print('No images to preload for SOP: $sopId');
+        // }
         return;
       }
 
@@ -1234,10 +1225,10 @@ class SOPService extends ChangeNotifier {
           imagesToPreload.map((url) => _preloadNetworkImage(url)).toList();
       await Future.wait(futures);
 
-      if (kDebugMode) {
-        print(
-            '✅ Successfully force-preloaded ${imagesToPreload.length} images for SOP: $sopId');
-      }
+      // if (kDebugMode) {
+      //   print(
+      //       '✅ Successfully force-preloaded ${imagesToPreload.length} images for SOP: $sopId');
+      // }
     } catch (e) {
       if (kDebugMode) {
         print('Error during force preload: $e');
@@ -1248,23 +1239,23 @@ class SOPService extends ChangeNotifier {
   // Helper method to preload a network image more effectively
   Future<void> _preloadNetworkImage(String url) async {
     try {
-      if (kDebugMode) {
-        print('Starting preload for image: $url');
-      }
+      // if (kDebugMode) {
+      //   print('Starting preload for image: $url');
+      // }
 
       // Use a full GET request to actually download the image data
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode != 200) {
-        if (kDebugMode) {
-          print('Error preloading image: ${response.statusCode}');
-        }
+        // if (kDebugMode) {
+        //   print('Error preloading image: ${response.statusCode}');
+        // }
       } else {
-        if (kDebugMode) {
-          final fileSize = response.bodyBytes.length / 1024;
-          print(
-              'Successfully preloaded image (${fileSize.toStringAsFixed(1)} KB): $url');
-        }
+        // if (kDebugMode) {
+        //   final fileSize = response.bodyBytes.length / 1024;
+        //   print(
+        //       'Successfully preloaded image (${fileSize.toStringAsFixed(1)} KB): $url');
+        // }
 
         // Add the image to the CrossPlatformImage static cache
         CrossPlatformImage.addToCache(url, response.bodyBytes);
@@ -1276,9 +1267,9 @@ class SOPService extends ChangeNotifier {
             // Create an image from the downloaded data to keep it in memory cache
             // This doesn't need a BuildContext
             await ui.instantiateImageCodec(response.bodyBytes);
-            if (kDebugMode) {
-              print('Image loaded into codec cache: $url');
-            }
+            // if (kDebugMode) {
+            //   print('Image loaded into codec cache: $url');
+            // }
           } catch (codecError) {
             if (kDebugMode) {
               print('Error loading image into codec: $codecError');
@@ -1288,7 +1279,7 @@ class SOPService extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error preloading image $url: $e');
+        // print('Error preloading image $url: $e');
       }
     }
   }

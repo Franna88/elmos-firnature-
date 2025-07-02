@@ -113,9 +113,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
       // Preload all images for this SOP to improve viewing experience
       sopService.preloadSOPImages(sop.id).then((_) {
-        if (kDebugMode) {
-          print('All SOP images preloaded successfully');
-        }
+        // if (kDebugMode) {
+        //   print('All SOP images preloaded successfully');
+        // }
       });
 
       // Play animation effect if this was accessed via QR code
