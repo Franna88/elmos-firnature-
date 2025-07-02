@@ -225,8 +225,8 @@ class AppScaffold extends StatelessWidget {
                         context,
                         icon: Icons.dashboard_outlined,
                         label: 'Dashboard',
-                        route: '/',
-                        isSelected: currentLocation == '/',
+                        route: '/dashboard',
+                        isSelected: currentLocation == '/dashboard',
                       ),
                       _buildNavItem(
                         context,
