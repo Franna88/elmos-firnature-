@@ -33,6 +33,13 @@ class SOPService extends ChangeNotifier {
   List<SOP> get sops => List.unmodifiable(_sops);
   List<SOPTemplate> get templates => List.unmodifiable(_templates);
 
+  // Loading state flags
+  bool _isLoading = false;
+  bool _isLoaded = false;
+
+  bool get isLoading => _isLoading;
+  bool get isLoaded => _isLoaded;
+
   SOPService() {
     _initializeData();
   }
@@ -215,6 +222,9 @@ class SOPService extends ChangeNotifier {
   }
 
   Future<void> _loadSOPs() async {
+    _isLoading = true;
+    _isLoaded = false;
+    notifyListeners();
     try {
       // if (kDebugMode) {
       //   print('Attempting to load SOPs from Firestore...');
@@ -302,6 +312,8 @@ class SOPService extends ChangeNotifier {
       }
 
       _sops = loadedSOPs;
+      _isLoaded = true;
+      _isLoading = false;
       notifyListeners();
 
       // if (kDebugMode) {
@@ -311,6 +323,9 @@ class SOPService extends ChangeNotifier {
       // Start background preloading after SOPs are loaded
       _preloadAllSOPThumbnails();
     } catch (e) {
+      _isLoading = false;
+      _isLoaded = false;
+      notifyListeners();
       if (kDebugMode) {
         print('❌ Error loading SOPs from Firestore: $e');
       }
