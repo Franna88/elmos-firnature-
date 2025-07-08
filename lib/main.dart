@@ -3,6 +3,7 @@ import 'package:elmos_furniture_app/data/services/sop_service.dart';
 import 'package:elmos_furniture_app/data/services/analytics_service.dart';
 import 'package:elmos_furniture_app/data/services/category_service.dart';
 import 'package:elmos_furniture_app/data/services/mes_service.dart';
+import 'package:elmos_furniture_app/data/services/user_management_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:provider/provider.dart';
@@ -37,6 +38,7 @@ import 'presentation/screens/image_upload_test_screen.dart';
 import 'presentation/screens/mes/mes_screen.dart';
 import 'presentation/screens/mes_management_screen.dart';
 import 'presentation/screens/mes_reports_screen.dart';
+import 'presentation/screens/user_management/user_management_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -99,6 +101,13 @@ class MyApp extends StatelessWidget {
                 sopService: sopService,
                 authService: authService,
               ),
+        ),
+        ChangeNotifierProxyProvider<AuthService, UserManagementService>(
+          create: (context) => UserManagementService(
+            Provider.of<AuthService>(context, listen: false),
+          ),
+          update: (context, authService, previous) =>
+              previous ?? UserManagementService(authService),
         ),
       ],
       child: Consumer<AuthService>(
@@ -321,6 +330,19 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/image-upload-test',
           builder: (context, state) => const ImageUploadTestScreen(),
+        ),
+        // User Management route (Admin only)
+        GoRoute(
+          path: '/user-management',
+          redirect: (context, state) {
+            final authService =
+                Provider.of<AuthService>(context, listen: false);
+            if (authService.userRole != 'admin') {
+              return '/dashboard'; // Redirect non-admins to dashboard
+            }
+            return null; // Allow access for admins
+          },
+          builder: (context, state) => const UserManagementScreen(),
         ),
       ],
     );

@@ -310,6 +310,15 @@ class AppScaffold extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // User Management (Admin only)
+                      if (authService.userRole == 'admin')
+                        _buildNavItem(
+                          context,
+                          icon: Icons.people_outlined,
+                          label: 'User Management',
+                          route: '/user-management',
+                          isSelected: currentLocation == '/user-management',
+                        ),
                       _buildNavItem(
                         context,
                         icon: Icons.settings_outlined,
