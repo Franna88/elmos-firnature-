@@ -195,7 +195,15 @@ class _SOPsScreenState extends State<SOPsScreen> {
                           itemCount: filteredSOPs.length,
                           itemBuilder: (context, index) {
                             final sop = filteredSOPs[index];
-                            return _buildSOPCard(context, sop);
+                            return Card(
+                              key: ValueKey(sop.id),
+                              clipBehavior: Clip.antiAlias,
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: _buildSOPCard(context, sop),
+                            );
                           },
                         ),
                       ),
@@ -212,207 +220,187 @@ class _SOPsScreenState extends State<SOPsScreen> {
             ? sop.steps.first.imageUrl
             : null);
 
-    // Get category color from the actual category data
     final categoryService =
         Provider.of<CategoryService>(context, listen: false);
     final Color departmentColor =
         _getCategoryColor(sop.categoryId, categoryService);
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () async {
-          // Show a loading indicator
-          final sopService = Provider.of<SOPService>(context, listen: false);
+    return InkWell(
+      onTap: () async {
+        final sopService = Provider.of<SOPService>(context, listen: false);
 
-          // Show loading dialog
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return Dialog(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(width: 20),
-                      Text('Loading images for "${sop.title}"...'),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-
-          // Preload all images for this SOP before navigating
-          await sopService.forcePreloadSOP(sop.id);
-
-          // Close the dialog after preloading is complete
-          if (context.mounted) {
-            Navigator.of(context).pop();
-
-            // Now navigate to the SOP editor
-            context.go('/editor/${sop.id}');
-          }
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Category header at the top
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-              decoration: BoxDecoration(
-                color: departmentColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Dialog(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(width: 20),
+                    Text('Loading images for "${sop.title}"...'),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      sop.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Rev ${sop.revisionNumber}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+            );
+          },
+        );
+
+        await sopService.forcePreloadSOP(sop.id);
+
+        if (context.mounted) {
+          Navigator.of(context).pop();
+
+          context.go('/editor/${sop.id}');
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            decoration: BoxDecoration(
+              color: departmentColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
               ),
             ),
-
-            // Image section
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: _buildImage(imageUrl),
-              ),
-            ),
-
-            // Content section
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    "Category | : ${sop.categoryName ?? "Unknown"}",
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    sop.title,
                     style: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Color(0xFF4A5363),
+                      fontSize: 14,
                     ),
-                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-
-                  // Description (if available)
-                  if (sop.description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      sop.description,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMedium,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-
-                  const SizedBox(height: 8),
-
-                  // Stats in a row
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.format_list_numbered,
-                        size: 14,
-                        color: AppColors.textLight,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${sop.steps.length} steps',
-                        style: const TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const Spacer(),
-                      const Icon(
-                        Icons.calendar_today_outlined,
-                        size: 14,
-                        color: AppColors.textLight,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatDate(sop.updatedAt),
-                        style: const TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
+                  child: Text(
+                    'Rev ${sop.revisionNumber}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Image section
+          Expanded(
+            child: SizedBox(
+              width: double.infinity,
+              child: CrossPlatformImage(
+                key: ValueKey(imageUrl),
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                errorWidget: _buildImageError(),
               ),
             ),
-          ],
-        ),
+          ),
+
+          // Content section
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Category | : ${sop.categoryName ?? "Unknown"}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Color(0xFF4A5363),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (sop.description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    sop.description,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMedium,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.format_list_numbered,
+                      size: 14,
+                      color: AppColors.textLight,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${sop.steps.length} steps',
+                      style: const TextStyle(
+                        color: AppColors.textLight,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
+                      color: AppColors.textLight,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDate(sop.updatedAt),
+                      style: const TextStyle(
+                        color: AppColors.textLight,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Color _getCategoryColor(String categoryId, CategoryService categoryService) {
-    // Default to a shade of blue if category is empty
     if (categoryId.isEmpty) {
       return AppColors.primaryBlue;
     }
 
-    // Look up the category and get its color
     final category = categoryService.getCategoryById(categoryId);
     if (category != null &&
         category.color != null &&
         category.color!.startsWith('#')) {
       try {
-        // Parse hex color string to Color object
         return Color(int.parse('FF${category.color!.substring(1)}', radix: 16));
       } catch (e) {
-        // If parsing fails, fall back to default
         return AppColors.primaryBlue;
       }
     }
 
-    // Fallback to a default color if category is not found or has no color
     return AppColors.primaryBlue;
   }
 
