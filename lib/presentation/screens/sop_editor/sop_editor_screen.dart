@@ -4601,18 +4601,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'SOP Title',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textDark,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         TextFormField(
                           controller: _titleController,
                           decoration: InputDecoration(
+                            labelText: 'SOP Title',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
