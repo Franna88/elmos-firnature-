@@ -94,7 +94,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       final sop = sopService.getSopById(widget.sopId);
 
       if (sop == null) {
-        if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('SOP not found'),
@@ -102,7 +102,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             ),
           );
           Navigator.of(context).pop();
-        }
+        });
         return;
       }
 
@@ -127,13 +127,15 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
         print('Error loading SOP: $e');
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading SOP: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        Navigator.of(context).pop();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error loading SOP: $e'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          Navigator.of(context).pop();
+        });
       }
     }
   }
@@ -983,8 +985,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       ? CrossPlatformImage(
                           imageUrl: step.imageUrl!,
                           fit: BoxFit.contain,
-                          height: 350,
-                          width: 350,
+                          height: 330,
+                          width: 330,
                           errorWidget: Container(
                             color: Colors.grey[100],
                             child: Center(
