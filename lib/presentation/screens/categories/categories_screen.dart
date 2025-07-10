@@ -114,11 +114,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     padding: const EdgeInsets.all(16),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
+                      crossAxisCount: 4,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                       childAspectRatio:
-                          0.8, // Adjusted aspect ratio to make cards taller
+                          1, // Adjusted aspect ratio to make cards taller
                     ),
                     itemCount: displayCategories.length,
                     itemBuilder: (context, index) {
@@ -308,105 +308,110 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             child: Divider(height: 1),
           ),
 
-          // Sections list - more compact
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'Sections:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Colors.grey[700],
-                      ),
+                // Title on its own line
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    'Sections:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.grey[700],
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: activeSections.map((section) {
-                          IconData iconData;
-
-                          // Assign appropriate icon based on section type
-                          switch (section.toLowerCase()) {
-                            case 'tools':
-                              iconData = Icons.build;
-                              break;
-                            case 'safety':
-                              iconData = Icons.security;
-                              break;
-                            case 'cautions':
-                              iconData = Icons.warning;
-                              break;
-                            case 'steps':
-                              iconData = Icons.format_list_numbered;
-                              break;
-                            default:
-                              iconData = Icons.article;
-                          }
-
-                          // Use a consistent color for all chips
-                          return Chip(
-                            avatar:
-                                Icon(iconData, size: 14, color: categoryColor),
-                            label: Text(section),
-                            backgroundColor: categoryColor.withOpacity(0.1),
-                            visualDensity: VisualDensity.compact,
-                            labelStyle: TextStyle(
+                    textAlign: TextAlign.left,
+                  ),
+                ),
+                // Chips in a left-aligned, wrapping flex
+                Wrap(
+                  alignment: WrapAlignment.start,
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: activeSections.map((section) {
+                    IconData iconData;
+                    switch (section.toLowerCase()) {
+                      case 'tools':
+                        iconData = Icons.build;
+                        break;
+                      case 'safety':
+                        iconData = Icons.security;
+                        break;
+                      case 'cautions':
+                        iconData = Icons.warning;
+                        break;
+                      case 'steps':
+                        iconData = Icons.format_list_numbered;
+                        break;
+                      default:
+                        iconData = Icons.article;
+                    }
+                    // Custom chip with icon and label close together
+                    return Chip(
+                      labelPadding: EdgeInsets.zero,
+                      backgroundColor: categoryColor.withOpacity(0.1),
+                      visualDensity: VisualDensity.compact,
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(iconData, size: 14, color: categoryColor),
+                          const SizedBox(width: 2),
+                          Text(
+                            section,
+                            style: TextStyle(
                               fontSize: 11.0,
                               color: categoryColor,
                               fontWeight: FontWeight.w500,
                             ),
-                            padding: EdgeInsets.zero,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          );
-                        }).toList(),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 0),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    );
+                  }).toList(),
                 ),
               ],
             ),
           ),
 
-          // SOPs count and view button - more compact
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Total SOPs: ${sops.length}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[700],
-                    fontSize: 12,
+          const SizedBox(height: 20),
+          if (sops.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total SOPs: ${sops.length}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    // Navigate to SOPs screen with category filter
-                    context.go('/sops', extra: {'categoryId': category.id});
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: categoryColor,
-                    foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    textStyle: const TextStyle(fontSize: 12),
-                    minimumSize: const Size(80, 28),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navigate to SOPs screen with category filter
+                      context.go('/sops', extra: {'categoryId': category.id});
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: categoryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      textStyle: const TextStyle(fontSize: 12),
+                      minimumSize: const Size(80, 28),
+                    ),
+                    child: const Text('View SOPs'),
                   ),
-                  child: const Text('View SOPs'),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

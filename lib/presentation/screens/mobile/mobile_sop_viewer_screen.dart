@@ -94,7 +94,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       final sop = sopService.getSopById(widget.sopId);
 
       if (sop == null) {
-        if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('SOP not found'),
@@ -102,7 +102,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
             ),
           );
           Navigator.of(context).pop();
-        }
+        });
         return;
       }
 
@@ -127,13 +127,15 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
         print('Error loading SOP: $e');
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading SOP: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        Navigator.of(context).pop();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error loading SOP: $e'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          Navigator.of(context).pop();
+        });
       }
     }
   }
@@ -453,8 +455,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       child: step.imageUrl != null
                           ? CrossPlatformImage(
                               imageUrl: step.imageUrl!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
+                              fit: BoxFit.contain,
                               height: imageHeight,
                               errorWidget: Container(
                                 color: Colors.grey[100],
@@ -693,18 +694,20 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       height: 400,
                       width: 450,
                       child: step.imageUrl != null
-                          ? CrossPlatformImage(
-                              imageUrl: step.imageUrl!,
-                              fit: BoxFit.cover,
-                              width: 450,
-                              height: 400,
-                              errorWidget: Container(
-                                color: Colors.grey[100],
-                                child: Center(
-                                  child: Icon(
-                                    Icons.broken_image,
-                                    size: 40,
-                                    color: Colors.grey,
+                          ? Center(
+                              child: CrossPlatformImage(
+                                imageUrl: step.imageUrl!,
+                                fit: BoxFit.cover,
+                                width: 450,
+                                height: 400,
+                                errorWidget: Container(
+                                  color: Colors.grey[100],
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      size: 40,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -975,14 +978,15 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                 clipBehavior: Clip.antiAlias,
                 elevation: 2,
                 child: Container(
-                  height: 250,
+                  height: 370,
                   width: double.infinity,
+                  alignment: Alignment.center,
                   child: step.imageUrl != null
                       ? CrossPlatformImage(
                           imageUrl: step.imageUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: 220,
+                          fit: BoxFit.contain,
+                          height: 330,
+                          width: 330,
                           errorWidget: Container(
                             color: Colors.grey[100],
                             child: Center(

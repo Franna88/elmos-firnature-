@@ -139,16 +139,8 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
             });
           }
         });
-        return; // Exit early, the microtask will handle the rest
+        return;
       } else {
-        // Wait for SOPService to finish loading SOPs before trying to access the SOP
-        while (!sopService.isLoaded && mounted) {
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-
-        if (!mounted) return;
-
-        // Load existing SOP
         final existingSop = sopService.getSopById(widget.sopId);
         if (existingSop == null) {
           if (mounted) {
@@ -167,7 +159,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       _descriptionController = TextEditingController(text: _sop.description);
       _youtubeUrlController =
           TextEditingController(text: _sop.youtubeUrl ?? '');
-      // No need for department controller as we'll use a dropdown
 
       setState(() {
         _isLoading = false;
@@ -194,7 +185,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
         final categoryService =
             Provider.of<CategoryService>(context, listen: false);
 
-        // Find the category name for the selected categoryId
         String? categoryName;
         if (_sop.categoryId.isNotEmpty) {
           final category = categoryService.getCategoryById(_sop.categoryId);
@@ -449,135 +439,140 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SOPService>(
-      builder: (context, sopService, child) {
-        if (_isLoading || !sopService.isLoaded) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return Scaffold(
-          appBar: AppBar(
-            elevation: 0,
-            backgroundColor: AppColors.primaryBlue,
-            foregroundColor: Colors.white,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: AppColors.primaryBlue,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Check if there are any unsaved changes before navigating back
+            if (_isEditing && _hasUnsavedChanges()) {
+              _showUnsavedChangesDialog(context);
+            } else {
+              context.go('/sops');
+            }
+          },
+        ),
+        title: _isLoading
+            ? const Text('Loading...')
+            : Row(
+                children: [
+                  Text(_isEditing ? 'Edit SOP' : _sop.title,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  if (!_isLoading && !_isEditing)
+                    Container(
+                      margin: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Rev ${_sop.revisionNumber}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
+        actions: [
+          if (!_isLoading) // Only show these actions when not loading
+            IconButton(
+              icon:
+                  Icon(_isEditing ? Icons.save_outlined : Icons.edit_outlined),
+              tooltip: _isEditing ? 'Save SOP' : 'Edit SOP',
               onPressed: () {
-                // Check if there are any unsaved changes before navigating back
-                if (_isEditing && _hasUnsavedChanges()) {
-                  _showUnsavedChangesDialog(context);
+                if (_isEditing) {
+                  _saveSOP();
                 } else {
-                  context.go('/sops');
+                  setState(() {
+                    _isEditing = true;
+                  });
                 }
               },
             ),
-            title: Row(
-              children: [
-                Text(_isEditing ? 'Edit SOP' : _sop.title,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                if (!_isEditing)
-                  Container(
-                    margin: const EdgeInsets.only(left: 12),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Rev ${_sop.revisionNumber}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-              ],
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                    _isEditing ? Icons.save_outlined : Icons.edit_outlined),
-                tooltip: _isEditing ? 'Save SOP' : 'Edit SOP',
-                onPressed: () {
-                  if (_isEditing) {
-                    _saveSOP();
-                  } else {
-                    setState(() {
-                      _isEditing = true;
-                    });
-                  }
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.qr_code_outlined),
-                tooltip: 'Show QR Code',
-                onPressed: () {
-                  _showQRCodeDialog(context);
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.print_outlined),
-                tooltip: 'Print SOP',
-                onPressed: () {
-                  _printSOP();
-                },
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                tooltip: 'More Options',
-                onSelected: (value) {
-                  if (value == 'export_pdf') {
+          IconButton(
+            icon: const Icon(Icons.qr_code_outlined),
+            tooltip: 'Show QR Code',
+            onPressed: _isLoading
+                ? null
+                : () {
+                    // Show QR code dialog
+                    _showQRCodeDialog(context);
+                  },
+          ),
+          IconButton(
+            icon: const Icon(Icons.print_outlined),
+            tooltip: 'Print SOP',
+            onPressed: _isLoading
+                ? null
+                : () {
+                    // Print functionality
                     _printSOP();
-                  } else if (value == 'share') {
-                    // Share SOP
-                  } else if (value == 'duplicate') {
-                    // Duplicate SOP
-                  } else if (value == 'delete') {
-                    _showDeleteConfirmationDialog();
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'export_pdf',
-                    child: ListTile(
-                      leading: Icon(Icons.picture_as_pdf_outlined),
-                      title: Text('Export to PDF'),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                      dense: true,
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'share',
-                    child: ListTile(
-                      leading: Icon(Icons.share_outlined),
-                      title: Text('Share SOP'),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                      dense: true,
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'duplicate',
-                    child: ListTile(
-                      leading: Icon(Icons.copy_outlined),
-                      title: Text('Duplicate'),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                      dense: true,
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outlined, color: Colors.red),
-                      title:
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                      dense: true,
-                    ),
-                  ),
-                ],
+                  },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'More Options',
+            onSelected: (value) {
+              if (value == 'export_pdf') {
+                // Export to PDF
+                _printSOP();
+              } else if (value == 'share') {
+                // Share SOP
+              } else if (value == 'duplicate') {
+                // Duplicate SOP
+              } else if (value == 'delete') {
+                // Delete SOP
+                _showDeleteConfirmationDialog();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'export_pdf',
+                child: ListTile(
+                  leading: Icon(Icons.picture_as_pdf_outlined),
+                  title: Text('Export to PDF'),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'share',
+                child: ListTile(
+                  leading: Icon(Icons.share_outlined),
+                  title: Text('Share SOP'),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'duplicate',
+                child: ListTile(
+                  leading: Icon(Icons.copy_outlined),
+                  title: Text('Duplicate'),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outlined, color: Colors.red),
+                  title: Text('Delete', style: TextStyle(color: Colors.red)),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
+                ),
               ),
             ],
           ),
-          body: _isEditing
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _isEditing
               ? _buildSOPEditor()
               : SOPViewer(
                   sop: _sop,
@@ -585,8 +580,6 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                   onDownloadQRCode: _downloadQRCode,
                   onEditStep: _editStepFromViewer,
                 ),
-        );
-      },
     );
   }
 
@@ -3136,7 +3129,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                                                     context);
                                                               },
                                                               sopId: _sop.id,
-                                                              // Don't pass stepId for new steps since they haven't been saved yet
+                                                              stepId: step.id,
                                                             );
                                                           },
                                                     style: OutlinedButton
