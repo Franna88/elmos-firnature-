@@ -133,7 +133,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                   flex: 3,
                   child: TextField(
                     decoration: const InputDecoration(
-                      hintText: 'Search SOPs...',
+                      labelText: 'Search SOPs...',
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(),
                     ),

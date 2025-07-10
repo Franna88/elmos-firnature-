@@ -188,7 +188,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Expanded(
                 flex: 1,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 50, horizontal: 50),
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 50, horizontal: 50),
                   padding: const EdgeInsets.all(30),
                   constraints: const BoxConstraints(minHeight: 500),
                   decoration: BoxDecoration(
@@ -249,7 +250,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Expanded(
                 flex: 1,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 50, horizontal: 50),
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 50, horizontal: 50),
                   padding: const EdgeInsets.all(30),
                   constraints: const BoxConstraints(minHeight: 500),
                   decoration: BoxDecoration(

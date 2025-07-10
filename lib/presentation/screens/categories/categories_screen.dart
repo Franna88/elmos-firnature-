@@ -92,7 +92,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             color: Theme.of(context).colorScheme.surface,
             child: TextField(
               decoration: const InputDecoration(
-                hintText: 'Search SOPs...',
+                labelText: 'Search SOPs...',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
