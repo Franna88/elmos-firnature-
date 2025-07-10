@@ -453,8 +453,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       child: step.imageUrl != null
                           ? CrossPlatformImage(
                               imageUrl: step.imageUrl!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
+                              fit: BoxFit.contain,
                               height: imageHeight,
                               errorWidget: Container(
                                 color: Colors.grey[100],
@@ -693,18 +692,20 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       height: 400,
                       width: 450,
                       child: step.imageUrl != null
-                          ? CrossPlatformImage(
-                              imageUrl: step.imageUrl!,
-                              fit: BoxFit.cover,
-                              width: 450,
-                              height: 400,
-                              errorWidget: Container(
-                                color: Colors.grey[100],
-                                child: Center(
-                                  child: Icon(
-                                    Icons.broken_image,
-                                    size: 40,
-                                    color: Colors.grey,
+                          ? Center(
+                              child: CrossPlatformImage(
+                                imageUrl: step.imageUrl!,
+                                fit: BoxFit.cover,
+                                width: 450,
+                                height: 400,
+                                errorWidget: Container(
+                                  color: Colors.grey[100],
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      size: 40,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -975,14 +976,15 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                 clipBehavior: Clip.antiAlias,
                 elevation: 2,
                 child: Container(
-                  height: 250,
+                  height: 370,
                   width: double.infinity,
+                  alignment: Alignment.center,
                   child: step.imageUrl != null
                       ? CrossPlatformImage(
                           imageUrl: step.imageUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: 220,
+                          fit: BoxFit.contain,
+                          height: 350,
+                          width: 350,
                           errorWidget: Container(
                             color: Colors.grey[100],
                             child: Center(
