@@ -6,6 +6,8 @@ import '../models/production_timer.dart';
 import '../models/user.dart';
 import '../../data/services/mes_service.dart';
 import '../../data/models/mes_interruption_model.dart';
+import '../../presentation/widgets/cross_platform_image.dart';
+import '../../core/theme/app_theme.dart';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({Key? key}) : super(key: key);
@@ -555,28 +557,23 @@ class _TimerScreenState extends State<TimerScreen> {
 
     // Get screen dimensions to make more responsive calculations
     final screenSize = MediaQuery.of(context).size;
-    final isLandscape = screenSize.width > screenSize.height;
     final isNarrow = screenSize.width < 900;
 
     // Calculate appropriate height constraints based on screen size
     // This will help prevent overflow on smaller screens
     final double maxHeaderHeight = isNarrow ? 45 : 55;
     final double maxStatHeight = isNarrow ? 100 : 130;
-    final double maxTimeDisplayHeight = isNarrow ? 160 : 200;
     final double buttonHeight = isNarrow ? 45 : 60;
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Building: ${_selectedItem.name}'),
         backgroundColor: _timer.mode == ProductionTimerMode.running
-            ? const Color(0xFF4CAF50) // Green for productive
+            ? AppColors.greenAccent // Green for productive
             : _timer.mode == ProductionTimerMode.interrupted
-                ? const Color(0xFFEB281E) // Red for non-productive
-                : null, // Default for paused/not started
-        foregroundColor: _timer.mode == ProductionTimerMode.running ||
-                _timer.mode == ProductionTimerMode.interrupted
-            ? Colors.white
-            : null,
+                ? AppColors.orangeAccent // Orange for non-productive
+                : AppColors.primaryBlue, // Default blue theme
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -641,20 +638,31 @@ class _TimerScreenState extends State<TimerScreen> {
                               BoxConstraints(maxHeight: maxHeaderHeight),
                           child: Row(
                             children: [
-                              // Placeholder for actual image
+                              // Item image or placeholder
                               Container(
                                 width: isNarrow ? 50 : 60,
                                 height: isNarrow ? 50 : 60,
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[300],
                                   borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Icon(
-                                    _getIconForCategory(_selectedItem.category),
-                                    size: isNarrow ? 24 : 30,
-                                    color: Colors.grey[600],
+                                  border: Border.all(
+                                    color: AppColors.cardBorder,
+                                    width: 1,
                                   ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(7),
+                                  child: _selectedItem.imageUrl != null &&
+                                          _selectedItem.imageUrl!.isNotEmpty
+                                      ? CrossPlatformImage(
+                                          imageUrl: _selectedItem.imageUrl!,
+                                          width: isNarrow ? 50 : 60,
+                                          height: isNarrow ? 50 : 60,
+                                          fit: BoxFit.cover,
+                                          errorWidget:
+                                              _buildItemImagePlaceholder(
+                                                  isNarrow),
+                                        )
+                                      : _buildItemImagePlaceholder(isNarrow),
                                 ),
                               ),
                               SizedBox(width: isNarrow ? 8 : 12),
@@ -707,7 +715,7 @@ class _TimerScreenState extends State<TimerScreen> {
                               Icon(
                                 Icons.check_circle_outline,
                                 size: isNarrow ? 20 : 24,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: AppColors.primaryBlue,
                               ),
                               SizedBox(width: isNarrow ? 6 : 8),
                               Column(
@@ -728,9 +736,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primaryContainer,
+                                      color: AppColors.primaryBlue
+                                          .withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
@@ -904,7 +911,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                         ? _buildControlButton(
                                             icon: Icons.pause,
                                             label: 'Pause',
-                                            color: const Color(0xFF2C2C2C),
+                                            color: AppColors.textDark,
                                             onPressed: _pauseTimer,
                                             isNarrow: isNarrow,
                                           )
@@ -913,14 +920,14 @@ class _TimerScreenState extends State<TimerScreen> {
                                             ? _buildControlButton(
                                                 icon: Icons.play_arrow,
                                                 label: 'Resume',
-                                                color: const Color(0xFF4CAF50),
+                                                color: AppColors.greenAccent,
                                                 onPressed: _startTimer,
                                                 isNarrow: isNarrow,
                                               )
                                             : _buildControlButton(
                                                 icon: Icons.play_arrow,
                                                 label: 'Start',
-                                                color: const Color(0xFFEB281E),
+                                                color: AppColors.primaryBlue,
                                                 onPressed: _startTimer,
                                                 isNarrow: isNarrow,
                                               ),
@@ -931,7 +938,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                 child: _buildControlButton(
                                   icon: Icons.check,
                                   label: 'Complete',
-                                  color: const Color(0xFF2C2C2C),
+                                  color: AppColors.greenAccent,
                                   onPressed: _completeItem,
                                   isNarrow: isNarrow,
                                 ),
@@ -993,39 +1000,33 @@ class _TimerScreenState extends State<TimerScreen> {
                                     ..._interruptionTypes.map((type) {
                                       // Determine icon based on type name or use default
                                       IconData icon = Icons.pause_circle;
-                                      Color buttonColor =
-                                          const Color(0xFF2C2C2C);
+                                      Color buttonColor = AppColors.textDark;
 
                                       if (type.name
                                           .toLowerCase()
                                           .contains('break')) {
                                         icon = Icons.coffee;
-                                        buttonColor =
-                                            const Color(0xFF795548); // Brown
+                                        buttonColor = AppColors.orangeAccent;
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('maintenance')) {
                                         icon = Icons.build;
-                                        buttonColor =
-                                            const Color(0xFFFF9800); // Orange
+                                        buttonColor = AppColors.orangeAccent;
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('prep')) {
                                         icon = Icons.assignment;
-                                        buttonColor =
-                                            const Color(0xFF2196F3); // Blue
+                                        buttonColor = AppColors.blueAccent;
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('material')) {
                                         icon = Icons.inventory;
-                                        buttonColor =
-                                            const Color(0xFF4CAF50); // Green
+                                        buttonColor = AppColors.greenAccent;
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('training')) {
                                         icon = Icons.school;
-                                        buttonColor =
-                                            const Color(0xFF9C27B0); // Purple
+                                        buttonColor = AppColors.purpleAccent;
                                       }
 
                                       return Column(
@@ -1051,7 +1052,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                     _buildFullWidthButton(
                                       icon: Icons.help_outline,
                                       label: 'Help',
-                                      color: const Color(0xFFEB281E),
+                                      color: AppColors.primaryBlue,
                                       onPressed: _requestHelp,
                                       description:
                                           'Call supervisor for assistance',
@@ -1205,32 +1206,6 @@ class _TimerScreenState extends State<TimerScreen> {
                 ],
               ),
             ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFFEB281E),
           ),
         ),
       ],
@@ -1399,19 +1374,6 @@ class _TimerScreenState extends State<TimerScreen> {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  // Get color for timer based on remaining time
-  Color _getTimerColor() {
-    final percent =
-        _secondsRemaining / (_selectedItem.estimatedTimeInMinutes * 60);
-    if (percent > 0.5) {
-      return Colors.green;
-    } else if (percent > 0.25) {
-      return Colors.orange;
-    } else {
-      return Colors.red;
-    }
-  }
-
   // Add a new method for formatting time in the "00:00:11" format shown in the screenshot
   String _formatTimeForStatistics(int seconds) {
     final hours = seconds ~/ 3600;
@@ -1424,11 +1386,24 @@ class _TimerScreenState extends State<TimerScreen> {
   Color _getStatusColor() {
     switch (_timer.mode) {
       case ProductionTimerMode.running:
-        return Colors.green;
+        return AppColors.greenAccent;
       case ProductionTimerMode.interrupted:
-        return Colors.red;
+        return AppColors.orangeAccent;
       default:
-        return Colors.grey;
+        return AppColors.textMedium;
     }
+  }
+
+  Widget _buildItemImagePlaceholder(bool isNarrow) {
+    return Container(
+      color: AppColors.backgroundWhite,
+      child: Center(
+        child: Icon(
+          _getIconForCategory(_selectedItem.category),
+          size: isNarrow ? 24 : 30,
+          color: AppColors.textMedium,
+        ),
+      ),
+    );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../data/services/mes_service.dart';
 import '../data/services/auth_service.dart';
+import '../core/theme/app_theme.dart';
 
 // Screens
 import 'screens/login_screen.dart';
@@ -31,51 +32,27 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Elmos MES Tablet',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFEB281E), // Elmos Red
-            primary: const Color(0xFFEB281E), // Elmos Red
-            secondary: const Color(0xFF2C2C2C), // Dark Gray
-            onSecondary: const Color(0xFFFFFFFF), // White
-            background: const Color(0xFFFFFFFF), // White
-            surface: const Color(0xFFFFFFFF), // White
-            onPrimary: const Color(0xFFFFFFFF), // White text on primary
-          ),
-          useMaterial3: true,
-          fontFamily: 'Roboto',
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFFEB281E), // Elmos Red
-            foregroundColor: Color(0xFFFFFFFF), // White text
-            elevation: 0,
+        theme: AppTheme.lightTheme.copyWith(
+          // Tablet-specific customizations while maintaining consistency
+          appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+            backgroundColor: AppColors.primaryBlue,
+            foregroundColor: Colors.white,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEB281E), // Elmos Red
-              foregroundColor: const Color(0xFFFFFFFF), // White text
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               textStyle:
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
             ),
           ),
-          cardTheme: CardThemeData(
-            color: const Color(0xFFFFFFFF), // White
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          scaffoldBackgroundColor:
-              const Color(0xFFF5F5F5), // Light gray background
-          textTheme: const TextTheme(
-            titleLarge: TextStyle(
-              color: Color(0xFF2C2C2C), // Dark Gray
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-            bodyLarge: TextStyle(
-              color: Color(0xFF2C2C2C), // Dark Gray
-            ),
-          ),
+          // Override scaffold background for tablet landscape use
+          scaffoldBackgroundColor: AppColors.backgroundWhite,
         ),
         home: const LoginScreen(),
         routes: {

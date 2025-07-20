@@ -152,23 +152,26 @@ class MESTabletApp extends StatelessWidget {
     // We need to use MaterialApp to provide proper route navigation within the MES tablet
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFEB281E), // Elmos Red
-          primary: const Color(0xFFEB281E), // Elmos Red
-          secondary: const Color(0xFF2C2C2C), // Dark Gray
-          onSecondary: const Color(0xFFFFFFFF), // White
-          background: const Color(0xFFFFFFFF), // White
-          surface: const Color(0xFFFFFFFF), // White
-          onPrimary: const Color(0xFFFFFFFF), // White text on primary
+      theme: AppTheme.lightTheme.copyWith(
+        // Tablet-specific customizations while maintaining consistency
+        appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+          backgroundColor: AppColors.primaryBlue,
+          foregroundColor: Colors.white,
         ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFEB281E), // Elmos Red
-          foregroundColor: Color(0xFFFFFFFF), // White text
-          elevation: 0,
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryBlue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            textStyle:
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            elevation: 0,
+          ),
         ),
+        scaffoldBackgroundColor: AppColors.backgroundWhite,
       ),
       // Define all the required routes
       routes: {

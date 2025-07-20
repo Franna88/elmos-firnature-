@@ -5,6 +5,8 @@ import '../models/furniture_item.dart';
 import '../../data/services/mes_service.dart';
 import '../models/user.dart';
 import 'package:go_router/go_router.dart';
+import '../../presentation/widgets/cross_platform_image.dart';
+import '../../core/theme/app_theme.dart';
 
 class ItemSelectionScreen extends StatefulWidget {
   final User? initialUser;
@@ -114,7 +116,7 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Item to Build'),
-        backgroundColor: const Color(0xFFEB281E),
+        backgroundColor: AppColors.primaryBlue,
         foregroundColor: Colors.white,
         actions: [
           // Refresh button
@@ -215,8 +217,8 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
                   child: FilterChip(
                     label: const Text('All'),
                     selected: _selectedCategory == null,
-                    selectedColor: const Color(0xFFEB281E).withOpacity(0.2),
-                    checkmarkColor: const Color(0xFFEB281E),
+                    selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+                    checkmarkColor: AppColors.primaryBlue,
                     onSelected: (selected) {
                       if (selected) {
                         setState(() {
@@ -231,8 +233,8 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
                       child: FilterChip(
                         label: Text(getProcessDisplayName(category)),
                         selected: _selectedCategory == category,
-                        selectedColor: const Color(0xFFEB281E).withOpacity(0.2),
-                        checkmarkColor: const Color(0xFFEB281E),
+                        selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+                        checkmarkColor: AppColors.primaryBlue,
                         onSelected: (selected) {
                           setState(() {
                             if (selected) {
@@ -289,12 +291,12 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
             // Image or placeholder
             Expanded(
               child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                  ? Image.network(
-                      item.imageUrl!,
+                  ? CrossPlatformImage(
+                      imageUrl: item.imageUrl!,
+                      width: 300,
+                      height: 200,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildImagePlaceholder(item);
-                      },
+                      errorWidget: _buildImagePlaceholder(item),
                     )
                   : _buildImagePlaceholder(item),
             ),
@@ -329,12 +331,26 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
 
   Widget _buildImagePlaceholder(FurnitureItem item) {
     return Container(
-      color: Colors.grey[300],
+      color: AppColors.backgroundWhite,
       child: Center(
-        child: Icon(
-          _getIconForCategory(item.category),
-          size: 80,
-          color: const Color(0xFF2C2C2C),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _getIconForCategory(item.category),
+              size: 80,
+              color: AppColors.textMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No Image',
+              style: TextStyle(
+                color: AppColors.textLight,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -316,6 +316,15 @@ class MyApp extends StatelessWidget {
           path: '/mes',
           builder: (context, state) => const MESScreen(),
         ),
+        // Tablet MES routes
+        GoRoute(
+          path: '/timer',
+          builder: (context, state) => const MESScreen(),
+        ),
+        GoRoute(
+          path: '/item_selection',
+          builder: (context, state) => const MESScreen(),
+        ),
         // MES Management route
         GoRoute(
           path: '/mes-management',

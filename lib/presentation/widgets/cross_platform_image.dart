@@ -39,10 +39,15 @@ class CrossPlatformImage extends StatelessWidget {
     final double actualHeight = height;
 
     // Use cacheWidth and cacheHeight if provided, otherwise calculate based on device pixel ratio
+    // Handle infinity values gracefully
     final int? effectiveCacheWidth = cacheWidth ??
-        (actualWidth * MediaQuery.of(context).devicePixelRatio).round();
+        (actualWidth.isInfinite
+            ? null
+            : (actualWidth * MediaQuery.of(context).devicePixelRatio).round());
     final int? effectiveCacheHeight = cacheHeight ??
-        (actualHeight * MediaQuery.of(context).devicePixelRatio).round();
+        (actualHeight.isInfinite
+            ? null
+            : (actualHeight * MediaQuery.of(context).devicePixelRatio).round());
 
     // Default error widget if not provided
     final Widget defaultErrorWidget = Container(

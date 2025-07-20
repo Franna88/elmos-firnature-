@@ -95,7 +95,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
             ),
             Tab(
               icon: Icon(Icons.pause_circle),
-              text: 'Interruptions',
+              text: 'Non Value',
             ),
           ],
         ),
@@ -479,15 +479,12 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                                   .getActiveProcesses()
                                   .map((process) => DropdownMenuItem<String>(
                                         value: process.id,
-                                        child: Container(
-                                          width: double.infinity,
-                                          child: Text(
-                                            process.stationName != null
-                                                ? '${process.name} (${process.stationName})'
-                                                : process.name,
-                                            overflow: TextOverflow.ellipsis,
-                                            maxLines: 1,
-                                          ),
+                                        child: Text(
+                                          process.stationName != null
+                                              ? '${process.name} (${process.stationName})'
+                                              : process.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
                                         ),
                                       ))
                                   .toList(),
@@ -554,7 +551,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
                                       child: SizedBox(
-                                        width: double.infinity,
+                                        width: 400,
                                         height: 200,
                                         child: CrossPlatformImage(
                                           imageUrl:
@@ -1086,7 +1083,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
                                         child: SizedBox(
-                                          width: double.infinity,
+                                          width: 400,
                                           height: 200,
                                           child: CrossPlatformImage(
                                             imageUrl:
@@ -2242,21 +2239,21 @@ class _InterruptionTypesTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No interruption types found',
+                  'No non-value types found',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.grey.shade600,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Create interruption types for production tracking',
+                  'Create non-value activity types for production tracking',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey.shade500,
                       ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Use the + button in the top bar to add interruption types',
+                  'Use the + button in the top bar to add non-value types',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey.shade500,
                       ),
