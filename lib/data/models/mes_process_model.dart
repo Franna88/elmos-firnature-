@@ -1,36 +1,36 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class MESInterruptionType {
+class MESProcess {
   final String id;
   final String name;
   final String? description;
-  final String? icon;
-  final String? color; // Hex color string (e.g., "#FF5722")
+  final String? stationId; // Reference to MESStation
+  final String? stationName; // Cached for UI performance
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  MESInterruptionType({
+  MESProcess({
     required this.id,
     required this.name,
     this.description,
-    this.icon,
-    this.color,
+    this.stationId,
+    this.stationName,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
   });
 
   // Create from Firestore document
-  factory MESInterruptionType.fromFirestore(DocumentSnapshot doc) {
+  factory MESProcess.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
-    return MESInterruptionType(
+    return MESProcess(
       id: doc.id,
       name: data['name'] ?? '',
       description: data['description'],
-      icon: data['icon'],
-      color: data['color'],
+      stationId: data['stationId'],
+      stationName: data['stationName'],
       isActive: data['isActive'] ?? true,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
@@ -42,8 +42,8 @@ class MESInterruptionType {
     return {
       'name': name,
       'description': description,
-      'icon': icon,
-      'color': color,
+      'stationId': stationId,
+      'stationName': stationName,
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -51,22 +51,35 @@ class MESInterruptionType {
   }
 
   // Create a copy with updated fields
-  MESInterruptionType copyWith({
+  MESProcess copyWith({
     String? name,
     String? description,
-    String? icon,
-    String? color,
+    String? stationId,
+    String? stationName,
     bool? isActive,
   }) {
-    return MESInterruptionType(
+    return MESProcess(
       id: id,
       name: name ?? this.name,
       description: description ?? this.description,
-      icon: icon ?? this.icon,
-      color: color ?? this.color,
+      stationId: stationId ?? this.stationId,
+      stationName: stationName ?? this.stationName,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );
   }
+
+  @override
+  String toString() {
+    return 'MESProcess{id: $id, name: $name, description: $description, stationId: $stationId, isActive: $isActive}';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MESProcess && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

@@ -23,7 +23,7 @@ class FurnitureItem {
       id: mesItem.id,
       name: mesItem.name,
       imageUrl: mesItem.imageUrl,
-      category: mesItem.category,
+      category: mesItem.category, // Uses the backward compatibility getter
       estimatedTimeInMinutes: mesItem.estimatedTimeInMinutes,
     );
   }

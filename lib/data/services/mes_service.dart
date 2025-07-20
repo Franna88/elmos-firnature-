@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/mes_item_model.dart';
+import '../models/mes_process_model.dart';
+import '../models/mes_station_model.dart';
 import '../models/mes_interruption_model.dart';
 import '../models/mes_production_record_model.dart';
 
@@ -10,6 +12,10 @@ class MESService extends ChangeNotifier {
   // Collection references
   CollectionReference get _itemsCollection =>
       _firestore.collection('mes_items');
+  CollectionReference get _processesCollection =>
+      _firestore.collection('mes_processes');
+  CollectionReference get _stationsCollection =>
+      _firestore.collection('mes_stations');
   CollectionReference get _interruptionTypesCollection =>
       _firestore.collection('mes_interruption_types');
   CollectionReference get _productionRecordsCollection =>
@@ -17,23 +23,255 @@ class MESService extends ChangeNotifier {
 
   // Cache data
   List<MESItem> _items = [];
+  List<MESProcess> _processes = [];
+  List<MESStation> _stations = [];
   List<MESInterruptionType> _interruptionTypes = [];
   List<MESProductionRecord> _productionRecords = [];
 
   // Getters for cached data
   List<MESItem> get items => _items;
+  List<MESProcess> get processes => _processes;
+  List<MESStation> get stations => _stations;
   List<MESInterruptionType> get interruptionTypes => _interruptionTypes;
   List<MESProductionRecord> get productionRecords => _productionRecords;
 
   // Loading states
   bool _isLoadingItems = false;
+  bool _isLoadingProcesses = false;
+  bool _isLoadingStations = false;
   bool _isLoadingInterruptionTypes = false;
   bool _isLoadingProductionRecords = false;
 
   // Getters for loading states
   bool get isLoadingItems => _isLoadingItems;
+  bool get isLoadingProcesses => _isLoadingProcesses;
+  bool get isLoadingStations => _isLoadingStations;
   bool get isLoadingInterruptionTypes => _isLoadingInterruptionTypes;
   bool get isLoadingProductionRecords => _isLoadingProductionRecords;
+
+  // CRUD operations for MES Processes
+
+  // Fetch all active MES processes
+  Future<List<MESProcess>> fetchProcesses({bool onlyActive = true}) async {
+    try {
+      _isLoadingProcesses = true;
+      notifyListeners();
+
+      Query query = _processesCollection;
+
+      if (onlyActive) {
+        query = query.where('isActive', isEqualTo: true);
+      }
+
+      final snapshot = await query.get();
+      _processes =
+          snapshot.docs.map((doc) => MESProcess.fromFirestore(doc)).toList();
+
+      _isLoadingProcesses = false;
+      notifyListeners();
+
+      return _processes;
+    } catch (e) {
+      _isLoadingProcesses = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // Add a new MES process
+  Future<MESProcess> addProcess(String name,
+      {String? description, String? stationId, String? stationName}) async {
+    try {
+      final now = DateTime.now();
+
+      final docRef = await _processesCollection.add({
+        'name': name,
+        'description': description,
+        'stationId': stationId,
+        'stationName': stationName,
+        'isActive': true,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+      });
+
+      final newProcess = MESProcess(
+        id: docRef.id,
+        name: name,
+        description: description,
+        stationId: stationId,
+        stationName: stationName,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      _processes.add(newProcess);
+      notifyListeners();
+
+      return newProcess;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Update an existing MES process
+  Future<MESProcess> updateProcess(MESProcess process) async {
+    try {
+      final now = DateTime.now();
+
+      await _processesCollection.doc(process.id).update({
+        'name': process.name,
+        'description': process.description,
+        'stationId': process.stationId,
+        'stationName': process.stationName,
+        'isActive': process.isActive,
+        'updatedAt': Timestamp.fromDate(now),
+      });
+
+      final updatedProcess = MESProcess(
+        id: process.id,
+        name: process.name,
+        description: process.description,
+        stationId: process.stationId,
+        stationName: process.stationName,
+        isActive: process.isActive,
+        createdAt: process.createdAt,
+        updatedAt: now,
+      );
+
+      final index = _processes.indexWhere((p) => p.id == process.id);
+      if (index != -1) {
+        _processes[index] = updatedProcess;
+        notifyListeners();
+      }
+
+      return updatedProcess;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Delete a process (hard delete)
+  Future<void> deleteProcess(String processId) async {
+    try {
+      await _processesCollection.doc(processId).delete();
+
+      _processes.removeWhere((p) => p.id == processId);
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // CRUD operations for MES Stations
+
+  // Fetch all active MES stations
+  Future<List<MESStation>> fetchStations({bool onlyActive = true}) async {
+    try {
+      _isLoadingStations = true;
+      notifyListeners();
+
+      Query query = _stationsCollection;
+
+      if (onlyActive) {
+        query = query.where('isActive', isEqualTo: true);
+      }
+
+      final snapshot = await query.get();
+      _stations =
+          snapshot.docs.map((doc) => MESStation.fromFirestore(doc)).toList();
+
+      _isLoadingStations = false;
+      notifyListeners();
+
+      return _stations;
+    } catch (e) {
+      _isLoadingStations = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // Add a new MES station
+  Future<MESStation> addStation(String name,
+      {String? description, String? location}) async {
+    try {
+      final now = DateTime.now();
+
+      final docRef = await _stationsCollection.add({
+        'name': name,
+        'description': description,
+        'location': location,
+        'isActive': true,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+      });
+
+      final newStation = MESStation(
+        id: docRef.id,
+        name: name,
+        description: description,
+        location: location,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      _stations.add(newStation);
+      notifyListeners();
+
+      return newStation;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Update an existing MES station
+  Future<MESStation> updateStation(MESStation station) async {
+    try {
+      final now = DateTime.now();
+
+      await _stationsCollection.doc(station.id).update({
+        'name': station.name,
+        'description': station.description,
+        'location': station.location,
+        'isActive': station.isActive,
+        'updatedAt': Timestamp.fromDate(now),
+      });
+
+      final updatedStation = MESStation(
+        id: station.id,
+        name: station.name,
+        description: station.description,
+        location: station.location,
+        isActive: station.isActive,
+        createdAt: station.createdAt,
+        updatedAt: now,
+      );
+
+      final index = _stations.indexWhere((s) => s.id == station.id);
+      if (index != -1) {
+        _stations[index] = updatedStation;
+        notifyListeners();
+      }
+
+      return updatedStation;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Delete a station (hard delete)
+  Future<void> deleteStation(String stationId) async {
+    try {
+      await _stationsCollection.doc(stationId).delete();
+
+      _stations.removeWhere((s) => s.id == stationId);
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   // CRUD operations for MES Items
 
@@ -65,25 +303,31 @@ class MESService extends ChangeNotifier {
 
   // Add a new MES item
   Future<MESItem> addItem(
-      String name, String category, int estimatedTimeInMinutes,
-      {String? imageUrl}) async {
+      String name, String processId, int estimatedTimeInMinutes,
+      {String? description, String? imageUrl, String? processName}) async {
     try {
       final now = DateTime.now();
 
       final docRef = await _itemsCollection.add({
         'name': name,
-        'category': category,
+        'description': description,
+        'processId': processId,
+        'processName': processName,
         'imageUrl': imageUrl,
         'estimatedTimeInMinutes': estimatedTimeInMinutes,
         'isActive': true,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
+        // Keep category for backward compatibility
+        'category': processName ?? processId,
       });
 
       final newItem = MESItem(
         id: docRef.id,
         name: name,
-        category: category,
+        description: description,
+        processId: processId,
+        processName: processName,
         imageUrl: imageUrl,
         estimatedTimeInMinutes: estimatedTimeInMinutes,
         isActive: true,
@@ -107,17 +351,23 @@ class MESService extends ChangeNotifier {
 
       await _itemsCollection.doc(item.id).update({
         'name': item.name,
-        'category': item.category,
+        'description': item.description,
+        'processId': item.processId,
+        'processName': item.processName,
         'imageUrl': item.imageUrl,
         'estimatedTimeInMinutes': item.estimatedTimeInMinutes,
         'isActive': item.isActive,
         'updatedAt': Timestamp.fromDate(now),
+        // Keep category for backward compatibility
+        'category': item.processName ?? item.processId,
       });
 
       final updatedItem = MESItem(
         id: item.id,
         name: item.name,
-        category: item.category,
+        description: item.description,
+        processId: item.processId,
+        processName: item.processName,
         imageUrl: item.imageUrl,
         estimatedTimeInMinutes: item.estimatedTimeInMinutes,
         isActive: item.isActive,
@@ -200,7 +450,7 @@ class MESService extends ChangeNotifier {
 
   // Add a new interruption type
   Future<MESInterruptionType> addInterruptionType(String name,
-      {String? description, String? icon}) async {
+      {String? description, String? icon, String? color}) async {
     try {
       final now = DateTime.now();
 
@@ -208,6 +458,7 @@ class MESService extends ChangeNotifier {
         'name': name,
         'description': description,
         'icon': icon,
+        'color': color,
         'isActive': true,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
@@ -218,6 +469,7 @@ class MESService extends ChangeNotifier {
         name: name,
         description: description,
         icon: icon,
+        color: color,
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -242,6 +494,7 @@ class MESService extends ChangeNotifier {
         'name': type.name,
         'description': type.description,
         'icon': type.icon,
+        'color': type.color,
         'isActive': type.isActive,
         'updatedAt': Timestamp.fromDate(now),
       });
@@ -575,14 +828,47 @@ class MESService extends ChangeNotifier {
     }
   }
 
-  // Get unique categories from items
+  // Get unique categories from items (backward compatibility)
   List<String> getUniqueCategories() {
     return _items.map((item) => item.category).toSet().toList();
   }
 
-  // Get items by category
+  // Get items by category (backward compatibility)
   List<MESItem> getItemsByCategory(String category) {
     return _items.where((item) => item.category == category).toList();
+  }
+
+  // Get items by process
+  List<MESItem> getItemsByProcess(String processId) {
+    return _items.where((item) => item.processId == processId).toList();
+  }
+
+  // Get process by ID
+  MESProcess? getProcessById(String processId) {
+    try {
+      return _processes.firstWhere((process) => process.id == processId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Get station by ID
+  MESStation? getStationById(String stationId) {
+    try {
+      return _stations.firstWhere((station) => station.id == stationId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Get active processes for dropdown
+  List<MESProcess> getActiveProcesses() {
+    return _processes.where((process) => process.isActive).toList();
+  }
+
+  // Get active stations for dropdown
+  List<MESStation> getActiveStations() {
+    return _stations.where((station) => station.isActive).toList();
   }
 
   // Fetch all unique operators from production records

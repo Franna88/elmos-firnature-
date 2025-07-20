@@ -75,9 +75,26 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
     return items.where((item) => item.category == _selectedCategory).toList();
   }
 
-  // Get unique categories from items
+  // Get unique categories/processes from items
   List<String> get categories {
     return items.map((item) => item.category).toSet().toList();
+  }
+
+  // Get process info for display
+  String getProcessDisplayName(String category) {
+    final mesService = Provider.of<MESService>(context, listen: false);
+    final mesItems =
+        mesService.items.where((item) => item.category == category);
+    if (mesItems.isNotEmpty) {
+      final firstItem = mesItems.first;
+      final process = mesService.getProcessById(firstItem.processId);
+      if (process != null) {
+        return process.stationName != null
+            ? '${process.name} (${process.stationName})'
+            : process.name;
+      }
+    }
+    return category; // Fallback to category name
   }
 
   @override
@@ -212,7 +229,7 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
                 ...categories.map((category) => Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: FilterChip(
-                        label: Text(category),
+                        label: Text(getProcessDisplayName(category)),
                         selected: _selectedCategory == category,
                         selectedColor: const Color(0xFFEB281E).withOpacity(0.2),
                         checkmarkColor: const Color(0xFFEB281E),

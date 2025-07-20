@@ -734,7 +734,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
           orElse: () => MESItem(
             id: 'unknown',
             name: 'Unknown Item',
-            category: 'Unknown',
+            processId: 'unknown',
             estimatedTimeInMinutes: 0,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
@@ -1358,7 +1358,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
                     orElse: () => MESItem(
                       id: 'unknown',
                       name: 'Unknown Item',
-                      category: 'Unknown',
+                      processId: 'unknown',
                       estimatedTimeInMinutes: 0,
                       createdAt: DateTime.now(),
                       updatedAt: DateTime.now(),

@@ -1,36 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class MESInterruptionType {
+class MESStation {
   final String id;
   final String name;
   final String? description;
-  final String? icon;
-  final String? color; // Hex color string (e.g., "#FF5722")
+  final String? location;
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  MESInterruptionType({
+  MESStation({
     required this.id,
     required this.name,
     this.description,
-    this.icon,
-    this.color,
+    this.location,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
   });
 
   // Create from Firestore document
-  factory MESInterruptionType.fromFirestore(DocumentSnapshot doc) {
+  factory MESStation.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
-    return MESInterruptionType(
+    return MESStation(
       id: doc.id,
       name: data['name'] ?? '',
       description: data['description'],
-      icon: data['icon'],
-      color: data['color'],
+      location: data['location'],
       isActive: data['isActive'] ?? true,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
@@ -42,8 +39,7 @@ class MESInterruptionType {
     return {
       'name': name,
       'description': description,
-      'icon': icon,
-      'color': color,
+      'location': location,
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -51,22 +47,33 @@ class MESInterruptionType {
   }
 
   // Create a copy with updated fields
-  MESInterruptionType copyWith({
+  MESStation copyWith({
     String? name,
     String? description,
-    String? icon,
-    String? color,
+    String? location,
     bool? isActive,
   }) {
-    return MESInterruptionType(
+    return MESStation(
       id: id,
       name: name ?? this.name,
       description: description ?? this.description,
-      icon: icon ?? this.icon,
-      color: color ?? this.color,
+      location: location ?? this.location,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );
   }
+
+  @override
+  String toString() {
+    return 'MESStation{id: $id, name: $name, description: $description, location: $location, isActive: $isActive}';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MESStation && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

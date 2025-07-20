@@ -3,8 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class MESItem {
   final String id;
   final String name;
+  final String? description;
   final String? imageUrl;
-  final String category;
+  final String processId; // Reference to MESProcess
+  final String? processName; // Cached for UI performance
   final int estimatedTimeInMinutes;
   final bool isActive;
   final DateTime createdAt;
@@ -13,8 +15,10 @@ class MESItem {
   MESItem({
     required this.id,
     required this.name,
+    this.description,
     this.imageUrl,
-    required this.category,
+    required this.processId,
+    this.processName,
     required this.estimatedTimeInMinutes,
     this.isActive = true,
     required this.createdAt,
@@ -28,8 +32,12 @@ class MESItem {
     return MESItem(
       id: doc.id,
       name: data['name'] ?? '',
+      description: data['description'],
       imageUrl: data['imageUrl'],
-      category: data['category'] ?? '',
+      processId:
+          data['processId'] ?? data['category'] ?? '', // Backward compatibility
+      processName:
+          data['processName'] ?? data['category'], // Backward compatibility
       estimatedTimeInMinutes: data['estimatedTimeInMinutes'] ?? 0,
       isActive: data['isActive'] ?? true,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
@@ -41,28 +49,36 @@ class MESItem {
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
+      'description': description,
       'imageUrl': imageUrl,
-      'category': category,
+      'processId': processId,
+      'processName': processName,
       'estimatedTimeInMinutes': estimatedTimeInMinutes,
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      // Keep category for backward compatibility during migration
+      'category': processName ?? processId,
     };
   }
 
   // Create a copy of the item with updated fields
   MESItem copyWith({
     String? name,
+    String? description,
     String? imageUrl,
-    String? category,
+    String? processId,
+    String? processName,
     int? estimatedTimeInMinutes,
     bool? isActive,
   }) {
     return MESItem(
       id: id,
       name: name ?? this.name,
+      description: description ?? this.description,
       imageUrl: imageUrl ?? this.imageUrl,
-      category: category ?? this.category,
+      processId: processId ?? this.processId,
+      processName: processName ?? this.processName,
       estimatedTimeInMinutes:
           estimatedTimeInMinutes ?? this.estimatedTimeInMinutes,
       isActive: isActive ?? this.isActive,
@@ -70,4 +86,7 @@ class MESItem {
       updatedAt: DateTime.now(),
     );
   }
+
+  // Backward compatibility getter for category
+  String get category => processName ?? processId;
 }
