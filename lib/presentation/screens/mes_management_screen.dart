@@ -1429,6 +1429,157 @@ class _MESManagementScreenState extends State<MESManagementScreen>
     );
   }
 
+  // Edit Interruption Type Dialog
+  void _showEditInterruptionTypeDialog(
+      BuildContext context, MESInterruptionType type) {
+    final nameController = TextEditingController(text: type.name);
+    final descriptionController =
+        TextEditingController(text: type.description ?? '');
+
+    // Parse the existing color or use default
+    Color selectedColor = Colors.orange;
+    if (type.color != null && type.color!.isNotEmpty) {
+      try {
+        String colorHex = type.color!.replaceAll('#', '');
+        if (colorHex.length == 6) {
+          colorHex = 'FF$colorHex'; // Add alpha channel
+        }
+        selectedColor = Color(int.parse(colorHex, radix: 16));
+      } catch (e) {
+        selectedColor = Colors.orange; // Fallback to default
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.pause_circle,
+                  color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text('Edit Non Value Type'),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Non Value Name *',
+                    hintText: 'e.g., Break, Maintenance, Material Wait',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.label),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Describe when this non-value activity occurs',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.description),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Text(
+                      'Color: ',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () =>
+                          _showColorPicker(context, selectedColor, (color) {
+                        setState(() {
+                          selectedColor = color;
+                        });
+                      }),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: selectedColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        child: const Icon(
+                          Icons.color_lens,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '#${selectedColor.value.toRadixString(16).substring(2).toUpperCase()}',
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text('Please enter a non-value activity name')),
+                  );
+                  return;
+                }
+
+                try {
+                  final mesService =
+                      Provider.of<MESService>(context, listen: false);
+                  await mesService.updateInterruptionType(
+                    type.copyWith(
+                      name: nameController.text.trim(),
+                      description: descriptionController.text.trim().isEmpty
+                          ? null
+                          : descriptionController.text.trim(),
+                      color:
+                          '#${selectedColor.value.toRadixString(16).substring(2)}',
+                    ),
+                  );
+
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text(
+                            'Non-value activity type updated successfully')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content:
+                            Text('Error updating non-value activity type: $e')),
+                  );
+                }
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Color picker method
   void _showColorPicker(BuildContext context, Color currentColor,
       Function(Color) onColorChanged) {
@@ -2205,7 +2356,10 @@ class _InterruptionTypesTab extends StatelessWidget {
                         icon: const Icon(Icons.edit),
                         tooltip: 'Edit',
                         onPressed: () {
-                          // Edit functionality
+                          final parentState = context.findAncestorStateOfType<
+                              _MESManagementScreenState>();
+                          parentState?._showEditInterruptionTypeDialog(
+                              context, type);
                         },
                       ),
                       IconButton(
@@ -2216,8 +2370,32 @@ class _InterruptionTypesTab extends StatelessWidget {
                           color: type.isActive ? null : Colors.grey,
                         ),
                         tooltip: type.isActive ? 'Deactivate' : 'Activate',
-                        onPressed: () {
-                          // Toggle status
+                        onPressed: () async {
+                          try {
+                            final mesService =
+                                Provider.of<MESService>(context, listen: false);
+                            if (type.isActive) {
+                              await mesService
+                                  .deactivateInterruptionType(type.id);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('${type.name} deactivated')),
+                              );
+                            } else {
+                              await mesService.updateInterruptionType(
+                                type.copyWith(isActive: true),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('${type.name} activated')),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Error toggling status: $e')),
+                            );
+                          }
                         },
                       ),
                       IconButton(
@@ -2225,7 +2403,51 @@ class _InterruptionTypesTab extends StatelessWidget {
                         tooltip: 'Delete',
                         color: Colors.red,
                         onPressed: () {
-                          // Delete functionality
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete Non Value Type'),
+                              content: Text(
+                                  'Are you sure you want to delete "${type.name}"? This action cannot be undone.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: () async {
+                                    try {
+                                      final mesService =
+                                          Provider.of<MESService>(context,
+                                              listen: false);
+                                      await mesService
+                                          .deleteInterruptionType(type.id);
+                                      Navigator.pop(context);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                '${type.name} deleted successfully')),
+                                      );
+                                    } catch (e) {
+                                      Navigator.pop(context);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content:
+                                                Text('Error deleting: $e')),
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
                         },
                       ),
                     ],

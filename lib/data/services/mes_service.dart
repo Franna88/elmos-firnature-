@@ -504,6 +504,7 @@ class MESService extends ChangeNotifier {
         name: type.name,
         description: type.description,
         icon: type.icon,
+        color: type.color,
         isActive: type.isActive,
         createdAt: type.createdAt,
         updatedAt: now,
