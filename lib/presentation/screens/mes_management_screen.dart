@@ -95,7 +95,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
             ),
             Tab(
               icon: Icon(Icons.pause_circle),
-              text: 'Non Value',
+              text: 'Actions',
             ),
           ],
         ),
@@ -142,7 +142,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
       case 1:
         return 'Add Item';
       case 2:
-        return 'Add Non Value Type';
+        return 'Add Action Type';
       default:
         return 'Add';
     }
@@ -1307,7 +1307,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
               Icon(Icons.pause_circle,
                   color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
-              const Text('Add Non Value Type'),
+              const Text('Add Action Type'),
             ],
           ),
           content: SizedBox(
@@ -1318,7 +1318,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                 TextFormField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Non Value Name *',
+                    labelText: 'Action Name *',
                     hintText: 'e.g., Break, Maintenance, Material Wait',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.label),
@@ -1329,7 +1329,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                   controller: descriptionController,
                   decoration: const InputDecoration(
                     labelText: 'Description',
-                    hintText: 'Describe when this non-value activity occurs',
+                    hintText: 'Describe when this action occurs',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.description),
                   ),
@@ -1386,8 +1386,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                 if (nameController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content:
-                            Text('Please enter a non-value activity name')),
+                        content: Text('Please enter an action name')),
                   );
                   return;
                 }
@@ -1407,14 +1406,11 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content:
-                            Text('Non-value activity type added successfully')),
+                        content: Text('Action type added successfully')),
                   );
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text('Error adding non-value activity type: $e')),
+                    SnackBar(content: Text('Error adding action type: $e')),
                   );
                 }
               },
@@ -1456,7 +1452,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
               Icon(Icons.pause_circle,
                   color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
-              const Text('Edit Non Value Type'),
+              const Text('Edit Action Type'),
             ],
           ),
           content: SizedBox(
@@ -1467,7 +1463,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                 TextFormField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Non Value Name *',
+                    labelText: 'Action Name *',
                     hintText: 'e.g., Break, Maintenance, Material Wait',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.label),
@@ -1478,7 +1474,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                   controller: descriptionController,
                   decoration: const InputDecoration(
                     labelText: 'Description',
-                    hintText: 'Describe when this non-value activity occurs',
+                    hintText: 'Describe when this action occurs',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.description),
                   ),
@@ -1535,8 +1531,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                 if (nameController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content:
-                            Text('Please enter a non-value activity name')),
+                        content: Text('Please enter an action name')),
                   );
                   return;
                 }
@@ -2239,21 +2234,21 @@ class _InterruptionTypesTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No non-value types found',
+                  'No action types found',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.grey.shade600,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Create non-value activity types for production tracking',
+                  'Create action types for production tracking',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey.shade500,
                       ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Use the + button in the top bar to add non-value types',
+                  'Use the + button in the top bar to add action types',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey.shade500,
                       ),
@@ -2403,7 +2398,7 @@ class _InterruptionTypesTab extends StatelessWidget {
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Delete Non Value Type'),
+                              title: const Text('Delete Action Type'),
                               content: Text(
                                   'Are you sure you want to delete "${type.name}"? This action cannot be undone.'),
                               actions: [

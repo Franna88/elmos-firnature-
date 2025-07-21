@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../data/models/mes_interruption_model.dart';
 
 enum ProductionTimerMode {
   notStarted,
@@ -21,6 +22,13 @@ class ProductionTimer {
   // Timestamp trackers
   DateTime? _productionStartTime;
   DateTime? _interruptionStartTime;
+
+  // Action timer support
+  MESInterruptionType? _currentAction;
+  DateTime? _actionStartTime;
+  int _actionTime = 0;
+
+  MESInterruptionType? get currentAction => _currentAction;
 
   // Completion counter
   int _completedCount = 0;
@@ -52,7 +60,7 @@ class ProductionTimer {
     _timer?.cancel();
   }
 
-  // Start or resume the production timer
+  // Start the main production timer
   void startProduction() {
     if (_mode == ProductionTimerMode.interrupted) {
       // Coming back from interruption - add interruption time to total
@@ -67,6 +75,83 @@ class ProductionTimer {
     _mode = ProductionTimerMode.running;
     _productionStartTime = DateTime.now();
     _productionStartCount++;
+  }
+
+  // Start or switch to an action
+  void startAction(MESInterruptionType action) {
+    // Save current action time if any
+    if (_currentAction != null && _actionStartTime != null) {
+      final actionDuration =
+          DateTime.now().difference(_actionStartTime!).inSeconds;
+      _actionTime += actionDuration;
+    }
+
+    // Start new action
+    _currentAction = action;
+    _actionStartTime = DateTime.now();
+    _actionTime = 0; // Reset for new action
+  }
+
+  // Stop current action
+  void stopAction() {
+    if (_currentAction != null && _actionStartTime != null) {
+      final actionDuration =
+          DateTime.now().difference(_actionStartTime!).inSeconds;
+      _actionTime += actionDuration;
+    }
+
+    _currentAction = null;
+    _actionStartTime = null;
+    _actionTime = 0;
+  }
+
+  // Get current action time including ongoing time
+  int getActionTime() {
+    int total = _actionTime;
+    if (_currentAction != null && _actionStartTime != null) {
+      final duration = DateTime.now().difference(_actionStartTime!).inSeconds;
+      total += duration;
+    }
+    return total;
+  }
+
+  // Get color based on current action
+  Color getActionColor() {
+    if (_currentAction == null) {
+      // Default production color (green)
+      return const Color(0xFF4CAF50);
+    }
+
+    // Use the color defined in the MES Desktop Setup
+    if (_currentAction!.color != null && _currentAction!.color!.isNotEmpty) {
+      try {
+        String colorHex = _currentAction!.color!.replaceAll('#', '');
+        if (colorHex.length == 6) {
+          colorHex = 'FF$colorHex'; // Add alpha channel
+        }
+        return Color(int.parse(colorHex, radix: 16));
+      } catch (e) {
+        // Fall back to default if color parsing fails
+        return const Color(0xFF2C2C2C);
+      }
+    }
+
+    // Fallback to name-based colors if no color is set
+    final actionName = _currentAction!.name.toLowerCase();
+
+    if (actionName.contains('break')) {
+      return const Color(0xFF795548); // Brown
+    } else if (actionName.contains('maintenance')) {
+      return const Color(0xFFFF9800); // Orange
+    } else if (actionName.contains('prep')) {
+      return const Color(0xFF2196F3); // Blue
+    } else if (actionName.contains('material')) {
+      return const Color(0xFF4CAF50); // Green
+    } else if (actionName.contains('training')) {
+      return const Color(0xFF9C27B0); // Purple
+    } else {
+      return const Color(0xFF2C2C2C); // Default dark
+    }
   }
 
   // Pause the production timer
@@ -96,7 +181,37 @@ class ProductionTimer {
     _interruptionStartTime = DateTime.now();
   }
 
-  // Mark an item as completed
+  // Complete current item and increment count (for "Next" functionality)
+  void completeCurrentItem() {
+    _completedCount++;
+    // Don't reset the timer - keep production running for next item
+  }
+
+  // End shift - stop all timers and save final state
+  void endShift() {
+    // Save any ongoing production time
+    if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
+      final duration =
+          DateTime.now().difference(_productionStartTime!).inSeconds;
+      _productionTime += duration;
+      _productionStartTime = null;
+    }
+
+    // Save any ongoing action time
+    if (_currentAction != null && _actionStartTime != null) {
+      final actionDuration =
+          DateTime.now().difference(_actionStartTime!).inSeconds;
+      _actionTime += actionDuration;
+    }
+
+    // Stop all timers
+    _mode = ProductionTimerMode.paused;
+    _currentAction = null;
+    _actionStartTime = null;
+    _actionTime = 0;
+  }
+
+  // Mark an item as completed (original complete functionality)
   void completeItem() {
     if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
       // Add current production time to total

@@ -156,7 +156,53 @@ class _TimerScreenState extends State<TimerScreen> {
     });
   }
 
-  // Start an interruption (generic handler)
+  // Start an action (replaces interruption dialog system)
+  void _startAction(MESInterruptionType type) {
+    // Only allow actions when production is running
+    if (_timer.mode != ProductionTimerMode.running) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please start production first'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _timer.startAction(type);
+    });
+
+    // Show brief feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Started: ${type.name}'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: _timer.getActionColor(),
+      ),
+    );
+  }
+
+  // Stop current action and return to production
+  void _stopAction() {
+    if (_timer.currentAction != null) {
+      final actionName = _timer.currentAction!.name;
+      setState(() {
+        _timer.stopAction();
+      });
+
+      // Show brief feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Stopped: $actionName'),
+          duration: const Duration(seconds: 1),
+          backgroundColor: _timer.getActionColor(),
+        ),
+      );
+    }
+  }
+
+  // Start an interruption (generic handler) - kept for compatibility
   Future<void> _startInterruption(MESInterruptionType type) async {
     // Show interruption timer popup
     _showInterruptionTimerDialog(type);
@@ -489,7 +535,24 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
-  // Complete current item
+  // Complete current item and move to next (Next button functionality)
+  void _nextItem() {
+    setState(() {
+      _timer.completeCurrentItem();
+      _selectedItem.completedCount++;
+    });
+
+    // Show brief confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'Item ${_timer.completedCount} completed! Production continues.'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  // Complete current item (original complete functionality)
   Future<void> _completeItem() async {
     setState(() {
       _timer.completeItem();
@@ -546,6 +609,265 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Handle end shift process
+  Future<void> _endShift() async {
+    try {
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text('Ending shift and saving data...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
+
+      // End the shift in the timer
+      _timer.endShift();
+
+      final mesService = Provider.of<MESService>(context, listen: false);
+
+      // Update the current production record with final data
+      await mesService.updateProductionRecord(
+        await mesService.getProductionRecord(_recordId).then(
+              (record) => record.copyWith(
+                endTime: DateTime.now(),
+                totalProductionTimeSeconds: _timer.getProductionTime(),
+                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                isCompleted: false, // Mark as incomplete since shift ended
+              ),
+            ),
+      );
+
+      // Show shift summary
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        await _showShiftSummary();
+      }
+
+      // Navigate back to login screen
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error ending shift: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  // Show shift summary dialog
+  Future<void> _showShiftSummary() async {
+    final totalTime =
+        _timer.getProductionTime() + _timer.getTotalInterruptionTime();
+
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.assignment_turned_in, color: AppColors.greenAccent),
+            const SizedBox(width: 8),
+            const Text('Shift Complete'),
+          ],
+        ),
+        content: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Great work, ${_user.name}!',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Shift Summary',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildSummaryRow(
+                        'Items Completed', '${_timer.completedCount}'),
+                    _buildSummaryRow(
+                        'Production Time',
+                        ProductionTimer.formatDuration(
+                            _timer.getProductionTime())),
+                    _buildSummaryRow('Total Shift Time',
+                        ProductionTimer.formatDuration(totalTime)),
+                    _buildSummaryRow('Current Item', _selectedItem.name),
+                    if (_timer.currentAction != null)
+                      _buildSummaryRow(
+                          'Last Action', _timer.currentAction!.name),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Your data has been saved successfully. Thank you for your hard work today!',
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.greenAccent,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(120, 40),
+            ),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build summary rows
+  Widget _buildSummaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show end shift confirmation dialog
+  void _showEndShiftDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: AppColors.primaryBlue),
+            const SizedBox(width: 8),
+            const Text('End Shift'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to end your shift?',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 16),
+            const Text('This will:'),
+            const SizedBox(height: 8),
+            const Text('• Stop all timers'),
+            const Text('• Save your production data'),
+            const Text('• Generate shift summary'),
+            const Text('• Return to login screen'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Current Shift Summary:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Items Completed: ${_timer.completedCount}'),
+                  Text(
+                      'Production Time: ${ProductionTimer.formatDuration(_timer.getProductionTime())}'),
+                  Text('Current Item: ${_selectedItem.name}'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              await _endShift();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('End Shift'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -569,7 +891,7 @@ class _TimerScreenState extends State<TimerScreen> {
       appBar: AppBar(
         title: Text('Building: ${_selectedItem.name}'),
         backgroundColor: _timer.mode == ProductionTimerMode.running
-            ? AppColors.greenAccent // Green for productive
+            ? _timer.getActionColor() // Use action color when running
             : _timer.mode == ProductionTimerMode.interrupted
                 ? AppColors.orangeAccent // Orange for non-productive
                 : AppColors.primaryBlue, // Default blue theme
@@ -581,37 +903,10 @@ class _TimerScreenState extends State<TimerScreen> {
             onPressed: _requestHelp,
           ),
           IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            tooltip: 'Exit',
+            icon: const Icon(Icons.logout),
+            tooltip: 'End Shift',
             onPressed: () {
-              // Show confirmation dialog
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Exit Production'),
-                  content: const Text(
-                    'Are you sure you want to exit? Your progress will be saved, '
-                    'but the item will be marked as incomplete.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close dialog
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/item_selection',
-                          arguments: _user,
-                        );
-                      },
-                      child: const Text('Exit'),
-                    ),
-                  ],
-                ),
-              );
+              _showEndShiftDialog();
             },
           ),
         ],
@@ -802,15 +1097,52 @@ class _TimerScreenState extends State<TimerScreen> {
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      // Current time
+                                      // Main Production Timer
                                       Column(
                                         children: [
-                                          Text(
-                                            'Current Time',
-                                            style: TextStyle(
-                                              fontSize: isNarrow ? 18 : 20,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.timer,
+                                                color: _getStatusColor(),
+                                                size: isNarrow ? 20 : 24,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'MAIN TIMER',
+                                                style: TextStyle(
+                                                  fontSize: isNarrow ? 18 : 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: _getStatusColor(),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              if (_timer.completedCount > 0)
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: _getStatusColor(),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
+                                                  ),
+                                                  child: Text(
+                                                    '${_timer.completedCount} items',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           Container(
@@ -850,15 +1182,59 @@ class _TimerScreenState extends State<TimerScreen> {
 
                                       const SizedBox(height: 8),
 
-                                      // Time remaining
+                                      // Action Timer
                                       Column(
                                         children: [
-                                          Text(
-                                            'Time Remaining',
-                                            style: TextStyle(
-                                              fontSize: isNarrow ? 18 : 20,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                _timer.currentAction != null
+                                                    ? _getActionIcon(
+                                                        _timer.currentAction!)
+                                                    : Icons
+                                                        .production_quantity_limits,
+                                                color: _timer.getActionColor(),
+                                                size: isNarrow ? 20 : 24,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  _timer.currentAction?.name
+                                                          .toUpperCase() ??
+                                                      'PRODUCTION',
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        isNarrow ? 18 : 20,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        _timer.getActionColor(),
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                              if (_timer.currentAction != null)
+                                                GestureDetector(
+                                                  onTap: _stopAction,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(4),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withOpacity(0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.close,
+                                                      color: Colors.white,
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           Container(
@@ -868,14 +1244,14 @@ class _TimerScreenState extends State<TimerScreen> {
                                               vertical: isNarrow ? 12 : 16,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: _getStatusColor()
-                                                  .withOpacity(0.8),
+                                              color: _timer.getActionColor(),
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
                                             child: FittedBox(
                                               child: Text(
-                                                _formatTimeRemaining(),
+                                                ProductionTimer.formatDuration(
+                                                    _timer.getActionTime()),
                                                 style: TextStyle(
                                                   fontSize: isNarrow ? 48 : 64,
                                                   fontWeight: FontWeight.bold,
@@ -904,45 +1280,30 @@ class _TimerScreenState extends State<TimerScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Start/Pause button
-                              Expanded(
-                                child:
-                                    _timer.mode == ProductionTimerMode.running
-                                        ? _buildControlButton(
-                                            icon: Icons.pause,
-                                            label: 'Pause',
-                                            color: AppColors.textDark,
-                                            onPressed: _pauseTimer,
-                                            isNarrow: isNarrow,
-                                          )
-                                        : _timer.mode ==
-                                                ProductionTimerMode.interrupted
-                                            ? _buildControlButton(
-                                                icon: Icons.play_arrow,
-                                                label: 'Resume',
-                                                color: AppColors.greenAccent,
-                                                onPressed: _startTimer,
-                                                isNarrow: isNarrow,
-                                              )
-                                            : _buildControlButton(
-                                                icon: Icons.play_arrow,
-                                                label: 'Start',
-                                                color: AppColors.primaryBlue,
-                                                onPressed: _startTimer,
-                                                isNarrow: isNarrow,
-                                              ),
-                              ),
-                              SizedBox(width: isNarrow ? 8 : 12),
-                              // Complete button
-                              Expanded(
-                                child: _buildControlButton(
-                                  icon: Icons.check,
-                                  label: 'Complete',
-                                  color: AppColors.greenAccent,
-                                  onPressed: _completeItem,
-                                  isNarrow: isNarrow,
+                              // Single Start button (only show if not started)
+                              if (_timer.mode == ProductionTimerMode.notStarted)
+                                Expanded(
+                                  child: _buildControlButton(
+                                    icon: Icons.play_arrow,
+                                    label: 'Start Production',
+                                    color: AppColors.primaryBlue,
+                                    onPressed: _startTimer,
+                                    isNarrow: isNarrow,
+                                  ),
                                 ),
-                              ),
+
+                              // Next button (only show if production is running AND no action is selected)
+                              if (_timer.mode == ProductionTimerMode.running &&
+                                  _timer.currentAction == null)
+                                Expanded(
+                                  child: _buildControlButton(
+                                    icon: Icons.arrow_forward,
+                                    label: 'Next Item',
+                                    color: AppColors.greenAccent,
+                                    onPressed: _nextItem,
+                                    isNarrow: isNarrow,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -1002,31 +1363,66 @@ class _TimerScreenState extends State<TimerScreen> {
                                       IconData icon = Icons.pause_circle;
                                       Color buttonColor = AppColors.textDark;
 
+                                      // Use the color from MES setup if available
+                                      if (type.color != null &&
+                                          type.color!.isNotEmpty) {
+                                        try {
+                                          String colorHex =
+                                              type.color!.replaceAll('#', '');
+                                          if (colorHex.length == 6) {
+                                            colorHex =
+                                                'FF$colorHex'; // Add alpha channel
+                                          }
+                                          buttonColor = Color(
+                                              int.parse(colorHex, radix: 16));
+                                        } catch (e) {
+                                          // Fall back to name-based colors if parsing fails
+                                          buttonColor = AppColors.textDark;
+                                        }
+                                      }
+
+                                      // Determine icon based on type name
                                       if (type.name
                                           .toLowerCase()
                                           .contains('break')) {
                                         icon = Icons.coffee;
-                                        buttonColor = AppColors.orangeAccent;
+                                        // Use MES color or fallback
+                                        if (type.color == null ||
+                                            type.color!.isEmpty) {
+                                          buttonColor = AppColors.orangeAccent;
+                                        }
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('maintenance')) {
                                         icon = Icons.build;
-                                        buttonColor = AppColors.orangeAccent;
+                                        if (type.color == null ||
+                                            type.color!.isEmpty) {
+                                          buttonColor = AppColors.orangeAccent;
+                                        }
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('prep')) {
                                         icon = Icons.assignment;
-                                        buttonColor = AppColors.blueAccent;
+                                        if (type.color == null ||
+                                            type.color!.isEmpty) {
+                                          buttonColor = AppColors.blueAccent;
+                                        }
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('material')) {
                                         icon = Icons.inventory;
-                                        buttonColor = AppColors.greenAccent;
+                                        if (type.color == null ||
+                                            type.color!.isEmpty) {
+                                          buttonColor = AppColors.greenAccent;
+                                        }
                                       } else if (type.name
                                           .toLowerCase()
                                           .contains('training')) {
                                         icon = Icons.school;
-                                        buttonColor = AppColors.purpleAccent;
+                                        if (type.color == null ||
+                                            type.color!.isEmpty) {
+                                          buttonColor = AppColors.purpleAccent;
+                                        }
                                       }
 
                                       return Column(
@@ -1036,7 +1432,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                             label: type.name,
                                             color: buttonColor,
                                             onPressed: () {
-                                              _startInterruption(type);
+                                              _startAction(type);
                                             },
                                             description: type.description ??
                                                 'Track time for ${type.name}',
@@ -1286,6 +1682,25 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
+  // Get icon for action based on interruption type
+  IconData _getActionIcon(MESInterruptionType action) {
+    final actionName = action.name.toLowerCase();
+
+    if (actionName.contains('break')) {
+      return Icons.coffee;
+    } else if (actionName.contains('maintenance')) {
+      return Icons.build;
+    } else if (actionName.contains('prep')) {
+      return Icons.assignment;
+    } else if (actionName.contains('material')) {
+      return Icons.inventory;
+    } else if (actionName.contains('training')) {
+      return Icons.school;
+    } else {
+      return Icons.pause_circle;
+    }
+  }
+
   // New method for the full-width buttons with descriptions in the right panel
   Widget _buildFullWidthButton({
     required IconData icon,
@@ -1296,16 +1711,22 @@ class _TimerScreenState extends State<TimerScreen> {
     required bool isNarrow,
     MESInterruptionType? interruptionType,
   }) {
+    // Check if this action is currently selected
+    final bool isSelected = _timer.currentAction != null &&
+        interruptionType != null &&
+        _timer.currentAction!.id == interruptionType.id;
+
     return SizedBox(
       width: double.infinity,
       child: Card(
-        elevation: 2,
+        elevation: isSelected ? 6 : 2,
         margin: EdgeInsets.zero,
+        color: isSelected ? color.withOpacity(0.1) : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(
-            color: color.withOpacity(0.3),
-            width: 1,
+            color: isSelected ? color : color.withOpacity(0.3),
+            width: isSelected ? 3 : 1,
           ),
         ),
         child: InkWell(
@@ -1319,12 +1740,14 @@ class _TimerScreenState extends State<TimerScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: isSelected
+                        ? color.withOpacity(0.3)
+                        : color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
-                    color: color,
+                    color: isSelected ? Colors.white : color,
                     size: isNarrow ? 20 : 24,
                   ),
                 ),
@@ -1337,8 +1760,9 @@ class _TimerScreenState extends State<TimerScreen> {
                         label,
                         style: TextStyle(
                           fontSize: isNarrow ? 14 : 16,
-                          fontWeight: FontWeight.bold,
-                          color: color,
+                          fontWeight:
+                              isSelected ? FontWeight.w900 : FontWeight.bold,
+                          color: isSelected ? color : color,
                         ),
                       ),
                       SizedBox(height: isNarrow ? 2 : 4),
@@ -1346,16 +1770,20 @@ class _TimerScreenState extends State<TimerScreen> {
                         description,
                         style: TextStyle(
                           fontSize: isNarrow ? 10 : 12,
-                          color: Colors.grey[600],
+                          color: isSelected
+                              ? color.withOpacity(0.8)
+                              : Colors.grey[600],
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Icon(
-                  Icons.timer,
-                  color: color.withOpacity(0.7),
-                  size: 16,
+                  isSelected ? Icons.check_circle : Icons.timer,
+                  color: isSelected ? color : color.withOpacity(0.7),
+                  size: isSelected ? 20 : 16,
                 ),
               ],
             ),
