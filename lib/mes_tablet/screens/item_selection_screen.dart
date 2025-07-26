@@ -57,9 +57,11 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
         );
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

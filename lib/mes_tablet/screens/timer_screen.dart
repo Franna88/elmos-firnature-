@@ -32,15 +32,19 @@ class _TimerScreenState extends State<TimerScreen> {
     // Initialize production timer with onTick callback
     _timer = ProductionTimer(onTick: () {
       if (mounted) {
-        setState(() {
-          // Update remaining time when timer is running
-          if (_timer.mode == ProductionTimerMode.running) {
-            // Decrease seconds remaining only if greater than zero
-            if (_secondsRemaining > 0) {
-              _secondsRemaining--;
+        try {
+          setState(() {
+            // Update remaining time when timer is running
+            if (_timer.mode == ProductionTimerMode.running) {
+              // Decrease seconds remaining only if greater than zero
+              if (_secondsRemaining > 0) {
+                _secondsRemaining--;
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          // Ignore setState errors if widget is disposed
+        }
       }
     });
   }
@@ -55,6 +59,8 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -70,26 +76,42 @@ class _TimerScreenState extends State<TimerScreen> {
       // Initialize remaining time
       _secondsRemaining = _selectedItem.estimatedTimeInMinutes * 60;
 
-      // Load interruption types
+      // Load interruption types (excluding PRODUCTION which is handled by Start Production button)
       final mesService = Provider.of<MESService>(context, listen: false);
       await mesService.fetchInterruptionTypes(onlyActive: true);
-      _interruptionTypes = mesService.interruptionTypes;
+      if (!mounted) return;
+
+      _interruptionTypes = mesService.interruptionTypes
+          .where((type) => !type.name.toLowerCase().contains('production'))
+          .toList();
 
       // Load daily non-productive time
       await _loadDailyNonProductiveTime(mesService);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading data: $e')),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _loadDailyNonProductiveTime(MESService mesService) async {
     try {
+      // Skip this for now to avoid the Firestore index error
+      // TODO: Create the required Firestore index and re-enable this feature
+      if (!mounted) return;
+
+      _dailyNonProductiveSeconds = 0;
+
+      // Commented out until Firestore index is created
+      /*
       // Get today's date (without time)
       final today = DateTime(
         DateTime.now().year,
@@ -110,9 +132,12 @@ class _TimerScreenState extends State<TimerScreen> {
         totalSeconds += record.totalInterruptionTimeSeconds;
       }
 
-      setState(() {
-        _dailyNonProductiveSeconds = totalSeconds;
-      });
+      if (mounted) {
+        setState(() {
+          _dailyNonProductiveSeconds = totalSeconds;
+        });
+      }
+      */
     } catch (e) {
       print('Error loading daily non-productive time: $e');
     }
@@ -570,6 +595,105 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Finish production with confirmation dialog
+  void _finishProduction() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Finish Production'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'Are you sure you want to finish this production session?'),
+            const SizedBox(height: 16),
+            if (_timer.completedCount > 0) ...[
+              Text('Items completed: ${_timer.completedCount}'),
+              const SizedBox(height: 8),
+              Text(
+                'Average time per item: ${ProductionTimer.formatDuration(_timer.getAverageItemTime().isFinite ? _timer.getAverageItemTime().round() : 0)}',
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              'Total production time: ${ProductionTimer.formatDuration(_timer.getProductionTime())}',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              await _completeProductionSession();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orangeAccent,
+            ),
+            child: const Text('Finish'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Complete the production session and navigate back
+  Future<void> _completeProductionSession() async {
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+
+      // Stop all timers and save final state
+      _timer.endShift();
+
+      // Update the production record with final state
+      await mesService.updateProductionRecord(
+        await mesService.getProductionRecord(_recordId).then(
+              (record) => record.copyWith(
+                endTime: DateTime.now(),
+                totalProductionTimeSeconds: _timer.getProductionTime(),
+                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                itemCompletionRecords: _timer.completedItems,
+                isCompleted: true,
+              ),
+            ),
+      );
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Production session completed! ${_timer.completedCount} items finished.',
+            ),
+            duration: const Duration(seconds: 2),
+            backgroundColor: AppColors.greenAccent,
+          ),
+        );
+
+        // Navigate back to item selection after a brief delay
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context,
+              '/item_selection',
+              arguments: _user,
+            );
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error finishing production: $e')),
+        );
+      }
+    }
+  }
+
   // Complete current item (original complete functionality)
   Future<void> _completeItem() async {
     setState(() {
@@ -948,142 +1072,234 @@ class _TimerScreenState extends State<TimerScreen> {
                 child: Card(
                   elevation: 4,
                   child: Padding(
-                    padding: EdgeInsets.all(isNarrow ? 6.0 : 8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Item info - constrain height
-                        ConstrainedBox(
-                          constraints:
-                              BoxConstraints(maxHeight: maxHeaderHeight),
-                          child: Row(
-                            children: [
-                              // Item image or placeholder
-                              Container(
-                                width: isNarrow ? 50 : 60,
-                                height: isNarrow ? 50 : 60,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppColors.cardBorder,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(7),
-                                  child: _selectedItem.imageUrl != null &&
-                                          _selectedItem.imageUrl!.isNotEmpty
-                                      ? CrossPlatformImage(
-                                          imageUrl: _selectedItem.imageUrl!,
-                                          width: isNarrow ? 50 : 60,
-                                          height: isNarrow ? 50 : 60,
-                                          fit: BoxFit.cover,
-                                          errorWidget:
-                                              _buildItemImagePlaceholder(
-                                                  isNarrow),
-                                        )
-                                      : _buildItemImagePlaceholder(isNarrow),
-                                ),
+                    padding: EdgeInsets.all(isNarrow ? 8.0 : 12.0),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Item image - compact but professional
+                          Container(
+                            height: isNarrow ? 120 : 150,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.cardBorder,
+                                width: 1,
                               ),
-                              SizedBox(width: isNarrow ? 8 : 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
+                              color: Colors.grey[50],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(11),
+                              child: _selectedItem.imageUrl != null &&
+                                      _selectedItem.imageUrl!.isNotEmpty
+                                  ? CrossPlatformImage(
+                                      imageUrl: _selectedItem.imageUrl!,
+                                      width: 300,
+                                      height: 200,
+                                      fit: BoxFit.cover,
+                                      errorWidget: Container(
+                                        color: Colors.red[100],
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.error,
+                                                  color: Colors.red, size: 30),
+                                              Text('Image Error',
+                                                  style: TextStyle(
+                                                      color: Colors.red,
+                                                      fontSize: 10)),
+                                              if (_selectedItem.imageUrl !=
+                                                  null)
+                                                Text(
+                                                  'URL: ${_selectedItem.imageUrl!.length > 20 ? _selectedItem.imageUrl!.substring(0, 20) + '...' : _selectedItem.imageUrl!}',
+                                                  style: TextStyle(
+                                                      color: Colors.red,
+                                                      fontSize: 8),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: Colors.blue[100],
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              _getIconForCategory(
+                                                  _selectedItem.category),
+                                              size: 40,
+                                              color: AppColors.textMedium,
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'No Image URL',
+                                              style: TextStyle(
+                                                color: AppColors.textLight,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            Text(
+                                              'URL: ${_selectedItem.imageUrl ?? 'null'}',
+                                              style: TextStyle(
+                                                color: Colors.blue[700],
+                                                fontSize: 8,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+
+                          SizedBox(height: isNarrow ? 12 : 16),
+
+                          // Item information card
+                          Container(
+                            padding: EdgeInsets.all(isNarrow ? 12 : 16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.cardBorder,
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _selectedItem.name,
+                                  style: TextStyle(
+                                    fontSize: isNarrow ? 16 : 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: isNarrow ? 8 : 10),
+                                Row(
                                   children: [
-                                    Text(
-                                      _selectedItem.name,
-                                      style: TextStyle(
-                                        fontSize: isNarrow ? 16 : 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    Icon(
+                                      Icons.category_outlined,
+                                      size: 16,
+                                      color: Colors.grey[600],
                                     ),
-                                    SizedBox(height: isNarrow ? 2 : 4),
-                                    Text(
-                                      'Category: ${_selectedItem.category}',
-                                      style: TextStyle(
-                                        fontSize: isNarrow ? 12 : 13,
-                                        color: Colors.grey[700],
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _selectedItem.category,
+                                        style: TextStyle(
+                                          fontSize: isNarrow ? 12 : 13,
+                                          color: Colors.grey[700],
+                                        ),
                                       ),
-                                      maxLines: 1,
-                                    ),
-                                    Text(
-                                      'Est. time: ${_selectedItem.estimatedTimeInMinutes} min',
-                                      style: TextStyle(
-                                        fontSize: isNarrow ? 12 : 13,
-                                        color: Colors.grey[700],
-                                      ),
-                                      maxLines: 1,
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const Divider(height: 16),
-
-                        // Completed count section - constrained height
-                        Container(
-                          constraints:
-                              BoxConstraints(maxHeight: maxStatHeight * 0.6),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle_outline,
-                                size: isNarrow ? 20 : 24,
-                                color: AppColors.primaryBlue,
-                              ),
-                              SizedBox(width: isNarrow ? 6 : 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Completed Items',
-                                    style: TextStyle(
-                                      fontSize: isNarrow ? 12 : 14,
-                                      fontWeight: FontWeight.bold,
+                                SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.schedule_outlined,
+                                      size: 16,
+                                      color: Colors.grey[600],
                                     ),
-                                  ),
-                                  SizedBox(height: isNarrow ? 4 : 6),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: isNarrow ? 12 : 16,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primaryBlue
-                                          .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '${_selectedItem.completedCount}',
+                                    SizedBox(width: 6),
+                                    Text(
+                                      '${_selectedItem.estimatedTimeInMinutes} min est.',
                                       style: TextStyle(
-                                        fontSize: isNarrow ? 18 : 20,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: isNarrow ? 12 : 13,
+                                        color: Colors.grey[700],
                                       ),
                                     ),
-                                  ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(height: isNarrow ? 12 : 16),
+
+                          // Completed items card
+                          Container(
+                            padding: EdgeInsets.all(isNarrow ? 12 : 16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primaryBlue.withOpacity(0.1),
+                                  AppColors.primaryBlue.withOpacity(0.05),
                                 ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            ],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.primaryBlue.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppColors.primaryBlue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.check_circle,
+                                    size: isNarrow ? 20 : 24,
+                                    color: AppColors.primaryBlue,
+                                  ),
+                                ),
+                                SizedBox(width: isNarrow ? 10 : 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Completed Items',
+                                        style: TextStyle(
+                                          fontSize: isNarrow ? 12 : 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primaryBlue,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        '${_timer.completedCount}',
+                                        style: TextStyle(
+                                          fontSize: isNarrow ? 20 : 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primaryBlue,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
 
-                        const Spacer(),
+                          SizedBox(height: isNarrow ? 12 : 16),
 
-                        // Stats - constrained height
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxHeight: maxStatHeight),
-                          child: SingleChildScrollView(
-                            child: _buildSessionStatistics(),
-                          ),
-                        ),
-                      ],
+                          // Session statistics - compact version
+                          _buildCompactSessionStatistics(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1174,48 +1390,43 @@ class _TimerScreenState extends State<TimerScreen> {
                                             width: double.infinity,
                                             padding: EdgeInsets.symmetric(
                                               horizontal: isNarrow ? 8 : 12,
-                                              vertical: isNarrow ? 8 : 12,
+                                              vertical: isNarrow ? 12 : 16,
                                             ),
                                             decoration: BoxDecoration(
                                               color: _getStatusColor(),
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
-                                            child: Column(
-                                              children: [
-                                                FittedBox(
-                                                  child: Text(
-                                                    ProductionTimer
-                                                        .formatDuration(_timer
-                                                            .getCurrentItemTime()),
-                                                    style: TextStyle(
-                                                      fontSize:
-                                                          isNarrow ? 48 : 64,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontFamily: 'monospace',
-                                                      color: Colors.white,
-                                                      height: 1.0,
-                                                    ),
-                                                  ),
+                                            child: FittedBox(
+                                              child: Text(
+                                                ProductionTimer.formatDuration(
+                                                    _timer
+                                                        .getCurrentItemTime()),
+                                                style: TextStyle(
+                                                  fontSize: isNarrow ? 48 : 64,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontFamily: 'monospace',
+                                                  color: Colors.white,
+                                                  height: 1.0,
                                                 ),
-                                                if (_timer.completedCount >
-                                                    0) ...[
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    'Avg: ${ProductionTimer.formatDuration(_timer.getAverageItemTime().round())}',
-                                                    style: TextStyle(
-                                                      fontSize:
-                                                          isNarrow ? 12 : 14,
-                                                      color: Colors.white
-                                                          .withOpacity(0.9),
-                                                      fontFamily: 'monospace',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
+                                              ),
                                             ),
                                           ),
+                                          // Average time display moved outside the main timer container
+                                          if (_timer.completedCount > 0) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Avg: ${ProductionTimer.formatDuration(_timer.getAverageItemTime().isFinite ? _timer.getAverageItemTime().round() : 0)}',
+                                              style: TextStyle(
+                                                fontSize: isNarrow ? 12 : 14,
+                                                color: _getStatusColor()
+                                                    .withOpacity(0.8),
+                                                fontFamily: 'monospace',
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
                                         ],
                                       ),
 
@@ -1331,15 +1542,30 @@ class _TimerScreenState extends State<TimerScreen> {
                                   ),
                                 ),
 
-                              // Next button (only show if production is running AND no action is selected)
-                              if (_timer.mode == ProductionTimerMode.running &&
-                                  _timer.currentAction == null)
+                              // Next button (always show if production is running)
+                              if (_timer.mode == ProductionTimerMode.running)
                                 Expanded(
                                   child: _buildControlButton(
                                     icon: Icons.arrow_forward,
                                     label: 'Next Item',
                                     color: AppColors.greenAccent,
                                     onPressed: _nextItem,
+                                    isNarrow: isNarrow,
+                                  ),
+                                ),
+
+                              // Add spacing between buttons if both are shown
+                              if (_timer.mode == ProductionTimerMode.running)
+                                const SizedBox(width: 8),
+
+                              // Finish button (always show if production is running)
+                              if (_timer.mode == ProductionTimerMode.running)
+                                Expanded(
+                                  child: _buildControlButton(
+                                    icon: Icons.stop,
+                                    label: 'Finish',
+                                    color: AppColors.orangeAccent,
+                                    onPressed: _finishProduction,
                                     isNarrow: isNarrow,
                                   ),
                                 ),
@@ -1511,139 +1737,101 @@ class _TimerScreenState extends State<TimerScreen> {
 
   Widget _buildSessionStatistics() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           'Session Statistics',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Value Added:',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                    ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Column(
+              children: [
+                // Value Added Row
+                Expanded(
+                  child: _buildStatisticRow(
+                    'Value Added:',
+                    _formatTimeForStatistics(_timer.getProductionTime()),
+                    Colors.green,
                   ),
-                  Expanded(
-                    flex: 1,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 2, horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.green[300]!),
-                      ),
-                      child: Text(
-                        _formatTimeForStatistics(_timer.getProductionTime()),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ),
+                ),
+                const SizedBox(height: 4),
+                // No Value Added Row
+                Expanded(
+                  child: _buildStatisticRow(
+                    'No Value Added:',
+                    _formatTimeForStatistics(_timer.getTotalInterruptionTime()),
+                    Colors.red,
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'No Value Added:',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                    ),
+                ),
+                const SizedBox(height: 4),
+                // Total Time Row
+                Expanded(
+                  child: _buildStatisticRow(
+                    'Total time:',
+                    _formatTimeForStatistics(_timer.getTotalTime()),
+                    const Color(0xFF1976D2),
                   ),
-                  Expanded(
-                    flex: 1,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 2, horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.red[300]!),
-                      ),
-                      child: Text(
-                        _formatTimeForStatistics(
-                            _timer.getTotalInterruptionTime()),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Total time:',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 2, horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.blue[300]!),
-                      ),
-                      child: Text(
-                        _formatTimeForStatistics(_timer.getTotalTime()),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1976D2),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildStatisticRow(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1716,6 +1904,8 @@ class _TimerScreenState extends State<TimerScreen> {
         return Icons.weekend;
       case 'benches':
         return Icons.deck;
+      case 'cutting wood':
+        return Icons.carpenter;
       default:
         return Icons.chair_alt;
     }
@@ -1871,6 +2061,199 @@ class _TimerScreenState extends State<TimerScreen> {
           color: AppColors.textMedium,
         ),
       ),
+    );
+  }
+
+  Widget _buildLargeItemImagePlaceholder() {
+    return Container(
+      color: AppColors.backgroundWhite,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _getIconForCategory(_selectedItem.category),
+              size: 60,
+              color: AppColors.textMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No Image',
+              style: TextStyle(
+                color: AppColors.textLight,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactImagePlaceholder() {
+    return Container(
+      color: Colors.grey[100],
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _getIconForCategory(_selectedItem.category),
+              size: 40,
+              color: AppColors.textMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'No Image',
+              style: TextStyle(
+                color: AppColors.textLight,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactSessionStatistics() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.analytics_outlined,
+                size: 18,
+                color: AppColors.textDark,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Session Statistics',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCompactStatCard(
+                  'Value Added',
+                  _formatTimeForStatistics(_timer.getProductionTime()),
+                  Colors.green,
+                  Icons.trending_up,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildCompactStatCard(
+                  'No Value',
+                  _formatTimeForStatistics(_timer.getTotalInterruptionTime()),
+                  Colors.red,
+                  Icons.pause_circle_outline,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildCompactStatCard(
+            'Total Time',
+            _formatTimeForStatistics(_timer.getTotalTime()),
+            const Color(0xFF1976D2),
+            Icons.schedule,
+            fullWidth: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactStatCard(
+      String label, String value, Color color, IconData icon,
+      {bool fullWidth = false}) {
+    return Container(
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: fullWidth
+          ? Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Spacer(),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 14, color: color),
+                    SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
