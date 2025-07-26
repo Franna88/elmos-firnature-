@@ -141,6 +141,7 @@ class _TimerScreenState extends State<TimerScreen> {
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
                 totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                itemCompletionRecords: _timer.completedItems,
               ),
             ),
       );
@@ -536,11 +537,28 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   // Complete current item and move to next (Next button functionality)
-  void _nextItem() {
+  void _nextItem() async {
     setState(() {
       _timer.completeCurrentItem();
       _selectedItem.completedCount++;
     });
+
+    // Save the updated item completion records to the database
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+      await mesService.updateProductionRecord(
+        await mesService.getProductionRecord(_recordId).then(
+              (record) => record.copyWith(
+                totalProductionTimeSeconds: _timer.getProductionTime(),
+                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                itemCompletionRecords: _timer.completedItems,
+              ),
+            ),
+      );
+    } catch (e) {
+      // Silent error - we'll try again later
+      print('Error saving item completion: $e');
+    }
 
     // Show brief confirmation
     ScaffoldMessenger.of(context).showSnackBar(
@@ -562,10 +580,17 @@ class _TimerScreenState extends State<TimerScreen> {
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
 
-      // Complete the production record in Firebase
-      await mesService.completeProductionRecord(
-        _recordId,
-        _timer.getProductionTime(),
+      // Update the production record with final item completion records
+      await mesService.updateProductionRecord(
+        await mesService.getProductionRecord(_recordId).then(
+              (record) => record.copyWith(
+                endTime: DateTime.now(),
+                totalProductionTimeSeconds: _timer.getProductionTime(),
+                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                itemCompletionRecords: _timer.completedItems,
+                isCompleted: true,
+              ),
+            ),
       );
 
       // Show a confirmation message
@@ -1111,7 +1136,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                'MAIN TIMER',
+                                                'ITEM TIMER',
                                                 style: TextStyle(
                                                   fontSize: isNarrow ? 18 : 20,
                                                   fontWeight: FontWeight.bold,
@@ -1162,7 +1187,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                                   child: Text(
                                                     ProductionTimer
                                                         .formatDuration(_timer
-                                                            .getProductionTime()),
+                                                            .getCurrentItemTime()),
                                                     style: TextStyle(
                                                       fontSize:
                                                           isNarrow ? 48 : 64,
@@ -1174,6 +1199,20 @@ class _TimerScreenState extends State<TimerScreen> {
                                                     ),
                                                   ),
                                                 ),
+                                                if (_timer.completedCount >
+                                                    0) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'Avg: ${ProductionTimer.formatDuration(_timer.getAverageItemTime().round())}',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          isNarrow ? 12 : 14,
+                                                      color: Colors.white
+                                                          .withOpacity(0.9),
+                                                      fontFamily: 'monospace',
+                                                    ),
+                                                  ),
+                                                ],
                                               ],
                                             ),
                                           ),

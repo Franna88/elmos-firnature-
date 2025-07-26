@@ -9,6 +9,41 @@ enum ProductionTimerMode {
   interrupted,
 }
 
+// Model for tracking individual item completion times
+class ItemCompletionRecord {
+  final int itemNumber;
+  final DateTime startTime;
+  final DateTime endTime;
+  final int durationSeconds;
+
+  ItemCompletionRecord({
+    required this.itemNumber,
+    required this.startTime,
+    required this.endTime,
+    required this.durationSeconds,
+  });
+
+  // Convert to map for storage
+  Map<String, dynamic> toMap() {
+    return {
+      'itemNumber': itemNumber,
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime.toIso8601String(),
+      'durationSeconds': durationSeconds,
+    };
+  }
+
+  // Create from map
+  factory ItemCompletionRecord.fromMap(Map<String, dynamic> map) {
+    return ItemCompletionRecord(
+      itemNumber: map['itemNumber'],
+      startTime: DateTime.parse(map['startTime']),
+      endTime: DateTime.parse(map['endTime']),
+      durationSeconds: map['durationSeconds'],
+    );
+  }
+}
+
 // A specialized timer controller for production timing
 class ProductionTimer {
   // Current timer state
@@ -19,7 +54,11 @@ class ProductionTimer {
   int _productionTime = 0;
   int _interruptionTime = 0;
 
-  // Timestamp trackers
+  // Current item timing
+  DateTime? _currentItemStartTime;
+  int _currentItemProductionTime = 0;
+
+  // Timestamp trackers for overall session
   DateTime? _productionStartTime;
   DateTime? _interruptionStartTime;
 
@@ -30,9 +69,14 @@ class ProductionTimer {
 
   MESInterruptionType? get currentAction => _currentAction;
 
-  // Completion counter
+  // Completion counter and records
   int _completedCount = 0;
   int get completedCount => _completedCount;
+
+  // List of completed items with their times
+  List<ItemCompletionRecord> _completedItems = [];
+  List<ItemCompletionRecord> get completedItems =>
+      List.unmodifiable(_completedItems);
 
   // Track number of times production was started
   int _productionStartCount = 0;
@@ -74,30 +118,46 @@ class ProductionTimer {
 
     _mode = ProductionTimerMode.running;
     _productionStartTime = DateTime.now();
+
+    // Start the first item timer if this is the first time starting
+    if (_currentItemStartTime == null) {
+      _currentItemStartTime = DateTime.now();
+      _currentItemProductionTime = 0;
+    }
+
     _productionStartCount++;
   }
 
   // Start or switch to an action
   void startAction(MESInterruptionType action) {
+    final now = DateTime.now();
+
     // Save current action time if any
     if (_currentAction != null && _actionStartTime != null) {
-      final actionDuration =
-          DateTime.now().difference(_actionStartTime!).inSeconds;
+      final actionDuration = now.difference(_actionStartTime!).inSeconds;
       _actionTime += actionDuration;
+    } else if (_currentAction == null && _currentItemStartTime != null) {
+      // We're switching from production to an action - save current item production time
+      _currentItemProductionTime +=
+          now.difference(_currentItemStartTime!).inSeconds;
     }
 
     // Start new action
     _currentAction = action;
-    _actionStartTime = DateTime.now();
+    _actionStartTime = now;
     _actionTime = 0; // Reset for new action
   }
 
   // Stop current action
   void stopAction() {
+    final now = DateTime.now();
+
     if (_currentAction != null && _actionStartTime != null) {
-      final actionDuration =
-          DateTime.now().difference(_actionStartTime!).inSeconds;
+      final actionDuration = now.difference(_actionStartTime!).inSeconds;
       _actionTime += actionDuration;
+
+      // Reset item start time to now since we're returning to production
+      _currentItemStartTime = now;
     }
 
     _currentAction = null;
@@ -183,8 +243,33 @@ class ProductionTimer {
 
   // Complete current item and increment count (for "Next" functionality)
   void completeCurrentItem() {
-    _completedCount++;
-    // Don't reset the timer - keep production running for next item
+    if (_currentItemStartTime != null) {
+      final now = DateTime.now();
+
+      // Calculate current item production time (excluding any current action time)
+      int itemProductionTime = _currentItemProductionTime;
+      if (_mode == ProductionTimerMode.running && _currentAction == null) {
+        // Add current running time to item production time
+        itemProductionTime += now.difference(_currentItemStartTime!).inSeconds;
+      }
+
+      // Create completion record
+      final record = ItemCompletionRecord(
+        itemNumber: _completedCount + 1,
+        startTime: _currentItemStartTime!,
+        endTime: now,
+        durationSeconds: itemProductionTime,
+      );
+
+      _completedItems.add(record);
+      _completedCount++;
+
+      // Reset for next item
+      _currentItemStartTime = now;
+      _currentItemProductionTime = 0;
+    } else {
+      _completedCount++;
+    }
   }
 
   // End shift - stop all timers and save final state
@@ -265,6 +350,43 @@ class ProductionTimer {
   // Get total time (production + interruption)
   int getTotalTime() {
     return getProductionTime() + getTotalInterruptionTime();
+  }
+
+  // Get current item production time in seconds
+  int getCurrentItemTime() {
+    if (_currentItemStartTime == null) return 0;
+
+    int itemTime = _currentItemProductionTime;
+    if (_mode == ProductionTimerMode.running && _currentAction == null) {
+      // Add current running time only if we're in production mode (not doing an action)
+      itemTime += DateTime.now().difference(_currentItemStartTime!).inSeconds;
+    }
+    return itemTime;
+  }
+
+  // Get average time per completed item in seconds
+  double getAverageItemTime() {
+    if (_completedItems.isEmpty) return 0.0;
+
+    int totalTime =
+        _completedItems.fold(0, (sum, item) => sum + item.durationSeconds);
+    return totalTime / _completedItems.length;
+  }
+
+  // Get fastest completed item time in seconds
+  int getFastestItemTime() {
+    if (_completedItems.isEmpty) return 0;
+    return _completedItems
+        .map((item) => item.durationSeconds)
+        .reduce((a, b) => a < b ? a : b);
+  }
+
+  // Get slowest completed item time in seconds
+  int getSlowestItemTime() {
+    if (_completedItems.isEmpty) return 0;
+    return _completedItems
+        .map((item) => item.durationSeconds)
+        .reduce((a, b) => a > b ? a : b);
   }
 
   // Get the duration of the current interruption in seconds

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../mes_tablet/models/production_timer.dart';
 
 class MESProductionRecord {
   final String id;
@@ -13,6 +14,7 @@ class MESProductionRecord {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<MESInterruption> interruptions;
+  final List<ItemCompletionRecord> itemCompletionRecords;
 
   MESProductionRecord({
     required this.id,
@@ -27,6 +29,7 @@ class MESProductionRecord {
     required this.createdAt,
     required this.updatedAt,
     required this.interruptions,
+    required this.itemCompletionRecords,
   });
 
   // Create from Firestore document
@@ -37,6 +40,13 @@ class MESProductionRecord {
     if (data['interruptions'] != null) {
       for (var item in data['interruptions']) {
         interruptions.add(MESInterruption.fromMap(item));
+      }
+    }
+
+    List<ItemCompletionRecord> itemCompletionRecords = [];
+    if (data['itemCompletionRecords'] != null) {
+      for (var item in data['itemCompletionRecords']) {
+        itemCompletionRecords.add(ItemCompletionRecord.fromMap(item));
       }
     }
 
@@ -55,6 +65,7 @@ class MESProductionRecord {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       interruptions: interruptions,
+      itemCompletionRecords: itemCompletionRecords,
     );
   }
 
@@ -72,6 +83,8 @@ class MESProductionRecord {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'interruptions': interruptions.map((i) => i.toMap()).toList(),
+      'itemCompletionRecords':
+          itemCompletionRecords.map((i) => i.toMap()).toList(),
     };
   }
 
@@ -82,6 +95,7 @@ class MESProductionRecord {
     int? totalInterruptionTimeSeconds,
     bool? isCompleted,
     List<MESInterruption>? interruptions,
+    List<ItemCompletionRecord>? itemCompletionRecords,
   }) {
     return MESProductionRecord(
       id: id,
@@ -98,6 +112,8 @@ class MESProductionRecord {
       createdAt: createdAt,
       updatedAt: DateTime.now(),
       interruptions: interruptions ?? this.interruptions,
+      itemCompletionRecords:
+          itemCompletionRecords ?? this.itemCompletionRecords,
     );
   }
 }

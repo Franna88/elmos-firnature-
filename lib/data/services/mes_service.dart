@@ -625,6 +625,7 @@ class MESService extends ChangeNotifier {
         'totalInterruptionTimeSeconds': 0,
         'isCompleted': false,
         'interruptions': [],
+        'itemCompletionRecords': [],
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
       });
@@ -640,6 +641,7 @@ class MESService extends ChangeNotifier {
         totalInterruptionTimeSeconds: 0,
         isCompleted: false,
         interruptions: [],
+        itemCompletionRecords: [],
         createdAt: now,
         updatedAt: now,
       );
@@ -666,6 +668,8 @@ class MESService extends ChangeNotifier {
         'totalInterruptionTimeSeconds': record.totalInterruptionTimeSeconds,
         'isCompleted': record.isCompleted,
         'interruptions': record.interruptions.map((i) => i.toMap()).toList(),
+        'itemCompletionRecords':
+            record.itemCompletionRecords.map((i) => i.toMap()).toList(),
         'updatedAt': Timestamp.fromDate(now),
       });
 
