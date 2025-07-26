@@ -130,13 +130,24 @@ class ProductionTimer {
   void startAction(MESInterruptionType action) {
     final now = DateTime.now();
 
-    // Save current action time if any
+    // Save current production time if we're switching from production to action
+    if (_currentAction == null &&
+        _mode == ProductionTimerMode.running &&
+        _productionStartTime != null) {
+      // Pause production timer - save accumulated production time
+      final productionDuration =
+          now.difference(_productionStartTime!).inSeconds;
+      _productionTime += productionDuration;
+      _productionStartTime = null;
+    }
+
+    // Save current action time if switching between actions
     if (_currentAction != null && _actionStartTime != null) {
       final actionDuration = now.difference(_actionStartTime!).inSeconds;
       _actionTime += actionDuration;
     }
-    // Note: We no longer pause item timing when starting an action
-    // Item timer continues running to track total time per item including actions
+
+    // Note: Item timer continues running to track total time per item including actions
 
     // Start new action
     _currentAction = action;
@@ -158,12 +169,24 @@ class ProductionTimer {
     _currentAction = null;
     _actionStartTime = null;
     _actionTime = 0;
+
+    // Resume production timer if we're still in running mode
+    if (_mode == ProductionTimerMode.running) {
+      _productionStartTime = now;
+    }
   }
 
   // Get current action time including ongoing time
+  // When no action is selected, this shows production time
   int getActionTime() {
+    if (_currentAction == null) {
+      // No action selected - show production time
+      return getProductionTime();
+    }
+
+    // Action is selected - show action time
     int total = _actionTime;
-    if (_currentAction != null && _actionStartTime != null) {
+    if (_actionStartTime != null) {
       final duration = DateTime.now().difference(_actionStartTime!).inSeconds;
       total += duration;
     }

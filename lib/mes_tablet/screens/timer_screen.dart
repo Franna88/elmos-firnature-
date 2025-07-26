@@ -25,6 +25,7 @@ class _TimerScreenState extends State<TimerScreen> {
   List<MESInterruptionType> _interruptionTypes = [];
   bool _isLoading = true;
   int _dailyNonProductiveSeconds = 0; // Track daily non-productive time
+  Timer? _saveProgressTimer; // Timer for periodic data saving
 
   @override
   void initState() {
@@ -147,6 +148,7 @@ class _TimerScreenState extends State<TimerScreen> {
   void dispose() {
     // Clean up timer resources
     _timer.dispose();
+    _saveProgressTimer?.cancel();
     super.dispose();
   }
 
@@ -156,8 +158,11 @@ class _TimerScreenState extends State<TimerScreen> {
       _timer.startProduction();
     });
 
-    // If this is the first time starting, no need to update the record
-    if (_timer.productionStartCount == 1) return;
+    // Start periodic saving if this is the first time starting
+    if (_timer.productionStartCount == 1) {
+      _startPeriodicSaving();
+      return;
+    }
 
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
@@ -175,6 +180,15 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
+  // Start periodic saving of production data
+  void _startPeriodicSaving() {
+    _saveProgressTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_timer.mode == ProductionTimerMode.running) {
+        _saveProductionProgress();
+      }
+    });
+  }
+
   // Pause production
   void _pauseTimer() {
     setState(() {
@@ -182,7 +196,7 @@ class _TimerScreenState extends State<TimerScreen> {
     });
   }
 
-  // Start an action (replaces interruption dialog system)
+  // Start/Stop an action (toggle functionality)
   void _startAction(MESInterruptionType type) {
     // Only allow actions when production is running
     if (_timer.mode != ProductionTimerMode.running) {
@@ -195,9 +209,30 @@ class _TimerScreenState extends State<TimerScreen> {
       return;
     }
 
+    // Check if this action is already active - if so, stop it
+    if (_timer.currentAction != null && _timer.currentAction!.id == type.id) {
+      _stopAction();
+      return;
+    }
+
+    // Check if operator is working on an item and prompt for completion
+    if (_timer.currentAction == null && _timer.getCurrentItemTime() > 0) {
+      _showItemCompletionDialog(type);
+      return;
+    }
+
+    // Record end of previous action before starting new one
+    if (_timer.currentAction != null) {
+      _recordActionEnd(_timer.currentAction!);
+    }
+
+    // Start the new action
     setState(() {
       _timer.startAction(type);
     });
+
+    // Record the start of this action in Firebase
+    _recordActionStart(type);
 
     // Show brief feedback
     ScaffoldMessenger.of(context).showSnackBar(
@@ -209,10 +244,177 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Show dialog to confirm item completion before starting action
+  void _showItemCompletionDialog(MESInterruptionType type) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber, color: AppColors.orangeAccent, size: 24),
+            SizedBox(width: 8),
+            Text('Item in Progress'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are currently working on an item for:',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 8),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border:
+                    Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
+              ),
+              child: Text(
+                ProductionTimer.formatDuration(_timer.getCurrentItemTime()),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryBlue,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Would you like to complete this item before starting "${type.name}"?',
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Start action without completing item
+              _startActionWithoutCompletion(type);
+            },
+            child: Text('Continue Item Later'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Complete current item first, then start action
+              _completeItemAndStartAction(type);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.greenAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Complete Item'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Complete current item and then start the action
+  void _completeItemAndStartAction(MESInterruptionType type) {
+    // Complete the current item
+    _nextItem();
+
+    // Then start the action
+    setState(() {
+      _timer.startAction(type);
+    });
+
+    // Record the start of this action in Firebase
+    _recordActionStart(type);
+
+    // Show feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Item completed. Started: ${type.name}'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: _timer.getActionColor(),
+      ),
+    );
+  }
+
+  // Start action without completing current item
+  void _startActionWithoutCompletion(MESInterruptionType type) {
+    setState(() {
+      _timer.startAction(type);
+    });
+
+    // Record the start of this action in Firebase
+    _recordActionStart(type);
+
+    // Show feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Started: ${type.name} (item continues)'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: _timer.getActionColor(),
+      ),
+    );
+  }
+
+  // Record action start in Firebase
+  Future<void> _recordActionStart(MESInterruptionType action) async {
+    try {
+      print('🔥 Recording action START: ${action.name} (ID: ${action.id})');
+      final mesService = Provider.of<MESService>(context, listen: false);
+
+      // Add interruption record to track this action
+      final result = await mesService.addInterruptionToRecord(
+        _recordId,
+        action.id,
+        action.name,
+        DateTime.now(),
+        endTime: null, // Will be filled when action ends
+        durationSeconds: 0, // Will be updated when action ends
+      );
+      print('🔥 Action START recorded successfully for: ${action.name}');
+    } catch (e) {
+      print('❌ Error recording action start: $e');
+      // Don't show error to user, just log it
+    }
+  }
+
+  // Record action end in Firebase
+  Future<void> _recordActionEnd(MESInterruptionType action) async {
+    try {
+      print(
+          '🔥 Recording action END: ${action.name} (Duration: ${_timer.getActionTime()}s)');
+      final mesService = Provider.of<MESService>(context, listen: false);
+      final now = DateTime.now();
+
+      // Calculate action duration
+      final actionDuration = _timer.getActionTime();
+
+      // Update the most recent interruption record for this action type
+      final result = await mesService.updateInterruptionInRecord(
+        _recordId,
+        action.id,
+        endTime: now,
+        durationSeconds: actionDuration,
+      );
+      print(
+          '🔥 Action END recorded successfully for: ${action.name} (${actionDuration}s)');
+    } catch (e) {
+      print('❌ Error recording action end: $e');
+      // Don't show error to user, just log it
+    }
+  }
+
   // Stop current action and return to production
   void _stopAction() {
     if (_timer.currentAction != null) {
       final actionName = _timer.currentAction!.name;
+      final currentAction = _timer.currentAction!;
+
+      // Record the end of this action in Firebase
+      _recordActionEnd(currentAction);
+
       setState(() {
         _timer.stopAction();
       });
@@ -563,6 +765,12 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Complete current item and move to next (Next button functionality)
   void _nextItem() async {
+    // If production hasn't started yet, start it first
+    if (_timer.mode == ProductionTimerMode.notStarted) {
+      _startTimer();
+      return;
+    }
+
     setState(() {
       _timer.completeCurrentItem();
       _selectedItem.completedCount++;
@@ -593,6 +801,25 @@ class _TimerScreenState extends State<TimerScreen> {
         duration: const Duration(seconds: 1),
       ),
     );
+  }
+
+  // Periodically save production data to Firebase (call this regularly)
+  Future<void> _saveProductionProgress() async {
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+      await mesService.updateProductionRecord(
+        await mesService.getProductionRecord(_recordId).then(
+              (record) => record.copyWith(
+                totalProductionTimeSeconds: _timer.getProductionTime(),
+                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                itemCompletionRecords: _timer.completedItems,
+              ),
+            ),
+      );
+    } catch (e) {
+      print('Error saving production progress: $e');
+      // Don't show error to user
+    }
   }
 
   // Finish production with confirmation dialog
@@ -645,6 +872,11 @@ class _TimerScreenState extends State<TimerScreen> {
   Future<void> _completeProductionSession() async {
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
+
+      // Record end of current action if any before finishing
+      if (_timer.currentAction != null) {
+        await _recordActionEnd(_timer.currentAction!);
+      }
 
       // Stop all timers and save final state
       _timer.endShift();
@@ -784,18 +1016,24 @@ class _TimerScreenState extends State<TimerScreen> {
         );
       }
 
+      // Record end of current action if any
+      if (_timer.currentAction != null) {
+        await _recordActionEnd(_timer.currentAction!);
+      }
+
       // End the shift in the timer
       _timer.endShift();
 
       final mesService = Provider.of<MESService>(context, listen: false);
 
-      // Update the current production record with final data
+      // Update the current production record with final data including all item completion records
       await mesService.updateProductionRecord(
         await mesService.getProductionRecord(_recordId).then(
               (record) => record.copyWith(
                 endTime: DateTime.now(),
                 totalProductionTimeSeconds: _timer.getProductionTime(),
                 totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                itemCompletionRecords: _timer.completedItems,
                 isCompleted: false, // Mark as incomplete since shift ended
               ),
             ),
@@ -1542,30 +1780,14 @@ class _TimerScreenState extends State<TimerScreen> {
                                   ),
                                 ),
 
-                              // Next button (always show if production is running)
-                              if (_timer.mode == ProductionTimerMode.running)
+                              // Next button (always show when not in notStarted mode)
+                              if (_timer.mode != ProductionTimerMode.notStarted)
                                 Expanded(
                                   child: _buildControlButton(
                                     icon: Icons.arrow_forward,
                                     label: 'Next Item',
                                     color: AppColors.greenAccent,
                                     onPressed: _nextItem,
-                                    isNarrow: isNarrow,
-                                  ),
-                                ),
-
-                              // Add spacing between buttons if both are shown
-                              if (_timer.mode == ProductionTimerMode.running)
-                                const SizedBox(width: 8),
-
-                              // Finish button (always show if production is running)
-                              if (_timer.mode == ProductionTimerMode.running)
-                                Expanded(
-                                  child: _buildControlButton(
-                                    icon: Icons.stop,
-                                    label: 'Finish',
-                                    color: AppColors.orangeAccent,
-                                    onPressed: _finishProduction,
                                     isNarrow: isNarrow,
                                   ),
                                 ),
@@ -2180,6 +2402,33 @@ class _TimerScreenState extends State<TimerScreen> {
             Icons.schedule,
             fullWidth: true,
           ),
+          // Finish button - only show when production is running
+          if (_timer.mode != ProductionTimerMode.notStarted) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _finishProduction,
+                icon: Icon(Icons.stop, size: 16),
+                label: Text(
+                  'Finish',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.orangeAccent,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 2,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
