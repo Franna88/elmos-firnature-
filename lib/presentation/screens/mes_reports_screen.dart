@@ -2188,10 +2188,11 @@ class _MESReportsScreenState extends State<MESReportsScreen>
       context: context,
       builder: (context) => Dialog(
         child: Container(
-          width: 600,
-          constraints: const BoxConstraints(maxHeight: 600),
+          width: 800,
+          constraints: const BoxConstraints(maxHeight: 700),
           child: Column(
             children: [
+              // Header
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -2208,7 +2209,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Production Details',
+                        'Production Details - ${item.name}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -2229,59 +2230,22 @@ class _MESReportsScreenState extends State<MESReportsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildDetailRow('Item', item.name),
-                      _buildDetailRow('Worker', record.userName),
-                      _buildDetailRow(
-                          'Start Time',
-                          DateFormat('yyyy-MM-dd HH:mm')
-                              .format(record.startTime)),
-                      if (record.endTime != null)
-                        _buildDetailRow(
-                            'End Time',
-                            DateFormat('yyyy-MM-dd HH:mm')
-                                .format(record.endTime!)),
-                      _buildDetailRow('Status',
-                          record.isCompleted ? 'Completed' : 'In Progress'),
+                      // Details Section
+                      _buildDetailsSection(record, item),
                       const SizedBox(height: 24),
-                      const Text(
-                        'Time Breakdown',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDetailRow('Production Time',
-                          _formatSeconds(record.totalProductionTimeSeconds)),
-                      _buildDetailRow('Action Time',
-                          _formatSeconds(record.totalInterruptionTimeSeconds)),
-                      _buildDetailRow('Items Completed',
-                          '${record.itemCompletionRecords.length}'),
+
+                      // Time Breakdown Section
+                      _buildTimeBreakdownSection(record),
+                      const SizedBox(height: 24),
+
+                      // Actions Section with timestamps
                       if (record.interruptions.isNotEmpty) ...[
+                        _buildActionsSection(record),
                         const SizedBox(height: 24),
-                        const Text(
-                          'Actions Taken',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 12),
-                        ...record.interruptions.map((action) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: _getActionColor(action.typeName),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: Text(action.typeName)),
-                                  Text(_formatSeconds(action.durationSeconds)),
-                                ],
-                              ),
-                            )),
                       ],
+
+                      // Activity Timeline Section
+                      _buildActivityTimelineSection(record),
                     ],
                   ),
                 ),
@@ -2291,6 +2255,433 @@ class _MESReportsScreenState extends State<MESReportsScreen>
         ),
       ),
     );
+  }
+
+  // Enhanced Production Details section builders
+  Widget _buildDetailsSection(MESProductionRecord record, MESItem item) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: AppColors.primaryBlue),
+                const SizedBox(width: 8),
+                const Text(
+                  'Session Details',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildDetailRow('Item', item.name),
+                      _buildDetailRow('Worker', record.userName),
+                      _buildDetailRow('Status',
+                          record.isCompleted ? 'Completed' : 'In Progress'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildDetailRow(
+                          'Start Time',
+                          DateFormat('yyyy-MM-dd HH:mm:ss')
+                              .format(record.startTime)),
+                      if (record.endTime != null)
+                        _buildDetailRow(
+                            'End Time',
+                            DateFormat('yyyy-MM-dd HH:mm:ss')
+                                .format(record.endTime!)),
+                      _buildDetailRow('Total Duration',
+                          _formatSeconds(_getTotalSessionDuration(record))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeBreakdownSection(MESProductionRecord record) {
+    final itemsCompleted = record.itemCompletionRecords.length;
+    final avgTimePerItem = itemsCompleted > 0
+        ? record.itemCompletionRecords
+                .fold(0, (sum, item) => sum + item.durationSeconds) /
+            itemsCompleted
+        : 0.0;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.timer, color: AppColors.greenAccent),
+                const SizedBox(width: 8),
+                const Text(
+                  'Time Breakdown',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTimeBreakdownCard(
+                    'Production Time',
+                    _formatSeconds(record.totalProductionTimeSeconds),
+                    Icons.build,
+                    AppColors.greenAccent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTimeBreakdownCard(
+                    'Action Time',
+                    _formatSeconds(record.totalInterruptionTimeSeconds),
+                    Icons.pause,
+                    AppColors.orangeAccent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTimeBreakdownCard(
+                    'Items Completed',
+                    '$itemsCompleted',
+                    Icons.check_circle,
+                    AppColors.primaryBlue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTimeBreakdownCard(
+                    'Avg per Item',
+                    _formatSeconds(avgTimePerItem.round()),
+                    Icons.speed,
+                    AppColors.primaryBlue,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeBreakdownCard(
+      String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsSection(MESProductionRecord record) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.timeline, color: AppColors.orangeAccent),
+                const SizedBox(width: 8),
+                const Text(
+                  'Actions Taken',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...record.interruptions
+                .map((action) => _buildActionDetailCard(action)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionDetailCard(MESInterruption action) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _getActionColor(action.typeName).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+            color: _getActionColor(action.typeName).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: _getActionColor(action.typeName),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  action.typeName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                _formatSeconds(action.durationSeconds),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: _getActionColor(action.typeName),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Start: ${DateFormat('HH:mm:ss').format(action.startTime)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ),
+              if (action.endTime != null)
+                Expanded(
+                  child: Text(
+                    'End: ${DateFormat('HH:mm:ss').format(action.endTime!)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
+            ],
+          ),
+          if (action.notes != null && action.notes!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Notes: ${action.notes}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityTimelineSection(MESProductionRecord record) {
+    final activities = _buildActivityTimeline(record);
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.schedule, color: AppColors.primaryBlue),
+                const SizedBox(width: 8),
+                const Text(
+                  'Activity Timeline',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: ListView.builder(
+                itemCount: activities.length,
+                itemBuilder: (context, index) {
+                  final activity = activities[index];
+                  final isLast = index == activities.length - 1;
+
+                  return _buildTimelineItem(activity, isLast);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(ActivityTimelineItem activity, bool isLast) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: activity.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 40,
+                color: Colors.grey[300],
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      activity.title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    Text(
+                      DateFormat('HH:mm:ss').format(activity.timestamp),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+                if (activity.description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    activity.description,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<ActivityTimelineItem> _buildActivityTimeline(
+      MESProductionRecord record) {
+    final activities = <ActivityTimelineItem>[];
+
+    // Add session start
+    activities.add(ActivityTimelineItem(
+      timestamp: record.startTime,
+      title: 'Session Started',
+      description: 'Production session began',
+      color: AppColors.greenAccent,
+    ));
+
+    // Add interruptions/actions
+    for (final interruption in record.interruptions) {
+      activities.add(ActivityTimelineItem(
+        timestamp: interruption.startTime,
+        title: '${interruption.typeName} Started',
+        description: interruption.notes ?? 'Action began',
+        color: _getActionColor(interruption.typeName),
+      ));
+
+      if (interruption.endTime != null) {
+        activities.add(ActivityTimelineItem(
+          timestamp: interruption.endTime!,
+          title: '${interruption.typeName} Ended',
+          description:
+              'Duration: ${_formatSeconds(interruption.durationSeconds)}',
+          color: _getActionColor(interruption.typeName),
+        ));
+      }
+    }
+
+    // Add item completions
+    for (final itemRecord in record.itemCompletionRecords) {
+      activities.add(ActivityTimelineItem(
+        timestamp: itemRecord.endTime,
+        title: 'Item ${itemRecord.itemNumber} Completed',
+        description:
+            'Production time: ${_formatSeconds(itemRecord.durationSeconds)}',
+        color: AppColors.primaryBlue,
+      ));
+    }
+
+    // Add session end
+    if (record.endTime != null) {
+      activities.add(ActivityTimelineItem(
+        timestamp: record.endTime!,
+        title: 'Session Completed',
+        description: 'Production session ended',
+        color: AppColors.greenAccent,
+      ));
+    }
+
+    // Sort by timestamp
+    activities.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    return activities;
+  }
+
+  int _getTotalSessionDuration(MESProductionRecord record) {
+    if (record.endTime != null) {
+      return record.endTime!.difference(record.startTime).inSeconds;
+    }
+    return DateTime.now().difference(record.startTime).inSeconds;
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -2378,4 +2769,19 @@ class _MESReportsScreenState extends State<MESReportsScreen>
       ),
     );
   }
+}
+
+// Activity Timeline Item class
+class ActivityTimelineItem {
+  final DateTime timestamp;
+  final String title;
+  final String description;
+  final Color color;
+
+  ActivityTimelineItem({
+    required this.timestamp,
+    required this.title,
+    required this.description,
+    required this.color,
+  });
 }

@@ -45,6 +45,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 _secondsRemaining--;
               }
             }
+            // Also update during setup mode to show setup timer progress
           });
         } catch (e) {
           // Ignore setState errors if widget is disposed
@@ -323,10 +324,14 @@ class _TimerScreenState extends State<TimerScreen> {
         actions: [
           if (_timer.mode != ProductionTimerMode.setup)
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 setState(() {
                   _timer.startSetup();
                 });
+
+                // Record setup start after starting the timer
+                await _recordSetupStart();
+
                 Navigator.of(context).pop();
                 // Show the dialog again to track progress
                 _showSetupDialog();
@@ -339,7 +344,10 @@ class _TimerScreenState extends State<TimerScreen> {
             ),
           if (_timer.mode == ProductionTimerMode.setup)
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                // Record setup time as an interruption before completing
+                await _recordSetupCompletion();
+
                 setState(() {
                   _timer.completeSetup();
                   _setupCompleted = true;
@@ -518,6 +526,52 @@ class _TimerScreenState extends State<TimerScreen> {
           '🔥 Action END recorded successfully for: ${action.name} (${actionDuration}s)');
     } catch (e) {
       print('❌ Error recording action end: $e');
+      // Don't show error to user, just log it
+    }
+  }
+
+  // Record setup start as an interruption
+  Future<void> _recordSetupStart() async {
+    try {
+      print('🔧 Recording setup start');
+      final mesService = Provider.of<MESService>(context, listen: false);
+
+      // Add interruption record to track setup
+      await mesService.addInterruptionToRecord(
+        _recordId,
+        'setup', // Special ID for setup
+        'Setup',
+        DateTime.now(),
+        endTime: null, // Will be filled when setup completes
+        durationSeconds: 0, // Will be updated when setup completes
+      );
+      print('🔧 Setup start recorded successfully');
+    } catch (e) {
+      print('❌ Error recording setup start: $e');
+      // Don't show error to user, just log it
+    }
+  }
+
+  // Record setup completion as an interruption
+  Future<void> _recordSetupCompletion() async {
+    try {
+      final setupDuration = _timer.getSetupTime();
+      if (setupDuration > 0) {
+        print('🔧 Recording setup completion: ${setupDuration}s');
+        final mesService = Provider.of<MESService>(context, listen: false);
+        final now = DateTime.now();
+
+        // Update the existing setup interruption record with end time and duration
+        await mesService.updateInterruptionInRecord(
+          _recordId,
+          'setup', // Special ID for setup
+          endTime: now,
+          durationSeconds: setupDuration,
+        );
+        print('🔧 Setup completion recorded successfully: ${setupDuration}s');
+      }
+    } catch (e) {
+      print('❌ Error recording setup completion: $e');
       // Don't show error to user, just log it
     }
   }

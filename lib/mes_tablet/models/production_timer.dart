@@ -58,6 +58,8 @@ class ProductionTimer {
 
   // Current item timing
   DateTime? _currentItemStartTime;
+  int _currentItemProductionTime =
+      0; // Accumulated production time for current item (excludes action time)
 
   // Timestamp trackers for overall session
   DateTime? _productionStartTime;
@@ -124,6 +126,8 @@ class ProductionTimer {
     // Start the first item timer if this is the first time starting
     if (_currentItemStartTime == null) {
       _currentItemStartTime = DateTime.now();
+      _currentItemProductionTime =
+          0; // Initialize production time for first item
     }
 
     _productionStartCount++;
@@ -174,6 +178,8 @@ class ProductionTimer {
       final productionDuration =
           now.difference(_productionStartTime!).inSeconds;
       _productionTime += productionDuration;
+      _currentItemProductionTime +=
+          productionDuration; // Also add to current item production time
       _productionStartTime = null;
     }
 
@@ -183,7 +189,7 @@ class ProductionTimer {
       _actionTime += actionDuration;
     }
 
-    // Note: Item timer continues running to track total time per item including actions
+    // Item production timer pauses during actions - only action timer runs
 
     // Start new action
     _currentAction = action;
@@ -198,8 +204,6 @@ class ProductionTimer {
     if (_currentAction != null && _actionStartTime != null) {
       final actionDuration = now.difference(_actionStartTime!).inSeconds;
       _actionTime += actionDuration;
-
-      // Note: We no longer reset item start time since item timer continues during actions
     }
 
     _currentAction = null;
@@ -208,7 +212,7 @@ class ProductionTimer {
 
     // Resume production timer if we're still in running mode
     if (_mode == ProductionTimerMode.running) {
-      _productionStartTime = now;
+      _productionStartTime = now; // Resume production time tracking
     }
   }
 
@@ -300,15 +304,24 @@ class ProductionTimer {
     if (_currentItemStartTime != null) {
       final now = DateTime.now();
 
-      // Calculate total time for this item (includes all activities)
-      final itemTotalTime = now.difference(_currentItemStartTime!).inSeconds;
+      // Save any ongoing production time for current item
+      if (_currentAction == null &&
+          _mode == ProductionTimerMode.running &&
+          _productionStartTime != null) {
+        final currentSessionTime =
+            now.difference(_productionStartTime!).inSeconds;
+        _currentItemProductionTime += currentSessionTime;
+      }
 
-      // Create completion record
+      // Use only production time for item completion (excludes action time)
+      final itemProductionTime = _currentItemProductionTime;
+
+      // Create completion record with production time only
       final record = ItemCompletionRecord(
         itemNumber: _completedCount + 1,
         startTime: _currentItemStartTime!,
         endTime: now,
-        durationSeconds: itemTotalTime,
+        durationSeconds: itemProductionTime,
       );
 
       _completedItems.add(record);
@@ -316,6 +329,12 @@ class ProductionTimer {
 
       // Reset for next item
       _currentItemStartTime = now;
+      _currentItemProductionTime = 0; // Reset production time for new item
+
+      // If we're currently in production mode (not in action), reset production start time
+      if (_currentAction == null && _mode == ProductionTimerMode.running) {
+        _productionStartTime = now;
+      }
     } else {
       _completedCount++;
     }
@@ -401,13 +420,23 @@ class ProductionTimer {
     return getProductionTime() + getTotalInterruptionTime();
   }
 
-  // Get current item production time in seconds
+  // Get current item production time in seconds (excludes action time)
   int getCurrentItemTime() {
     if (_currentItemStartTime == null) return 0;
 
-    // Always count from item start time to now (includes action time)
-    // This gives total time spent on current item including all activities
-    return DateTime.now().difference(_currentItemStartTime!).inSeconds;
+    // Return accumulated production time plus current session if actively producing
+    int totalItemTime = _currentItemProductionTime;
+
+    // Add current production session time if actively producing (not in action)
+    if (_currentAction == null &&
+        _mode == ProductionTimerMode.running &&
+        _productionStartTime != null) {
+      final currentSessionTime =
+          DateTime.now().difference(_productionStartTime!).inSeconds;
+      totalItemTime += currentSessionTime;
+    }
+
+    return totalItemTime;
   }
 
   // Get average time per completed item in seconds
