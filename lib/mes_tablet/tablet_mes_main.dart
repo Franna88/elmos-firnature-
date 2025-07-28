@@ -7,6 +7,7 @@ import '../core/theme/app_theme.dart';
 
 // Screens
 import 'screens/login_screen.dart';
+import 'screens/process_selection_screen.dart';
 import 'screens/item_selection_screen.dart';
 import 'screens/timer_screen.dart';
 
@@ -57,6 +58,7 @@ class MyApp extends StatelessWidget {
         home: const LoginScreen(),
         routes: {
           '/login': (context) => const LoginScreen(),
+          '/process_selection': (context) => const ProcessSelectionScreen(),
           '/item_selection': (context) => const ItemSelectionScreen(),
           '/timer': (context) => const TimerScreen(),
         },

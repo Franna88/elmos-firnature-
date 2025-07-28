@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../models/user.dart';
 import '../../data/services/auth_service.dart' as auth;
 import '../../core/theme/app_theme.dart';
@@ -393,13 +394,9 @@ class _LoginScreenState extends State<LoginScreen> {
           email: authService.userEmail,
         );
 
-        // Navigate to item selection screen with the authenticated user
+        // Navigate to process selection screen with the authenticated user
         if (mounted) {
-          Navigator.pushReplacementNamed(
-            context,
-            '/item_selection',
-            arguments: user,
-          );
+          context.go('/process_selection', extra: user);
         }
       } else {
         setState(() {
@@ -437,12 +434,8 @@ class _LoginScreenState extends State<LoginScreen> {
           photoUrl: 'assets/images/user1.jpg',
         );
 
-        // Navigate to item selection screen
-        Navigator.pushReplacementNamed(
-          context,
-          '/item_selection',
-          arguments: user,
-        );
+        // Navigate to process selection screen
+        context.go('/process_selection', extra: user);
       });
     });
   }

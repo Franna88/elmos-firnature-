@@ -6,6 +6,7 @@ import '../models/production_timer.dart';
 import '../models/user.dart';
 import '../../data/services/mes_service.dart';
 import '../../data/models/mes_interruption_model.dart';
+import '../../data/models/mes_process_model.dart';
 import '../../presentation/widgets/cross_platform_image.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -26,6 +27,8 @@ class _TimerScreenState extends State<TimerScreen> {
   bool _isLoading = true;
   int _dailyNonProductiveSeconds = 0; // Track daily non-productive time
   Timer? _saveProgressTimer; // Timer for periodic data saving
+  MESProcess? _process; // The process associated with this item
+  bool _setupCompleted = false; // Track if setup has been completed
 
   @override
   void initState() {
@@ -85,6 +88,17 @@ class _TimerScreenState extends State<TimerScreen> {
       _interruptionTypes = mesService.interruptionTypes
           .where((type) => !type.name.toLowerCase().contains('production'))
           .toList();
+
+      // Load process information to check setup requirements
+      await mesService.fetchProcesses(onlyActive: true);
+      if (!mounted) return;
+
+      // Find the process for this item (from MESItem.processId via FurnitureItem)
+      final mesItems = await mesService.fetchItems(onlyActive: true);
+      final mesItem =
+          mesItems.firstWhere((item) => item.id == _selectedItem.id);
+      _process =
+          mesService.processes.firstWhere((p) => p.id == mesItem.processId);
 
       // Load daily non-productive time
       await _loadDailyNonProductiveTime(mesService);
@@ -154,6 +168,12 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Start or resume production
   void _startTimer() async {
+    // Check if setup is required and not yet completed
+    if (_process?.requiresSetup == true && !_setupCompleted) {
+      _showSetupDialog();
+      return;
+    }
+
     setState(() {
       _timer.startProduction();
     });
@@ -240,6 +260,102 @@ class _TimerScreenState extends State<TimerScreen> {
         content: Text('Started: ${type.name}'),
         duration: const Duration(seconds: 1),
         backgroundColor: _timer.getActionColor(),
+      ),
+    );
+  }
+
+  // Show setup dialog before starting production
+  void _showSetupDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing without action
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.build, color: AppColors.primaryBlue, size: 24),
+            const SizedBox(width: 8),
+            const Text('Setup Required'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This process requires setup before production can begin.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Please complete the setup tasks and then click "Complete Setup" to proceed with production.',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            if (_timer.mode == ProductionTimerMode.setup)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border:
+                      Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Setup in progress for:',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      ProductionTimer.formatDuration(_timer.getSetupTime()),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          if (_timer.mode != ProductionTimerMode.setup)
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _timer.startSetup();
+                });
+                Navigator.of(context).pop();
+                // Show the dialog again to track progress
+                _showSetupDialog();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Start Setup'),
+            ),
+          if (_timer.mode == ProductionTimerMode.setup)
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _timer.completeSetup();
+                  _setupCompleted = true;
+                });
+                Navigator.of(context).pop();
+
+                // Start periodic saving since this is the first time starting
+                _startPeriodicSaving();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.greenAccent,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Complete Setup'),
+            ),
+        ],
       ),
     );
   }
@@ -1584,13 +1700,21 @@ class _TimerScreenState extends State<TimerScreen> {
                                                 MainAxisAlignment.center,
                                             children: [
                                               Icon(
-                                                Icons.timer,
+                                                _timer.mode ==
+                                                        ProductionTimerMode
+                                                            .setup
+                                                    ? Icons.build
+                                                    : Icons.timer,
                                                 color: _getStatusColor(),
                                                 size: isNarrow ? 20 : 24,
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                'ITEM TIMER',
+                                                _timer.mode ==
+                                                        ProductionTimerMode
+                                                            .setup
+                                                    ? 'SETUP TIMER'
+                                                    : 'ITEM TIMER',
                                                 style: TextStyle(
                                                   fontSize: isNarrow ? 18 : 20,
                                                   fontWeight: FontWeight.bold,
@@ -1637,9 +1761,15 @@ class _TimerScreenState extends State<TimerScreen> {
                                             ),
                                             child: FittedBox(
                                               child: Text(
-                                                ProductionTimer.formatDuration(
-                                                    _timer
-                                                        .getCurrentItemTime()),
+                                                _timer.mode ==
+                                                        ProductionTimerMode
+                                                            .setup
+                                                    ? ProductionTimer
+                                                        .formatDuration(_timer
+                                                            .getSetupTime())
+                                                    : ProductionTimer
+                                                        .formatDuration(_timer
+                                                            .getCurrentItemTime()),
                                                 style: TextStyle(
                                                   fontSize: isNarrow ? 48 : 64,
                                                   fontWeight: FontWeight.bold,
@@ -1768,20 +1898,45 @@ class _TimerScreenState extends State<TimerScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Single Start button (only show if not started)
+                              // Start button (only show if not started or in setup)
                               if (_timer.mode == ProductionTimerMode.notStarted)
                                 Expanded(
                                   child: _buildControlButton(
                                     icon: Icons.play_arrow,
-                                    label: 'Start Production',
+                                    label: _process?.requiresSetup == true &&
+                                            !_setupCompleted
+                                        ? 'Start Setup'
+                                        : 'Start Production',
                                     color: AppColors.primaryBlue,
                                     onPressed: _startTimer,
                                     isNarrow: isNarrow,
                                   ),
                                 ),
 
-                              // Next button (always show when not in notStarted mode)
-                              if (_timer.mode != ProductionTimerMode.notStarted)
+                              // Setup button (show when in setup mode)
+                              if (_timer.mode == ProductionTimerMode.setup)
+                                Expanded(
+                                  child: _buildControlButton(
+                                    icon: Icons.build,
+                                    label: 'Complete Setup',
+                                    color: AppColors.greenAccent,
+                                    onPressed: () {
+                                      setState(() {
+                                        _timer.completeSetup();
+                                        _setupCompleted = true;
+                                      });
+                                      // Start periodic saving since this is the first time starting
+                                      _startPeriodicSaving();
+                                    },
+                                    isNarrow: isNarrow,
+                                  ),
+                                ),
+
+                              // Next button (always show when in running/paused/interrupted modes)
+                              if (_timer.mode == ProductionTimerMode.running ||
+                                  _timer.mode == ProductionTimerMode.paused ||
+                                  _timer.mode ==
+                                      ProductionTimerMode.interrupted)
                                 Expanded(
                                   child: _buildControlButton(
                                     icon: Icons.arrow_forward,
@@ -2107,6 +2262,8 @@ class _TimerScreenState extends State<TimerScreen> {
     switch (_timer.mode) {
       case ProductionTimerMode.notStarted:
         return 'Ready to Start';
+      case ProductionTimerMode.setup:
+        return 'Setup in Progress';
       case ProductionTimerMode.running:
         return 'Production in Progress';
       case ProductionTimerMode.paused:
@@ -2264,6 +2421,8 @@ class _TimerScreenState extends State<TimerScreen> {
 
   Color _getStatusColor() {
     switch (_timer.mode) {
+      case ProductionTimerMode.setup:
+        return AppColors.primaryBlue;
       case ProductionTimerMode.running:
         return AppColors.greenAccent;
       case ProductionTimerMode.interrupted:

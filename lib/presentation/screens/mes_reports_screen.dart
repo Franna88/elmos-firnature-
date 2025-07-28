@@ -28,7 +28,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
@@ -120,10 +120,11 @@ class _MESReportsScreenState extends State<MESReportsScreen>
               unselectedLabelColor: Colors.grey[600],
               indicatorColor: AppColors.primaryBlue,
               tabs: const [
-                Tab(icon: Icon(Icons.list), text: 'Records'),
-                Tab(icon: Icon(Icons.analytics), text: 'Analytics'),
+                Tab(icon: Icon(Icons.analytics), text: 'Analyze'),
+                Tab(icon: Icon(Icons.inventory), text: 'Items'),
                 Tab(icon: Icon(Icons.timeline), text: 'Actions'),
                 Tab(icon: Icon(Icons.people), text: 'Workers'),
+                Tab(icon: Icon(Icons.factory), text: 'Factory'),
               ],
             ),
           ),
@@ -133,10 +134,11 @@ class _MESReportsScreenState extends State<MESReportsScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildRecordsTab(),
                 _buildAnalyticsTab(),
+                _buildItemsTab(), // Renamed from Records
                 _buildActionsTab(),
                 _buildWorkersTab(),
+                _buildFactoryTab(), // New tab
               ],
             ),
           ),
@@ -145,7 +147,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     );
   }
 
-  Widget _buildRecordsTab() {
+  Widget _buildItemsTab() {
     return Consumer<MESService>(
       builder: (context, mesService, child) {
         if (_isLoading) {
@@ -1246,35 +1248,680 @@ class _MESReportsScreenState extends State<MESReportsScreen>
   }
 
   Widget _buildProductivityChart(List<MESProductionRecord> records) {
-    // For now, show a placeholder - can be enhanced with actual charts
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bar_chart, size: 48, color: Colors.grey),
-            SizedBox(height: 8),
-            Text(
-              'Productivity Chart',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+    if (records.isEmpty) {
+      return Container(
+        height: 200,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.bar_chart, size: 48, color: Colors.grey),
+              SizedBox(height: 8),
+              Text(
+                'No Production Data',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
               ),
+              Text(
+                'Start production to see productivity metrics',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Calculate daily average time per item data
+    final dailyAverageTimeData = _calculateDailyAverageTimePerItem(records);
+    final itemProductivity = _calculateItemProductivity(records);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Productivity Overview',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Daily Average Time Per Item
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.schedule, color: Colors.blue[600], size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Daily Average Time Per Item',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Current Month: ${DateTime.now().month}/${DateTime.now().year}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 200,
+                  child: _buildDailyAverageTimeChart(dailyAverageTimeData),
+                ),
+              ],
             ),
-            Text(
-              'Chart visualization coming soon',
-              style: TextStyle(color: Colors.grey),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Item Production Efficiency
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.speed, color: Colors.green[600], size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Item Production Efficiency',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 200,
+                  child: _buildItemEfficiencyChart(itemProductivity),
+                ),
+              ],
             ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Productivity Metrics Summary
+        _buildProductivityMetrics(records, itemProductivity),
+      ],
+    );
+  }
+
+  Map<int, Map<String, dynamic>> _calculateDailyAverageTimePerItem(
+      List<MESProductionRecord> records) {
+    final dailyData = <int, Map<String, dynamic>>{};
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month, 1);
+    final nextMonth = DateTime(now.year, now.month + 1, 1);
+
+    // Filter records for current month only
+    final monthlyRecords = records.where((record) {
+      return record.startTime.isAfter(currentMonth) &&
+          record.startTime.isBefore(nextMonth);
+    }).toList();
+
+    // Group records by day of month
+    for (final record in monthlyRecords) {
+      final dayOfMonth = record.startTime.day;
+
+      if (!dailyData.containsKey(dayOfMonth)) {
+        dailyData[dayOfMonth] = {
+          'totalCompleted': 0,
+          'totalTime': 0,
+          'averageTimePerItem': 0.0,
+        };
+      }
+
+      // Add completed items and their time
+      final completedItemsCount = record.itemCompletionRecords.length;
+      dailyData[dayOfMonth]!['totalCompleted'] =
+          (dailyData[dayOfMonth]!['totalCompleted'] as int) +
+              completedItemsCount;
+
+      // Calculate total time for completed items
+      int totalItemTime = 0;
+      for (final itemRecord in record.itemCompletionRecords) {
+        totalItemTime += itemRecord.durationSeconds;
+      }
+
+      dailyData[dayOfMonth]!['totalTime'] =
+          (dailyData[dayOfMonth]!['totalTime'] as int) + totalItemTime;
+    }
+
+    // Calculate average time per item for each day
+    for (final entry in dailyData.entries) {
+      final totalCompleted = entry.value['totalCompleted'] as int;
+      final totalTime = entry.value['totalTime'] as int;
+
+      if (totalCompleted > 0) {
+        entry.value['averageTimePerItem'] = totalTime / totalCompleted;
+      }
+    }
+
+    return dailyData;
+  }
+
+  Map<String, Map<String, dynamic>> _calculateItemProductivity(
+      List<MESProductionRecord> records) {
+    final itemData = <String, Map<String, dynamic>>{};
+
+    for (final record in records) {
+      // Get item name - you may need to adjust this based on your item retrieval logic
+      final itemName =
+          record.itemId; // Simplified - replace with actual item name lookup
+
+      if (!itemData.containsKey(itemName)) {
+        itemData[itemName] = {
+          'totalCompleted': 0,
+          'totalTime': 0,
+          'avgTimePerItem': 0.0,
+          'efficiency': 0.0,
+        };
+      }
+
+      itemData[itemName]!['totalCompleted'] =
+          (itemData[itemName]!['totalCompleted'] as int) +
+              record.itemCompletionRecords.length;
+      itemData[itemName]!['totalTime'] =
+          (itemData[itemName]!['totalTime'] as int) +
+              record.totalProductionTimeSeconds;
+    }
+
+    // Calculate averages and efficiency
+    for (final entry in itemData.entries) {
+      final totalCompleted = entry.value['totalCompleted'] as int;
+      final totalTime = entry.value['totalTime'] as int;
+
+      if (totalCompleted > 0) {
+        entry.value['avgTimePerItem'] = totalTime / totalCompleted;
+        entry.value['efficiency'] =
+            totalCompleted / (totalTime / 3600); // items per hour
+      }
+    }
+
+    return itemData;
+  }
+
+  Widget _buildDailyAverageTimeChart(Map<int, Map<String, dynamic>> dailyData) {
+    if (dailyData.isEmpty) {
+      return const Center(
+        child: Text('No daily production data available'),
+      );
+    }
+
+    // Sort days by day number
+    final sortedEntries = dailyData.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    // Find max average time for scaling
+    final maxAverageTime = sortedEntries.isEmpty
+        ? 0.0
+        : sortedEntries
+            .map((e) => e.value['averageTimePerItem'] as double)
+            .reduce((a, b) => a > b ? a : b);
+
+    return Column(
+      children: [
+        // Chart
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: sortedEntries.map((entry) {
+              final dayOfMonth = entry.key;
+              final averageTime = entry.value['averageTimePerItem'] as double;
+              final totalCompleted = entry.value['totalCompleted'] as int;
+              final barHeight = maxAverageTime > 0
+                  ? (averageTime / maxAverageTime) * 140
+                  : 0.0;
+
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Average time label
+                      Text(
+                        _formatSeconds(averageTime.round()),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Bar
+                      Container(
+                        width: double.infinity,
+                        height: barHeight,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.blue[400]!,
+                              Colors.blue[600]!,
+                            ],
+                          ),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(4)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Day of month label
+                      Text(
+                        dayOfMonth.toString(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      // Items count label
+                      Text(
+                        '$totalCompleted items',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
+        // Legend/Summary
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Column(
+                children: [
+                  Text(
+                    'Total Items',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  Text(
+                    sortedEntries
+                        .fold<int>(
+                            0,
+                            (sum, entry) =>
+                                sum + (entry.value['totalCompleted'] as int))
+                        .toString(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                width: 1,
+                height: 30,
+                color: Colors.grey[300],
+              ),
+              Column(
+                children: [
+                  Text(
+                    'Avg. Time',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  Text(
+                    sortedEntries.isNotEmpty
+                        ? _formatSeconds((sortedEntries
+                                    .map((e) =>
+                                        e.value['averageTimePerItem'] as double)
+                                    .reduce((a, b) => a + b) /
+                                sortedEntries.length)
+                            .round())
+                        : '0s',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildItemEfficiencyChart(Map<String, Map<String, dynamic>> itemData) {
+    if (itemData.isEmpty) {
+      return const Center(
+        child: Text('No item efficiency data available'),
+      );
+    }
+
+    final sortedItems = itemData.entries.toList()
+      ..sort((a, b) => (b.value['totalCompleted'] as int)
+          .compareTo(a.value['totalCompleted'] as int));
+
+    final topItems = sortedItems.take(6).toList(); // Show top 6 items
+    final maxCompleted = topItems.first.value['totalCompleted'] as int;
+
+    return Column(
+      children: topItems.map((entry) {
+        final itemName = entry.key;
+        final totalCompleted = entry.value['totalCompleted'] as int;
+        final avgTime = entry.value['avgTimePerItem'] as double;
+        final efficiency = entry.value['efficiency'] as double;
+        final percentage =
+            maxCompleted > 0 ? totalCompleted / maxCompleted : 0.0;
+
+        // Color based on efficiency
+        Color barColor = Colors.green;
+        if (efficiency < 1.0) {
+          barColor = Colors.orange;
+        } else if (efficiency < 0.5) {
+          barColor = Colors.red;
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      itemName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: barColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$totalCompleted items',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: barColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${efficiency.toStringAsFixed(1)}/h',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 6,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: percentage,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: barColor,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildProductivityMetrics(List<MESProductionRecord> records,
+      Map<String, Map<String, dynamic>> itemData) {
+    // Calculate overall metrics
+    final totalItemsCompleted = records.fold(
+        0, (sum, record) => sum + record.itemCompletionRecords.length);
+    final totalProductionTime = records.fold(
+        0, (sum, record) => sum + record.totalProductionTimeSeconds);
+    final overallEfficiency = totalProductionTime > 0
+        ? (totalItemsCompleted / (totalProductionTime / 3600))
+        : 0.0;
+
+    // Calculate best and worst performing items
+    final sortedByEfficiency = itemData.entries.toList()
+      ..sort((a, b) => (b.value['efficiency'] as double)
+          .compareTo(a.value['efficiency'] as double));
+
+    final bestItem =
+        sortedByEfficiency.isNotEmpty ? sortedByEfficiency.first : null;
+    final worstItem =
+        sortedByEfficiency.length > 1 ? sortedByEfficiency.last : null;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.analytics, color: Colors.purple[600], size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Productivity Metrics',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCard(
+                    'Total Items',
+                    totalItemsCompleted.toString(),
+                    Icons.inventory,
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricCard(
+                    'Overall Rate',
+                    '${overallEfficiency.toStringAsFixed(1)}/hour',
+                    Icons.speed,
+                    Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricCard(
+                    'Production Time',
+                    _formatSeconds(totalProductionTime),
+                    Icons.access_time,
+                    Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+            if (bestItem != null && worstItem != null) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildPerformanceCard(
+                      'Best Performer',
+                      bestItem.key,
+                      '${(bestItem.value['efficiency'] as double).toStringAsFixed(1)}/h',
+                      Colors.green,
+                      Icons.trending_up,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildPerformanceCard(
+                      'Needs Improvement',
+                      worstItem.key,
+                      '${(worstItem.value['efficiency'] as double).toStringAsFixed(1)}/h',
+                      Colors.orange,
+                      Icons.trending_down,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMetricCard(
+      String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerformanceCard(
+      String label, String itemName, String rate, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            itemName,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            rate,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1301,14 +1948,48 @@ class _MESReportsScreenState extends State<MESReportsScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Top Items',
+          'Items & Quantities Completed',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 16),
-        ...sortedItems.take(5).map((entry) {
+
+        // Chart showing item quantities
+        if (sortedItems.isNotEmpty) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Completed Quantities by Item',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildItemQuantityChart(sortedItems),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Detailed list
+        const Text(
+          'Detailed Breakdown',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...sortedItems.take(10).map((entry) {
           final itemName = entry.key;
           final count = entry.value['count']!;
           final time = entry.value['time']!;
@@ -1317,26 +1998,145 @@ class _MESReportsScreenState extends State<MESReportsScreen>
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
-                child: Text(
-                  count.toString(),
-                  style: TextStyle(
-                    color: AppColors.primaryBlue,
-                    fontWeight: FontWeight.bold,
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    count.toString(),
+                    style: TextStyle(
+                      color: AppColors.primaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
-              title: Text(itemName),
+              title: Text(
+                itemName,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               subtitle: Text('Avg: ${_formatSeconds(avgTime)} per item'),
-              trailing: Text(
-                _formatSeconds(time),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Total: ${_formatSeconds(time)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    '$count items',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
         }),
       ],
+    );
+  }
+
+  Widget _buildItemQuantityChart(
+      List<MapEntry<String, Map<String, int>>> sortedItems) {
+    final maxCount = sortedItems.first.value['count']!;
+    final displayItems = sortedItems.take(8).toList(); // Show top 8 items
+
+    return Column(
+      children: displayItems.map((entry) {
+        final itemName = entry.key;
+        final count = entry.value['count']!;
+        final percentage = maxCount > 0 ? (count / maxCount) : 0.0;
+
+        // Generate color based on item position
+        final colors = [
+          const Color(0xFF2196F3), // Blue
+          const Color(0xFF4CAF50), // Green
+          const Color(0xFFFF9800), // Orange
+          const Color(0xFF9C27B0), // Purple
+          const Color(0xFFF44336), // Red
+          const Color(0xFF00BCD4), // Cyan
+          const Color(0xFFFFEB3B), // Yellow
+          const Color(0xFF795548), // Brown
+        ];
+        final color = colors[displayItems.indexOf(entry) % colors.length];
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      itemName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: color.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      '$count items',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 8,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: percentage,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [color.withOpacity(0.8), color],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -1540,6 +2340,39 @@ class _MESReportsScreenState extends State<MESReportsScreen>
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFactoryTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.factory,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Factory Overview',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Factory-wide analytics and insights coming soon...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

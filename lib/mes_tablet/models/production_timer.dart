@@ -4,6 +4,7 @@ import '../../data/models/mes_interruption_model.dart';
 
 enum ProductionTimerMode {
   notStarted,
+  setup,
   running,
   paused,
   interrupted,
@@ -53,6 +54,7 @@ class ProductionTimer {
   // Accumulated times (in seconds)
   int _productionTime = 0;
   int _interruptionTime = 0;
+  int _setupTime = 0;
 
   // Current item timing
   DateTime? _currentItemStartTime;
@@ -60,6 +62,7 @@ class ProductionTimer {
   // Timestamp trackers for overall session
   DateTime? _productionStartTime;
   DateTime? _interruptionStartTime;
+  DateTime? _setupStartTime;
 
   // Action timer support
   MESInterruptionType? _currentAction;
@@ -124,6 +127,39 @@ class ProductionTimer {
     }
 
     _productionStartCount++;
+  }
+
+  // Start setup mode
+  void startSetup() {
+    _mode = ProductionTimerMode.setup;
+    _setupStartTime = DateTime.now();
+  }
+
+  // Complete setup and transition to production
+  void completeSetup() {
+    if (_mode == ProductionTimerMode.setup && _setupStartTime != null) {
+      // Add setup time to total
+      final setupDuration =
+          DateTime.now().difference(_setupStartTime!).inSeconds;
+      _setupTime += setupDuration;
+      _setupStartTime = null;
+    }
+
+    // Transition to production mode
+    startProduction();
+  }
+
+  // Get current setup time (including ongoing session)
+  int getSetupTime() {
+    int total = _setupTime;
+
+    if (_mode == ProductionTimerMode.setup && _setupStartTime != null) {
+      final currentDuration =
+          DateTime.now().difference(_setupStartTime!).inSeconds;
+      total += currentDuration;
+    }
+
+    return total;
   }
 
   // Start or switch to an action

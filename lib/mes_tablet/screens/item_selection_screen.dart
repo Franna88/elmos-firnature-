@@ -3,15 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import '../models/furniture_item.dart';
 import '../../data/services/mes_service.dart';
+import '../../data/models/mes_process_model.dart';
 import '../models/user.dart';
-import 'package:go_router/go_router.dart';
 import '../../presentation/widgets/cross_platform_image.dart';
 import '../../core/theme/app_theme.dart';
 
 class ItemSelectionScreen extends StatefulWidget {
   final User? initialUser;
+  final MESProcess? initialProcess;
 
-  const ItemSelectionScreen({Key? key, this.initialUser}) : super(key: key);
+  const ItemSelectionScreen({Key? key, this.initialUser, this.initialProcess})
+      : super(key: key);
 
   @override
   State<ItemSelectionScreen> createState() => _ItemSelectionScreenState();
@@ -21,22 +23,28 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
   String? _selectedCategory;
   bool _isLoading = false;
   User? _user;
+  MESProcess? _selectedProcess;
 
   @override
   void initState() {
     super.initState();
-    // If initialUser is provided, use it right away
+    // If initialUser and initialProcess are provided, use them right away
     _user = widget.initialUser;
+    _selectedProcess = widget.initialProcess;
     _loadItems();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // If initialUser wasn't provided, try to get it from route arguments
-    if (_user == null) {
+    // If initialUser/initialProcess weren't provided, try to get them from route arguments
+    if (_user == null || _selectedProcess == null) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is User) {
+      if (args is Map<String, dynamic>) {
+        _user ??= args['user'] as User?;
+        _selectedProcess ??= args['process'] as MESProcess?;
+      } else if (args is User) {
+        // Fallback for direct User argument (backward compatibility)
         _user = args;
       }
     }
@@ -67,7 +75,14 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
 
   List<FurnitureItem> get items {
     final mesService = Provider.of<MESService>(context, listen: false);
-    return mesService.items
+
+    // Filter items by the selected process
+    final filteredMESItems = mesService.items.where((mesItem) {
+      return _selectedProcess != null &&
+          mesItem.processId == _selectedProcess!.id;
+    }).toList();
+
+    return filteredMESItems
         .map((mesItem) => FurnitureItem.fromMESItem(mesItem))
         .toList();
   }
@@ -103,11 +118,16 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Make sure we have a user, either from initialUser or from route arguments
-    if (_user == null) {
-      // Navigate back to login if we somehow don't have a user
+    // Make sure we have both user and process
+    if (_user == null || _selectedProcess == null) {
+      // Navigate back to process selection if we're missing required data
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/login');
+        if (_user == null) {
+          Navigator.pushReplacementNamed(context, '/login');
+        } else {
+          Navigator.pushReplacementNamed(context, '/process_selection',
+              arguments: _user);
+        }
       });
 
       return const Scaffold(
@@ -117,9 +137,30 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Item to Build'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Select Item to Build'),
+            Text(
+              'Process: ${_selectedProcess!.name}',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: AppColors.primaryBlue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to Process Selection',
+          onPressed: () {
+            Navigator.pushReplacementNamed(context, '/process_selection',
+                arguments: _user);
+          },
+        ),
         actions: [
           // Refresh button
           IconButton(
@@ -128,13 +169,10 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
           ),
           // Exit button
           IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            tooltip: 'Exit to main menu',
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
             onPressed: () {
-              Navigator.of(context).pop();
-              if (context.mounted) {
-                GoRouter.of(context).go('/mobile/selection');
-              }
+              Navigator.pushReplacementNamed(context, '/login');
             },
           ),
           // Screen dimensions display in debug mode
@@ -166,22 +204,80 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.warning, size: 64, color: Colors.orange),
-            const SizedBox(height: 16),
-            const Text(
-              'No items available',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Icon(Icons.inventory_2, size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 24),
+            Text(
+              'No Items Available',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please contact your administrator to add items.',
-              style: TextStyle(fontSize: 16),
+            const SizedBox(height: 12),
+            Text(
+              'Process: ${_selectedProcess?.name ?? "Unknown"}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.primaryBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'This process has no items assigned to it.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Please contact your administrator to assign items to this process or select a different process.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
-              onPressed: _loadItems,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(
+                        context, '/process_selection',
+                        arguments: _user);
+                  },
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Change Process'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                  onPressed: _loadItems,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade600,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -202,9 +298,27 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Please select an item to build:',
-            style: TextStyle(fontSize: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${filteredItems.length} items available in this process',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (_selectedCategory != null)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCategory = null;
+                    });
+                  },
+                  child: const Text('Clear Filter'),
+                ),
+            ],
           ),
           const SizedBox(height: 16),
 

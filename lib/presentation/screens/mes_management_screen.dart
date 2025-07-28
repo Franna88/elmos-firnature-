@@ -153,6 +153,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     String? selectedStationId;
+    bool requiresSetup = false;
 
     showDialog(
       context: context,
@@ -174,52 +175,145 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Process Name *',
-                        hintText: 'e.g., Chair Assembly, Wood Finishing',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.build),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        hintText: 'Describe what this process involves',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.description),
-                      ),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: selectedStationId,
-                      decoration: const InputDecoration(
-                        labelText: 'Station',
-                        hintText: 'Select a station (optional)',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.location_on),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('No Station'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Process Name *',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
                         ),
-                        ...mesService
-                            .getActiveStations()
-                            .map((station) => DropdownMenuItem<String>(
-                                  value: station.id,
-                                  child: Text(station.name),
-                                )),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: nameController,
+                          decoration: InputDecoration(
+                            hintText: 'e.g., Chair Assembly, Wood Finishing',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon:
+                                Icon(Icons.build, color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                        ),
                       ],
-                      onChanged: (value) {
-                        setState(() {
-                          selectedStationId = value;
-                        });
-                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Description',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: descriptionController,
+                          decoration: InputDecoration(
+                            hintText: 'Describe what this process involves',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(Icons.description,
+                                color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                          maxLines: 3,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Station',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: selectedStationId,
+                          decoration: InputDecoration(
+                            hintText: 'Select a station (optional)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(Icons.location_on,
+                                color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('No Station'),
+                            ),
+                            ...mesService
+                                .getActiveStations()
+                                .map((station) => DropdownMenuItem<String>(
+                                      value: station.id,
+                                      child: Text(station.name),
+                                    )),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedStationId = value;
+                            });
+                          },
+                        ),
+                      ],
                     ),
                     if (mesService.getActiveStations().isEmpty) ...[
                       const SizedBox(height: 8),
@@ -229,6 +323,45 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                         label: const Text('Add Station First'),
                       ),
                     ],
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Switch(
+                          value: requiresSetup,
+                          onChanged: (value) {
+                            setState(() {
+                              requiresSetup = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Requires Setup',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              Text(
+                                'If enabled, operators must complete setup before starting production',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Colors.grey.shade600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -260,6 +393,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                           : descriptionController.text.trim(),
                       stationId: selectedStationId,
                       stationName: station?.name,
+                      requiresSetup: requiresSetup,
                     );
 
                     Navigator.pop(context);
@@ -762,6 +896,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
     final descriptionController =
         TextEditingController(text: process.description ?? '');
     String? selectedStationId = process.stationId;
+    bool requiresSetup = process.requiresSetup;
 
     showDialog(
       context: context,
@@ -783,52 +918,145 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Process Name *',
-                        hintText: 'e.g., Chair Assembly, Wood Finishing',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.build),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        hintText: 'Describe what this process involves',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.description),
-                      ),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: selectedStationId,
-                      decoration: const InputDecoration(
-                        labelText: 'Station',
-                        hintText: 'Select a station (optional)',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.location_on),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('No Station'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Process Name *',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
                         ),
-                        ...mesService
-                            .getActiveStations()
-                            .map((station) => DropdownMenuItem<String>(
-                                  value: station.id,
-                                  child: Text(station.name),
-                                )),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: nameController,
+                          decoration: InputDecoration(
+                            hintText: 'e.g., Chair Assembly, Wood Finishing',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon:
+                                Icon(Icons.build, color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                        ),
                       ],
-                      onChanged: (value) {
-                        setState(() {
-                          selectedStationId = value;
-                        });
-                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Description',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: descriptionController,
+                          decoration: InputDecoration(
+                            hintText: 'Describe what this process involves',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(Icons.description,
+                                color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                          maxLines: 3,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Station',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: selectedStationId,
+                          decoration: InputDecoration(
+                            hintText: 'Select a station (optional)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(Icons.location_on,
+                                color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('No Station'),
+                            ),
+                            ...mesService
+                                .getActiveStations()
+                                .map((station) => DropdownMenuItem<String>(
+                                      value: station.id,
+                                      child: Text(station.name),
+                                    )),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedStationId = value;
+                            });
+                          },
+                        ),
+                      ],
                     ),
                     if (mesService.getActiveStations().isEmpty) ...[
                       const SizedBox(height: 8),
@@ -838,6 +1066,45 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                         label: const Text('Add Station First'),
                       ),
                     ],
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Switch(
+                          value: requiresSetup,
+                          onChanged: (value) {
+                            setState(() {
+                              requiresSetup = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Requires Setup',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              Text(
+                                'If enabled, operators must complete setup before starting production',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Colors.grey.shade600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -870,6 +1137,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                             : descriptionController.text.trim(),
                         stationId: selectedStationId,
                         stationName: station?.name,
+                        requiresSetup: requiresSetup,
                       ),
                     );
 
@@ -1875,6 +2143,16 @@ class _ProcessesTab extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   _buildStatusChip(process.isActive),
+                  if (process.requiresSetup) ...[
+                    const SizedBox(width: 12),
+                    _buildInfoChip(
+                      context,
+                      Icons.build,
+                      'Setup',
+                      'Required',
+                      Colors.blue,
+                    ),
+                  ],
                 ],
               ),
             ],

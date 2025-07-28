@@ -7,6 +7,8 @@ class MESProcess {
   final String? stationId; // Reference to MESStation
   final String? stationName; // Cached for UI performance
   final bool isActive;
+  final bool
+      requiresSetup; // Whether this process requires setup before production
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +19,7 @@ class MESProcess {
     this.stationId,
     this.stationName,
     this.isActive = true,
+    this.requiresSetup = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -32,6 +35,7 @@ class MESProcess {
       stationId: data['stationId'],
       stationName: data['stationName'],
       isActive: data['isActive'] ?? true,
+      requiresSetup: data['requiresSetup'] ?? false,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
@@ -45,6 +49,7 @@ class MESProcess {
       'stationId': stationId,
       'stationName': stationName,
       'isActive': isActive,
+      'requiresSetup': requiresSetup,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -57,6 +62,7 @@ class MESProcess {
     String? stationId,
     String? stationName,
     bool? isActive,
+    bool? requiresSetup,
   }) {
     return MESProcess(
       id: id,
@@ -65,6 +71,7 @@ class MESProcess {
       stationId: stationId ?? this.stationId,
       stationName: stationName ?? this.stationName,
       isActive: isActive ?? this.isActive,
+      requiresSetup: requiresSetup ?? this.requiresSetup,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );
@@ -72,7 +79,7 @@ class MESProcess {
 
   @override
   String toString() {
-    return 'MESProcess{id: $id, name: $name, description: $description, stationId: $stationId, isActive: $isActive}';
+    return 'MESProcess{id: $id, name: $name, description: $description, stationId: $stationId, isActive: $isActive, requiresSetup: $requiresSetup}';
   }
 
   @override

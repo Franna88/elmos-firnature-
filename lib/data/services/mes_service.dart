@@ -80,7 +80,10 @@ class MESService extends ChangeNotifier {
 
   // Add a new MES process
   Future<MESProcess> addProcess(String name,
-      {String? description, String? stationId, String? stationName}) async {
+      {String? description,
+      String? stationId,
+      String? stationName,
+      bool requiresSetup = false}) async {
     try {
       final now = DateTime.now();
 
@@ -90,6 +93,7 @@ class MESService extends ChangeNotifier {
         'stationId': stationId,
         'stationName': stationName,
         'isActive': true,
+        'requiresSetup': requiresSetup,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
       });
@@ -101,6 +105,7 @@ class MESService extends ChangeNotifier {
         stationId: stationId,
         stationName: stationName,
         isActive: true,
+        requiresSetup: requiresSetup,
         createdAt: now,
         updatedAt: now,
       );
@@ -125,6 +130,7 @@ class MESService extends ChangeNotifier {
         'stationId': process.stationId,
         'stationName': process.stationName,
         'isActive': process.isActive,
+        'requiresSetup': process.requiresSetup,
         'updatedAt': Timestamp.fromDate(now),
       });
 
@@ -135,6 +141,7 @@ class MESService extends ChangeNotifier {
         stationId: process.stationId,
         stationName: process.stationName,
         isActive: process.isActive,
+        requiresSetup: process.requiresSetup,
         createdAt: process.createdAt,
         updatedAt: now,
       );

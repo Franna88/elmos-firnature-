@@ -39,6 +39,8 @@ import 'presentation/screens/mes/mes_screen.dart';
 import 'presentation/screens/mes_management_screen.dart';
 import 'presentation/screens/mes_reports_screen.dart';
 import 'presentation/screens/user_management/user_management_screen.dart';
+import 'mes_tablet/models/user.dart';
+import 'mes_tablet/screens/process_selection_screen.dart';
 // import 'presentation/screens/recipe_screen.dart';
 
 // Services and Models
@@ -324,6 +326,14 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/item_selection',
           builder: (context, state) => const MESScreen(),
+        ),
+        // Process selection for MES tablet
+        GoRoute(
+          path: '/process_selection',
+          builder: (context, state) {
+            final user = state.extra as User?;
+            return ProcessSelectionScreen(initialUser: user);
+          },
         ),
         // MES Management route
         GoRoute(

@@ -10,6 +10,8 @@ import '../../../mes_tablet/screens/login_screen.dart' as mes_login;
 import '../../../mes_tablet/screens/item_selection_screen.dart' as mes_items;
 import '../../../mes_tablet/screens/timer_screen.dart' as mes_timer;
 import '../../../mes_tablet/models/user.dart' as mes_model;
+import '../../../mes_tablet/screens/process_selection_screen.dart'
+    as mes_process;
 
 class MESScreen extends StatelessWidget {
   const MESScreen({super.key});
@@ -176,6 +178,8 @@ class MESTabletApp extends StatelessWidget {
       // Define all the required routes
       routes: {
         '/login': (context) => const mes_login.LoginScreen(),
+        '/process_selection': (context) =>
+            const mes_process.ProcessSelectionScreen(),
         '/item_selection': (context) => const mes_items.ItemSelectionScreen(),
         '/timer': (context) => const mes_timer.TimerScreen(),
       },
@@ -224,7 +228,7 @@ class MESTabletApp extends StatelessWidget {
   Widget _buildMainContent(BuildContext context, AuthService authService) {
     // Check if user is already logged in
     if (authService.isLoggedIn) {
-      // Create a user object from current auth data to pass to item selection screen
+      // Create a user object from current auth data to pass to process selection screen
       final user = mes_model.User(
         id: authService.userId ?? 'unknown',
         name: authService.userName ?? 'User',
@@ -232,8 +236,8 @@ class MESTabletApp extends StatelessWidget {
         email: authService.userEmail,
       );
 
-      // Skip login and go directly to item selection
-      return mes_items.ItemSelectionScreen(initialUser: user);
+      // Skip login and go to process selection (new flow: Process → Items → Timer)
+      return mes_process.ProcessSelectionScreen(initialUser: user);
     } else {
       // If not logged in (rare case), show login screen
       return const mes_login.LoginScreen();
