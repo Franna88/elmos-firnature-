@@ -48,13 +48,18 @@ class _ProcessSelectionScreenState extends State<ProcessSelectionScreen> {
       final mesService = Provider.of<MESService>(context, listen: false);
       final processes = await mesService.fetchProcesses(onlyActive: true);
 
-      // Only show processes that have active items
-      final items = await mesService.fetchItems(onlyActive: true);
+      // Debug: Print process information
+      print(
+          '🔍 PROCESS SELECTION: Fetched ${processes.length} active processes');
+      for (final process in processes) {
+        print(
+            '  📋 Process: ${process.name} (ID: ${process.id}, Active: ${process.isActive})');
+      }
 
+      // Show all active processes (they can still be used even without items)
+      // Note: Items will be loaded when the process is selected
       setState(() {
-        _processes = processes.where((process) {
-          return items.any((item) => item.processId == process.id);
-        }).toList();
+        _processes = processes;
       });
     } catch (e) {
       if (mounted) {
