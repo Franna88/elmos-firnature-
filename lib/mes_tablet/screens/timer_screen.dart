@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/furniture_item.dart';
 import '../models/production_timer.dart';
 import '../models/user.dart';
@@ -18,17 +19,26 @@ class TimerScreen extends StatefulWidget {
 }
 
 class _TimerScreenState extends State<TimerScreen> {
-  late FurnitureItem _selectedItem;
+  FurnitureItem? _selectedItem; // Now optional - can be null initially
   late User _user;
-  late String _recordId;
+  String? _recordId; // Now optional - created when item is selected
   late ProductionTimer _timer;
-  late int _secondsRemaining;
+  int _secondsRemaining = 0; // Default to 0 when no item selected
   List<MESInterruptionType> _interruptionTypes = [];
   bool _isLoading = true;
   int _dailyNonProductiveSeconds = 0; // Track daily non-productive time
   Timer? _saveProgressTimer; // Timer for periodic data saving
   MESProcess? _process; // The process associated with this item
   bool _setupCompleted = false; // Track if setup has been completed
+  MESInterruptionType?
+      _selectedAction; // Currently selected action (not necessarily running)
+  List<FurnitureItem> _availableItems = []; // Items available for selection
+
+  // Production data fields
+  int _expectedQty = 1;
+  int _qtyPerCycle = 1;
+  int _finishedQty = 0;
+  int _rejectQty = 0;
 
   @override
   void initState() {
@@ -74,12 +84,15 @@ class _TimerScreenState extends State<TimerScreen> {
       // Get the arguments
       final args =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-      _selectedItem = args['item'] as FurnitureItem;
       _user = args['user'] as User;
-      _recordId = args['recordId'] as String;
+      _process = args['process'] as MESProcess;
 
-      // Initialize remaining time
-      _secondsRemaining = _selectedItem.estimatedTimeInMinutes * 60;
+      // Item and recordId are now optional - will be set when user selects an item
+      if (args.containsKey('item')) {
+        _selectedItem = args['item'] as FurnitureItem;
+        _recordId = args['recordId'] as String;
+        _secondsRemaining = _selectedItem!.estimatedTimeInMinutes * 60;
+      }
 
       // Load interruption types (excluding PRODUCTION which is handled by Start Production button)
       final mesService = Provider.of<MESService>(context, listen: false);
@@ -94,12 +107,33 @@ class _TimerScreenState extends State<TimerScreen> {
       await mesService.fetchProcesses(onlyActive: true);
       if (!mounted) return;
 
-      // Find the process for this item (from MESItem.processId via FurnitureItem)
+      // Load available items for this process
       final mesItems = await mesService.fetchItems(onlyActive: true);
-      final mesItem =
-          mesItems.firstWhere((item) => item.id == _selectedItem.id);
-      _process =
-          mesService.processes.firstWhere((p) => p.id == mesItem.processId);
+      if (!mounted) return;
+
+      // Filter items for the selected process and convert to FurnitureItem
+      final processItems =
+          mesItems.where((item) => item.processId == _process!.id).toList();
+      _availableItems = processItems
+          .map((mesItem) => FurnitureItem(
+                id: mesItem.id,
+                name: mesItem.name,
+                category: mesItem.category ?? 'Uncategorized',
+                imageUrl: mesItem.imageUrl,
+                estimatedTimeInMinutes: mesItem.estimatedTimeInMinutes,
+              ))
+          .toList();
+
+      // Process is already set from arguments, no need to find it
+      // If we have a selected item, validate it belongs to this process
+      if (_selectedItem != null) {
+        final mesItem =
+            mesItems.firstWhere((item) => item.id == _selectedItem!.id);
+        if (mesItem.processId != _process!.id) {
+          throw Exception(
+              'Selected item does not belong to the selected process');
+        }
+      }
 
       // Load daily non-productive time
       await _loadDailyNonProductiveTime(mesService);
@@ -188,7 +222,7 @@ class _TimerScreenState extends State<TimerScreen> {
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
       await mesService.updateProductionRecord(
-        await mesService.getProductionRecord(_recordId).then(
+        await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
                 totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
@@ -217,38 +251,17 @@ class _TimerScreenState extends State<TimerScreen> {
     });
   }
 
-  // Start/Stop an action (toggle functionality)
+  // Select an action directly (simplified - no popups)
   void _startAction(MESInterruptionType type) {
-    // Only allow actions when production is running
-    if (_timer.mode != ProductionTimerMode.running) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please start production first'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    // Check if this action is already active - if so, stop it
-    if (_timer.currentAction != null && _timer.currentAction!.id == type.id) {
-      _stopAction();
-      return;
-    }
-
-    // Check if operator is working on an item and prompt for completion
-    if (_timer.currentAction == null && _timer.getCurrentItemTime() > 0) {
-      _showItemCompletionDialog(type);
-      return;
-    }
-
-    // Record end of previous action before starting new one
-    if (_timer.currentAction != null) {
-      _recordActionEnd(_timer.currentAction!);
-    }
-
-    // Start the new action
     setState(() {
+      // Stop current action if any
+      if (_timer.currentAction != null) {
+        _recordActionEnd(_timer.currentAction!);
+        _timer.stopAction();
+      }
+
+      // Select and start the new action immediately
+      _selectedAction = type;
       _timer.startAction(type);
     });
 
@@ -258,11 +271,876 @@ class _TimerScreenState extends State<TimerScreen> {
     // Show brief feedback
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Started: ${type.name}'),
+        content: Text('Selected: ${type.name}'),
         duration: const Duration(seconds: 1),
         backgroundColor: _timer.getActionColor(),
       ),
     );
+  }
+
+  // Show item selection dialog
+  void _showItemSelectionDialog() {
+    FurnitureItem? selectedItem =
+        _selectedItem; // Pre-select current item if any
+    final TextEditingController expectedQtyController =
+        TextEditingController(text: _expectedQty.toString());
+    final TextEditingController qtyPerCycleController =
+        TextEditingController(text: _qtyPerCycle.toString());
+    final TextEditingController finishedQtyController =
+        TextEditingController(text: _finishedQty.toString());
+    final TextEditingController rejectQtyController =
+        TextEditingController(text: _rejectQty.toString());
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          child: Container(
+            width:
+                MediaQuery.of(context).size.width * 0.85, // Much larger width
+            height:
+                MediaQuery.of(context).size.height * 0.9, // Almost full height
+            padding: const EdgeInsets.all(32), // More padding
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Icon(Icons.settings,
+                        color: AppColors.primaryBlue, size: 36), // Larger icon
+                    const SizedBox(width: 16), // More spacing
+                    Text(
+                      'Item Production Setup',
+                      style: TextStyle(
+                        // Direct style for larger text
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close,
+                          size: 32), // Larger close button
+                      onPressed: () => Navigator.of(context).pop(),
+                      iconSize: 48, // Make the button itself larger
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16), // More spacing
+                Text(
+                  'Process: ${_process?.name ?? 'Unknown'}',
+                  style: TextStyle(
+                    fontSize: 20, // Much larger process text
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 32), // More spacing
+
+                // Form content
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1. Selected Item Dropdown
+                        _buildFormField(
+                          label: 'Selected Item',
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 20), // Much larger padding
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 2), // Thicker border
+                              borderRadius:
+                                  BorderRadius.circular(12), // Larger radius
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<FurnitureItem>(
+                                value: selectedItem,
+                                hint: Text('Select an item to build',
+                                    style: TextStyle(
+                                        fontSize: 20)), // Larger hint text
+                                isExpanded: true,
+                                items: _availableItems.isEmpty
+                                    ? [
+                                        DropdownMenuItem<FurnitureItem>(
+                                          value: null,
+                                          child: Text(
+                                            'No items available for this process',
+                                            style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 18), // Larger text
+                                          ),
+                                        )
+                                      ]
+                                    : _availableItems.map((item) {
+                                        return DropdownMenuItem<FurnitureItem>(
+                                          value: item,
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.inventory_2,
+                                                  size: 24, // Larger icon
+                                                  color: AppColors.primaryBlue),
+                                              const SizedBox(
+                                                  width: 16), // More spacing
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      item.name,
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          fontSize:
+                                                              20), // Larger item name
+                                                    ),
+                                                    Text(
+                                                      '${item.estimatedTimeInMinutes} min est.',
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            16, // Larger estimate text
+                                                        color: Colors
+                                                            .grey.shade600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                onChanged: (FurnitureItem? value) {
+                                  setDialogState(() {
+                                    selectedItem = value;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // 2. Select Part Dropdown (Coming Soon)
+                        _buildFormField(
+                          label: 'Select Part',
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 24), // Much larger
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 2), // Thicker border
+                              borderRadius:
+                                  BorderRadius.circular(12), // Larger radius
+                              color: Colors.grey.shade50,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.construction,
+                                    size: 28,
+                                    color: Colors.grey.shade400), // Larger icon
+                                const SizedBox(width: 16), // More spacing
+                                Text(
+                                  'Coming Soon',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 20, // Larger text
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Quantity fields in a 2x2 grid
+                        Row(
+                          children: [
+                            // 3. Expected QTY
+                            Expanded(
+                              child: _buildFormField(
+                                label: 'Expected QTY',
+                                child: GestureDetector(
+                                  onTap: () => _showNumberPad(
+                                      expectedQtyController, 'Expected QTY'),
+                                  child: TextFormField(
+                                    controller: expectedQtyController,
+                                    enabled:
+                                        false, // Prevent keyboard, use custom numpad
+                                    style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w600,
+                                        color:
+                                            Colors.black), // Much larger text
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            16), // Larger radius
+                                        borderSide: BorderSide(
+                                            width: 2), // Thicker border
+                                      ),
+                                      disabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide(
+                                            width: 2,
+                                            color: Colors.grey.shade300),
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 28), // Much larger padding
+                                      suffixIcon: Icon(Icons.touch_app,
+                                          color: AppColors.primaryBlue,
+                                          size: 32), // Touch icon
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 24), // More spacing
+                            // 4. QTY per Cycle
+                            Expanded(
+                              child: _buildFormField(
+                                label: 'QTY per Cycle',
+                                child: GestureDetector(
+                                  onTap: () => _showNumberPad(
+                                      qtyPerCycleController, 'QTY per Cycle'),
+                                  child: TextFormField(
+                                    controller: qtyPerCycleController,
+                                    enabled:
+                                        false, // Prevent keyboard, use custom numpad
+                                    style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w600,
+                                        color:
+                                            Colors.black), // Much larger text
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            16), // Larger radius
+                                        borderSide: BorderSide(
+                                            width: 2), // Thicker border
+                                      ),
+                                      disabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide(
+                                            width: 2,
+                                            color: Colors.grey.shade300),
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 28), // Much larger padding
+                                      suffixIcon: Icon(Icons.touch_app,
+                                          color: AppColors.greenAccent,
+                                          size: 32), // Touch icon
+                                      helperText: 'Incremented with "Next"',
+                                      helperStyle: TextStyle(
+                                          fontSize: 14), // Larger helper text
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 40), // Much more spacing
+
+                        Row(
+                          children: [
+                            // 5. Finished QTY
+                            Expanded(
+                              child: _buildFormField(
+                                label: 'Finished QTY',
+                                child: GestureDetector(
+                                  onTap: () => _showNumberPad(
+                                      finishedQtyController, 'Finished QTY'),
+                                  child: TextFormField(
+                                    controller: finishedQtyController,
+                                    enabled:
+                                        false, // Prevent keyboard, use custom numpad
+                                    style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w600,
+                                        color:
+                                            Colors.black), // Much larger text
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            16), // Larger radius
+                                        borderSide: BorderSide(
+                                            width: 2), // Thicker border
+                                      ),
+                                      disabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide(
+                                            width: 2,
+                                            color: Colors.grey.shade300),
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 28), // Much larger padding
+                                      suffixIcon: Icon(Icons.touch_app,
+                                          color: AppColors.greenAccent,
+                                          size: 32), // Touch icon
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 24), // More spacing
+                            // 6. Reject QTY
+                            Expanded(
+                              child: _buildFormField(
+                                label: 'Reject QTY',
+                                child: GestureDetector(
+                                  onTap: () => _showNumberPad(
+                                      rejectQtyController, 'Reject QTY'),
+                                  child: TextFormField(
+                                    controller: rejectQtyController,
+                                    enabled:
+                                        false, // Prevent keyboard, use custom numpad
+                                    style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w600,
+                                        color:
+                                            Colors.black), // Much larger text
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            16), // Larger radius
+                                        borderSide: BorderSide(
+                                            width: 2), // Thicker border
+                                      ),
+                                      disabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide(
+                                            width: 2,
+                                            color: Colors.grey.shade300),
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 28), // Much larger padding
+                                      suffixIcon: Icon(Icons.touch_app,
+                                          color: AppColors.orangeAccent,
+                                          size: 32), // Touch icon
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 48), // Much more spacing
+
+                // Action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 48, vertical: 20), // Much larger
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600), // Larger text
+                      ),
+                    ),
+                    const SizedBox(width: 32), // More spacing
+                    ElevatedButton(
+                      onPressed: selectedItem == null
+                          ? null
+                          : () {
+                              _saveItemProductionData(
+                                item: selectedItem!,
+                                expectedQty:
+                                    int.tryParse(expectedQtyController.text) ??
+                                        1,
+                                qtyPerCycle:
+                                    int.tryParse(qtyPerCycleController.text) ??
+                                        1,
+                                finishedQty:
+                                    int.tryParse(finishedQtyController.text) ??
+                                        0,
+                                rejectQty:
+                                    int.tryParse(rejectQtyController.text) ?? 0,
+                              );
+                              Navigator.of(context).pop();
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 64,
+                            vertical: 24), // Much larger padding
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(16), // Larger radius
+                        ),
+                      ),
+                      child: Text(
+                        'OK',
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold), // Much larger text
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Show large number pad for warehouse workers with gloves
+  void _showNumberPad(TextEditingController controller, String title) {
+    String currentValue = controller.text;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Dialog(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.5,
+            height: MediaQuery.of(context).size.height * 0.7,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Icon(Icons.dialpad, color: AppColors.primaryBlue, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 28),
+                      onPressed: () => Navigator.of(context).pop(),
+                      iconSize: 40,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Display current value
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.grey.shade50,
+                  ),
+                  child: Text(
+                    currentValue.isEmpty ? '0' : currentValue,
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Number pad grid
+                Expanded(
+                  child: GridView.count(
+                    crossAxisCount: 3,
+                    childAspectRatio: 1.2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    children: [
+                      // Numbers 1-9
+                      for (int i = 1; i <= 9; i++)
+                        _buildNumberButton(i.toString(), () {
+                          setState(() {
+                            if (currentValue == '0') {
+                              currentValue = i.toString();
+                            } else {
+                              currentValue += i.toString();
+                            }
+                          });
+                        }),
+
+                      // Clear button
+                      _buildNumberButton('C', () {
+                        setState(() {
+                          currentValue = '0';
+                        });
+                      }, color: AppColors.orangeAccent),
+
+                      // Zero
+                      _buildNumberButton('0', () {
+                        setState(() {
+                          if (currentValue != '0') {
+                            currentValue += '0';
+                          }
+                        });
+                      }),
+
+                      // Backspace
+                      _buildNumberButton('⌫', () {
+                        setState(() {
+                          if (currentValue.length > 1) {
+                            currentValue = currentValue.substring(
+                                0, currentValue.length - 1);
+                          } else {
+                            currentValue = '0';
+                          }
+                        });
+                      }, color: AppColors.orangeAccent),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          controller.text = currentValue;
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'OK',
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Build large number pad button
+  Widget _buildNumberButton(String text, VoidCallback onPressed,
+      {Color? color}) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color ?? Colors.grey.shade100,
+        foregroundColor: color != null ? Colors.white : Colors.black,
+        padding: EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        elevation: 2,
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build form fields with labels
+  Widget _buildFormField({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 22, // Much larger label text
+            fontWeight: FontWeight.w700,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 16), // More spacing
+        child,
+      ],
+    );
+  }
+
+  Widget _buildItemCard(FurnitureItem item) {
+    final isSelected = _selectedItem?.id == item.id;
+
+    return Card(
+      elevation: 4,
+      child: InkWell(
+        onTap: () => _selectItem(item),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? AppColors.primaryBlue : Colors.grey.shade200,
+              width: isSelected ? 2 : 1,
+            ),
+            color: isSelected ? AppColors.primaryBlue.withOpacity(0.1) : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Item image
+              if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                Expanded(
+                  flex: 3,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CrossPlatformImage(
+                      imageUrl: item.imageUrl!,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.inventory_2,
+                      size: 32,
+                      color: Colors.grey.shade400,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+
+              // Item name
+              Expanded(
+                flex: 1,
+                child: Text(
+                  item.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? AppColors.primaryBlue : null,
+                      ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+              // Estimated time
+              Text(
+                'Est. time: ${item.estimatedTimeInMinutes} min',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectItem(FurnitureItem item) async {
+    try {
+      // Create a new production record for the selected item
+      final mesService = Provider.of<MESService>(context, listen: false);
+      final record = await mesService.startProductionRecord(
+        item.id,
+        _user.id,
+        _user.name,
+      );
+      final recordId = record.id;
+
+      setState(() {
+        _selectedItem = item;
+        _recordId = recordId;
+        _secondsRemaining = item.estimatedTimeInMinutes * 60;
+        _timer.resetForNewItem(); // Reset timer when selecting new item
+        _setupCompleted = false; // Reset setup status
+
+        // Auto-select Setup action when item is selected
+        if (_interruptionTypes.isNotEmpty) {
+          _selectedAction = _interruptionTypes.firstWhere(
+            (type) => type.name.toLowerCase().contains('setup'),
+            orElse: () => _interruptionTypes.first,
+          );
+        }
+
+        // Start the selected action immediately
+        if (_selectedAction != null) {
+          _timer.startAction(_selectedAction!);
+        }
+      });
+
+      // Close the dialog
+      Navigator.of(context).pop();
+
+      // Show confirmation
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selected: ${item.name}'),
+          backgroundColor: AppColors.primaryBlue,
+        ),
+      );
+
+      // Show setup dialog if required
+      if (_process?.requiresSetup == true && !_setupCompleted) {
+        _showSetupDialog();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error selecting item: $e')),
+      );
+    }
+  }
+
+  // Save item production data and select the item
+  Future<void> _saveItemProductionData({
+    required FurnitureItem item,
+    required int expectedQty,
+    required int qtyPerCycle,
+    required int finishedQty,
+    required int rejectQty,
+  }) async {
+    try {
+      // Update production data fields
+      setState(() {
+        _expectedQty = expectedQty;
+        _qtyPerCycle = qtyPerCycle;
+        _finishedQty = finishedQty;
+        _rejectQty = rejectQty;
+      });
+
+      // Save to Firebase
+      await _saveProductionDataToFirebase(
+        item: item,
+        expectedQty: expectedQty,
+        qtyPerCycle: qtyPerCycle,
+        finishedQty: finishedQty,
+        rejectQty: rejectQty,
+      );
+
+      // Select the item (this will create production record)
+      await _selectItem(item);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Production setup saved for ${item.name}'),
+          backgroundColor: AppColors.greenAccent,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving production data: $e')),
+      );
+    }
+  }
+
+  // Save production data to Firebase
+  Future<void> _saveProductionDataToFirebase({
+    required FurnitureItem item,
+    required int expectedQty,
+    required int qtyPerCycle,
+    required int finishedQty,
+    required int rejectQty,
+  }) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // Create production data document
+      final productionData = {
+        'itemId': item.id,
+        'itemName': item.name,
+        'processId': _process?.id,
+        'processName': _process?.name,
+        'userId': _user.id,
+        'userName': _user.name,
+        'expectedQty': expectedQty,
+        'qtyPerCycle': qtyPerCycle,
+        'finishedQty': finishedQty,
+        'rejectQty': rejectQty,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'status': 'active',
+      };
+
+      // Save to production_data collection
+      await firestore
+          .collection('production_data')
+          .doc(
+              '${_user.id}_${item.id}_${DateTime.now().millisecondsSinceEpoch}')
+          .set(productionData);
+
+      print('🔥 Production data saved to Firebase: $productionData');
+    } catch (e) {
+      print('❌ Error saving production data to Firebase: $e');
+      rethrow;
+    }
   }
 
   // Show setup dialog before starting production
@@ -368,120 +1246,6 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // Show dialog to confirm item completion before starting action
-  void _showItemCompletionDialog(MESInterruptionType type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber, color: AppColors.orangeAccent, size: 24),
-            SizedBox(width: 8),
-            Text('Item in Progress'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'You are currently working on an item for:',
-              style: TextStyle(fontSize: 16),
-            ),
-            SizedBox(height: 8),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primaryBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
-              ),
-              child: Text(
-                ProductionTimer.formatDuration(_timer.getCurrentItemTime()),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryBlue,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Would you like to complete this item before starting "${type.name}"?',
-              style: TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Start action without completing item
-              _startActionWithoutCompletion(type);
-            },
-            child: Text('Continue Item Later'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Complete current item first, then start action
-              _completeItemAndStartAction(type);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.greenAccent,
-              foregroundColor: Colors.white,
-            ),
-            child: Text('Complete Item'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Complete current item and then start the action
-  void _completeItemAndStartAction(MESInterruptionType type) {
-    // Complete the current item
-    _nextItem();
-
-    // Then start the action
-    setState(() {
-      _timer.startAction(type);
-    });
-
-    // Record the start of this action in Firebase
-    _recordActionStart(type);
-
-    // Show feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Item completed. Started: ${type.name}'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: _timer.getActionColor(),
-      ),
-    );
-  }
-
-  // Start action without completing current item
-  void _startActionWithoutCompletion(MESInterruptionType type) {
-    setState(() {
-      _timer.startAction(type);
-    });
-
-    // Record the start of this action in Firebase
-    _recordActionStart(type);
-
-    // Show feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Started: ${type.name} (item continues)'),
-        duration: const Duration(seconds: 1),
-        backgroundColor: _timer.getActionColor(),
-      ),
-    );
-  }
-
   // Record action start in Firebase
   Future<void> _recordActionStart(MESInterruptionType action) async {
     try {
@@ -490,7 +1254,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Add interruption record to track this action
       final result = await mesService.addInterruptionToRecord(
-        _recordId,
+        _recordId!,
         action.id,
         action.name,
         DateTime.now(),
@@ -517,7 +1281,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Update the most recent interruption record for this action type
       final result = await mesService.updateInterruptionInRecord(
-        _recordId,
+        _recordId!,
         action.id,
         endTime: now,
         durationSeconds: actionDuration,
@@ -538,7 +1302,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Add interruption record to track setup
       await mesService.addInterruptionToRecord(
-        _recordId,
+        _recordId!,
         'setup', // Special ID for setup
         'Setup',
         DateTime.now(),
@@ -563,7 +1327,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
         // Update the existing setup interruption record with end time and duration
         await mesService.updateInterruptionInRecord(
-          _recordId,
+          _recordId!,
           'setup', // Special ID for setup
           endTime: now,
           durationSeconds: setupDuration,
@@ -791,7 +1555,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
                                     // Then record the interruption in Firebase
                                     await mesService.addInterruptionToRecord(
-                                      _recordId,
+                                      _recordId!,
                                       type.id,
                                       type.name,
                                       startTime,
@@ -943,14 +1707,17 @@ class _TimerScreenState extends State<TimerScreen> {
 
     setState(() {
       _timer.completeCurrentItem();
-      _selectedItem.completedCount++;
+      // Increment by the configured qty per cycle
+      _selectedItem!.completedCount += _qtyPerCycle;
+      // Also update finished qty
+      _finishedQty += _qtyPerCycle;
     });
 
     // Save the updated item completion records to the database
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
       await mesService.updateProductionRecord(
-        await mesService.getProductionRecord(_recordId).then(
+        await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
                 totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
@@ -978,7 +1745,7 @@ class _TimerScreenState extends State<TimerScreen> {
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
       await mesService.updateProductionRecord(
-        await mesService.getProductionRecord(_recordId).then(
+        await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
                 totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
@@ -1053,7 +1820,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Update the production record with final state
       await mesService.updateProductionRecord(
-        await mesService.getProductionRecord(_recordId).then(
+        await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 endTime: DateTime.now(),
                 totalProductionTimeSeconds: _timer.getProductionTime(),
@@ -1100,7 +1867,7 @@ class _TimerScreenState extends State<TimerScreen> {
   Future<void> _completeItem() async {
     setState(() {
       _timer.completeItem();
-      _selectedItem.completedCount++;
+      _selectedItem!.completedCount++;
     });
 
     try {
@@ -1108,7 +1875,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Update the production record with final item completion records
       await mesService.updateProductionRecord(
-        await mesService.getProductionRecord(_recordId).then(
+        await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 endTime: DateTime.now(),
                 totalProductionTimeSeconds: _timer.getProductionTime(),
@@ -1198,7 +1965,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Update the current production record with final data including all item completion records
       await mesService.updateProductionRecord(
-        await mesService.getProductionRecord(_recordId).then(
+        await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 endTime: DateTime.now(),
                 totalProductionTimeSeconds: _timer.getProductionTime(),
@@ -1294,7 +2061,8 @@ class _TimerScreenState extends State<TimerScreen> {
                             _timer.getProductionTime())),
                     _buildSummaryRow('Total Shift Time',
                         ProductionTimer.formatDuration(totalTime)),
-                    _buildSummaryRow('Current Item', _selectedItem.name),
+                    _buildSummaryRow('Current Item',
+                        _selectedItem?.name ?? 'No Item Selected'),
                     if (_timer.currentAction != null)
                       _buildSummaryRow(
                           'Last Action', _timer.currentAction!.name),
@@ -1398,7 +2166,8 @@ class _TimerScreenState extends State<TimerScreen> {
                   Text('Items Completed: ${_timer.completedCount}'),
                   Text(
                       'Production Time: ${ProductionTimer.formatDuration(_timer.getProductionTime())}'),
-                  Text('Current Item: ${_selectedItem.name}'),
+                  Text(
+                      'Current Item: ${_selectedItem?.name ?? 'No Item Selected'}'),
                 ],
               ),
             ),
@@ -1442,18 +2211,38 @@ class _TimerScreenState extends State<TimerScreen> {
     // This will help prevent overflow on smaller screens
     final double maxHeaderHeight = isNarrow ? 45 : 55;
     final double maxStatHeight = isNarrow ? 100 : 130;
-    final double buttonHeight = isNarrow ? 45 : 60;
+    final double buttonHeight = isNarrow ? 80 : 100; // Increased button size
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Building: ${_selectedItem.name}'),
+        automaticallyImplyLeading: false,
+        title: Text(_selectedItem != null
+            ? 'Building: ${_selectedItem!.name}'
+            : 'Process: ${_process?.name ?? 'Unknown'} - Select Item'),
         backgroundColor: _timer.mode == ProductionTimerMode.running
             ? _timer.getActionColor() // Use action color when running
             : _timer.mode == ProductionTimerMode.interrupted
                 ? AppColors.orangeAccent // Orange for non-productive
                 : AppColors.primaryBlue, // Default blue theme
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to Process Selection',
+          onPressed: () {
+            Navigator.pushReplacementNamed(context, '/process_selection',
+                arguments: _user);
+          },
+        ),
         actions: [
+          // Home button
+          IconButton(
+            icon: const Icon(Icons.home),
+            tooltip: 'Home',
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/process_selection',
+                  arguments: _user);
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: 'Request Help',
@@ -1485,87 +2274,31 @@ class _TimerScreenState extends State<TimerScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Item image - compact but professional
+                          // Select Item Button at top
                           Container(
-                            height: isNarrow ? 120 : 150,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.cardBorder,
-                                width: 1,
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _showItemSelectionDialog,
+                              icon: Icon(Icons.inventory_2),
+                              label: Text(
+                                _selectedItem != null
+                                    ? 'Change Item: ${_selectedItem!.name}'
+                                    : 'Select Item',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              color: Colors.grey[50],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(11),
-                              child: _selectedItem.imageUrl != null &&
-                                      _selectedItem.imageUrl!.isNotEmpty
-                                  ? CrossPlatformImage(
-                                      imageUrl: _selectedItem.imageUrl!,
-                                      width: 300,
-                                      height: 200,
-                                      fit: BoxFit.cover,
-                                      errorWidget: Container(
-                                        color: Colors.red[100],
-                                        child: Center(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.error,
-                                                  color: Colors.red, size: 30),
-                                              Text('Image Error',
-                                                  style: TextStyle(
-                                                      color: Colors.red,
-                                                      fontSize: 10)),
-                                              if (_selectedItem.imageUrl !=
-                                                  null)
-                                                Text(
-                                                  'URL: ${_selectedItem.imageUrl!.length > 20 ? _selectedItem.imageUrl!.substring(0, 20) + '...' : _selectedItem.imageUrl!}',
-                                                  style: TextStyle(
-                                                      color: Colors.red,
-                                                      fontSize: 8),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  : Container(
-                                      color: Colors.blue[100],
-                                      child: Center(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              _getIconForCategory(
-                                                  _selectedItem.category),
-                                              size: 40,
-                                              color: AppColors.textMedium,
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              'No Image URL',
-                                              style: TextStyle(
-                                                color: AppColors.textLight,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            Text(
-                                              'URL: ${_selectedItem.imageUrl ?? 'null'}',
-                                              style: TextStyle(
-                                                color: Colors.blue[700],
-                                                fontSize: 8,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _selectedItem != null
+                                    ? AppColors.primaryBlue
+                                    : Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
                             ),
                           ),
 
@@ -1586,7 +2319,7 @@ class _TimerScreenState extends State<TimerScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _selectedItem.name,
+                                  _selectedItem?.name ?? 'No Item Selected',
                                   style: TextStyle(
                                     fontSize: isNarrow ? 16 : 18,
                                     fontWeight: FontWeight.bold,
@@ -1606,7 +2339,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                     SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        _selectedItem.category,
+                                        _selectedItem?.category ??
+                                            'No Category',
                                         style: TextStyle(
                                           fontSize: isNarrow ? 12 : 13,
                                           color: Colors.grey[700],
@@ -1625,7 +2359,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                     ),
                                     SizedBox(width: 6),
                                     Text(
-                                      '${_selectedItem.estimatedTimeInMinutes} min est.',
+                                      _selectedItem != null
+                                          ? '${_selectedItem!.estimatedTimeInMinutes} min est.'
+                                          : 'No time estimate',
                                       style: TextStyle(
                                         fontSize: isNarrow ? 12 : 13,
                                         color: Colors.grey[700],
@@ -1729,8 +2465,11 @@ class _TimerScreenState extends State<TimerScreen> {
                           child: Center(
                             child: SingleChildScrollView(
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
+                                  SizedBox(
+                                      height:
+                                          20), // Small top padding instead of centering
                                   // Status
                                   Text(
                                     _getStatusText(),
@@ -1952,36 +2691,18 @@ class _TimerScreenState extends State<TimerScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Start button (only show if not started or in setup)
-                              if (_timer.mode == ProductionTimerMode.notStarted)
+                              // Next Item button (only show when Production action is selected)
+                              if (_selectedAction != null &&
+                                  _selectedAction!.name
+                                      .toLowerCase()
+                                      .contains('production'))
                                 Expanded(
                                   child: _buildControlButton(
-                                    icon: Icons.play_arrow,
-                                    label: _process?.requiresSetup == true &&
-                                            !_setupCompleted
-                                        ? 'Start Setup'
-                                        : 'Start Production',
-                                    color: AppColors.primaryBlue,
-                                    onPressed: _startTimer,
-                                    isNarrow: isNarrow,
-                                  ),
-                                ),
-
-                              // Setup button (show when in setup mode)
-                              if (_timer.mode == ProductionTimerMode.setup)
-                                Expanded(
-                                  child: _buildControlButton(
-                                    icon: Icons.build,
-                                    label: 'Complete Setup',
+                                    icon: Icons.add_circle,
+                                    label:
+                                        'Next +$_qtyPerCycle (${_finishedQty}/${_expectedQty})',
                                     color: AppColors.greenAccent,
-                                    onPressed: () {
-                                      setState(() {
-                                        _timer.completeSetup();
-                                        _setupCompleted = true;
-                                      });
-                                      // Start periodic saving since this is the first time starting
-                                      _startPeriodicSaving();
-                                    },
+                                    onPressed: _nextItem,
                                     isNarrow: isNarrow,
                                   ),
                                 ),
@@ -2374,9 +3095,9 @@ class _TimerScreenState extends State<TimerScreen> {
     MESInterruptionType? interruptionType,
   }) {
     // Check if this action is currently selected
-    final bool isSelected = _timer.currentAction != null &&
+    final bool isSelected = _selectedAction != null &&
         interruptionType != null &&
-        _timer.currentAction!.id == interruptionType.id;
+        _selectedAction!.id == interruptionType.id;
 
     return SizedBox(
       width: double.infinity,
@@ -2491,7 +3212,7 @@ class _TimerScreenState extends State<TimerScreen> {
       color: AppColors.backgroundWhite,
       child: Center(
         child: Icon(
-          _getIconForCategory(_selectedItem.category),
+          _getIconForCategory(_selectedItem!.category),
           size: isNarrow ? 24 : 30,
           color: AppColors.textMedium,
         ),
@@ -2507,7 +3228,7 @@ class _TimerScreenState extends State<TimerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _getIconForCategory(_selectedItem.category),
+              _getIconForCategory(_selectedItem!.category),
               size: 60,
               color: AppColors.textMedium,
             ),
@@ -2534,7 +3255,7 @@ class _TimerScreenState extends State<TimerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _getIconForCategory(_selectedItem.category),
+              _getIconForCategory(_selectedItem!.category),
               size: 40,
               color: AppColors.textMedium,
             ),
@@ -2643,6 +3364,97 @@ class _TimerScreenState extends State<TimerScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildNoItemSelectedView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2,
+              size: 120,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No Item Selected',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade600,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Process: ${_process?.name ?? 'Unknown'}',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.primaryBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Please select an item to start production timing.',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _showItemSelectionDialog,
+              icon: const Icon(Icons.inventory_2),
+              label: const Text('Select Item'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                textStyle:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (_availableItems.isNotEmpty) ...[
+              Text(
+                '${_availableItems.length} item${_availableItems.length != 1 ? 's' : ''} available for this process',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade500,
+                    ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.warning, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'No items configured for this process',
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -19,7 +19,7 @@ class MESScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    // Check if this is on a mobile or tablet device
+    // Check if this iR on a mobile or tablet device
     final bool isMobile = MediaQuery.of(context).size.width <= 1200;
 
     // If on mobile/tablet, directly show the MES login screen
@@ -194,27 +194,6 @@ class MESTabletApp extends StatelessWidget {
             // Scaffold with back button
             return Scaffold(
               body: _buildMainContent(context, authService),
-              // Add a back button if we're not on a mobile device
-              floatingActionButton: FloatingActionButton(
-                onPressed: () {
-                  // Check if we're in the mobile view (width <= 1200)
-                  if (MediaQuery.of(context).size.width <= 1200) {
-                    // Navigate to mobile selection screen
-                    Navigator.of(context).pop();
-                    if (context.mounted) {
-                      GoRouter.of(context).go('/mobile/selection');
-                    }
-                  } else {
-                    // Just pop back to previous screen on desktop
-                    Navigator.of(context).pop();
-                  }
-                },
-                backgroundColor: const Color(0xFFEB281E),
-                child: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                ),
-              ),
               // Add debug overlay that shows screen dimensions
               bottomSheet: kDebugMode ? _buildDimensionsOverlay(context) : null,
             );

@@ -172,7 +172,7 @@ class MobileSelectionScreen extends StatelessWidget {
                             Flexible(
                               child: Center(
                                 child: Image.asset(
-                                  'assets/images/elmos_logo_icon.png',
+                                  'assets/images/elmos_logo.png',
                                   height: isLargeTablet
                                       ? 60.0
                                       : isTablet

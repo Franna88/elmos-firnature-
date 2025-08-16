@@ -24,7 +24,10 @@ class _ProcessSelectionScreenState extends State<ProcessSelectionScreen> {
     super.initState();
     // If initialUser is provided, use it right away
     _user = widget.initialUser;
-    _loadProcesses();
+    // Use post-frame callback to prevent setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProcesses();
+    });
   }
 
   @override
@@ -92,6 +95,7 @@ class _ProcessSelectionScreenState extends State<ProcessSelectionScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -393,10 +397,10 @@ class _ProcessSelectionScreenState extends State<ProcessSelectionScreen> {
     });
 
     try {
-      // Navigate to item selection with the selected process and user
+      // Navigate directly to timer with the selected process and user
       Navigator.pushNamed(
         context,
-        '/item_selection',
+        '/timer',
         arguments: {
           'user': _user!,
           'process': process,
