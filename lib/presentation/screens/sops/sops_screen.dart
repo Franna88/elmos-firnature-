@@ -65,6 +65,10 @@ class _SOPsScreenState extends State<SOPsScreen> {
           .toList();
     }
 
+    // Sort SOPs alphabetically by title
+    filteredSOPs
+        .sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+
     // Get unique departments for filter dropdown
     final departments = [
       'All',
@@ -188,7 +192,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 4,
-                            childAspectRatio: 1.0,
+                            childAspectRatio: 0.8,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
                           ),
@@ -262,7 +266,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
               color: departmentColor,
               borderRadius: const BorderRadius.only(
@@ -306,20 +310,23 @@ class _SOPsScreenState extends State<SOPsScreen> {
 
           // Image section
           Expanded(
-            child: SizedBox(
-              width: double.infinity,
-              child: CrossPlatformImage(
-                key: ValueKey(imageUrl),
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                errorWidget: _buildImageError(),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return CrossPlatformImage(
+                  key: ValueKey(imageUrl),
+                  imageUrl: imageUrl,
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  fit: BoxFit.cover,
+                  errorWidget: _buildImageError(),
+                );
+              },
             ),
           ),
 
           // Content section
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

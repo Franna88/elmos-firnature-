@@ -545,9 +545,9 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                                         gridDelegate:
                                             SliverGridDelegateWithFixedCrossAxisCount(
                                           crossAxisCount: crossAxisCount,
-                                          childAspectRatio: 1.4,
-                                          crossAxisSpacing: 12,
-                                          mainAxisSpacing: 12,
+                                          childAspectRatio: 1.0,
+                                          crossAxisSpacing: 16,
+                                          mainAxisSpacing: 16,
                                         ),
                                         itemCount: filteredSOPs.length,
                                         itemBuilder: (context, index) {
@@ -570,15 +570,20 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                                         itemCount: filteredSOPs.length,
                                         itemBuilder: (context, index) {
                                           final sop = filteredSOPs[index];
-                                          return Card(
-                                            key: ValueKey(sop.id),
-                                            clipBehavior: Clip.antiAlias,
-                                            elevation: 2,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 16.0),
+                                            child: Card(
+                                              key: ValueKey(sop.id),
+                                              clipBehavior: Clip.antiAlias,
+                                              elevation: 2,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child:
+                                                  _buildSOPCard(context, sop),
                                             ),
-                                            child: _buildSOPCard(context, sop),
                                           );
                                         },
                                       );
@@ -714,7 +719,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     final bool isTablet = MediaQuery.of(context).size.width > 600;
 
     // Adjust image height based on device type
-    final double imageHeight = isTablet ? 160.0 : 120.0;
+    final double imageHeight = isTablet ? 250.0 : 200.0;
 
     return InkWell(
       onTap: () async {
@@ -805,14 +810,20 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
           SizedBox(
             height: imageHeight,
             width: double.infinity,
-            child: imageUrl != null
-                ? CrossPlatformImage(
-                    key: ValueKey(imageUrl),
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: _buildImageError(),
-                  )
-                : _buildImageError(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return imageUrl != null
+                    ? CrossPlatformImage(
+                        key: ValueKey(imageUrl),
+                        imageUrl: imageUrl,
+                        width: constraints.maxWidth,
+                        height: constraints.maxHeight,
+                        fit: BoxFit.cover,
+                        errorWidget: _buildImageError(),
+                      )
+                    : _buildImageError();
+              },
+            ),
           ),
 
           // Content section

@@ -29,11 +29,8 @@ class AppScaffold extends StatelessWidget {
     final String currentLocation = routerState.uri.path;
 
     // Check if this is a primary screen that should never have a back button
-    final bool isDashboard =
-        currentLocation == '/' || currentLocation == '/dashboard';
     final bool isSOPs = currentLocation == '/sops';
-    final bool shouldShowBackButton =
-        showBackButton || (!isDashboard && !isSOPs);
+    final bool shouldShowBackButton = showBackButton || !isSOPs;
 
     return Scaffold(
       appBar: AppBar(
@@ -84,6 +81,13 @@ class AppScaffold extends StatelessWidget {
                     ),
                   ),
                 ),
+              // Home button
+              IconButton(
+                icon: const Icon(Icons.home_outlined),
+                onPressed: () => context.go('/sops'),
+                tooltip: 'Home (SOPs)',
+                color: Colors.white,
+              ),
               // User profile menu
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
@@ -221,17 +225,11 @@ class AppScaffold extends StatelessWidget {
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     children: [
-                      _buildNavItem(
-                        context,
-                        icon: Icons.dashboard_outlined,
-                        label: 'Dashboard',
-                        route: '/dashboard',
-                        isSelected: currentLocation == '/dashboard',
-                      ),
+                      // Main navigation items
                       _buildNavItem(
                         context,
                         icon: Icons.description_outlined,
-                        label: 'My SOPs',
+                        label: 'SOPs',
                         route: '/sops',
                         isSelected: currentLocation == '/sops',
                       ),
@@ -248,25 +246,36 @@ class AppScaffold extends StatelessWidget {
                       ),
                       _buildNavItem(
                         context,
-                        icon: Icons.settings_outlined,
-                        label: 'MES Management',
-                        route: '/mes-management',
-                        isSelected: currentLocation == '/mes-management',
+                        icon: Icons.build_outlined,
+                        label: 'Maintenance',
+                        onTap: () =>
+                            _showComingSoonDialog(context, 'Maintenance'),
+                        isSelected: false,
                       ),
                       _buildNavItem(
                         context,
-                        icon: Icons.insert_chart_outlined,
-                        label: 'MES Reports',
-                        route: '/mes-reports',
-                        isSelected: currentLocation == '/mes-reports',
+                        icon: Icons.school_outlined,
+                        label: 'Training Matrix',
+                        onTap: () =>
+                            _showComingSoonDialog(context, 'Training Matrix'),
+                        isSelected: false,
                       ),
                       _buildNavItem(
                         context,
-                        icon: Icons.category_outlined,
-                        label: 'Categories',
-                        route: '/categories',
-                        isSelected: currentLocation == '/categories',
+                        icon: Icons.view_kanban_outlined,
+                        label: 'Kanban',
+                        onTap: () => _showComingSoonDialog(context, 'Kanban'),
+                        isSelected: false,
                       ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.verified_outlined,
+                        label: 'Quality',
+                        onTap: () => _showComingSoonDialog(context, 'Quality'),
+                        isSelected: false,
+                      ),
+
+                      // Management section
                       const Padding(
                         padding:
                             EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -276,7 +285,7 @@ class AppScaffold extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
                         child: Text(
-                          'INSIGHTS',
+                          'MANAGEMENT',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textLight,
@@ -287,28 +296,17 @@ class AppScaffold extends StatelessWidget {
                       ),
                       _buildNavItem(
                         context,
-                        icon: Icons.insights_outlined,
-                        label: 'Analytics',
-                        route: '/analytics',
-                        isSelected: currentLocation == '/analytics',
+                        icon: Icons.category_outlined,
+                        label: 'SOP Categories',
+                        route: '/categories',
+                        isSelected: currentLocation == '/categories',
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        child: Divider(),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        child: Text(
-                          'SETTINGS',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textLight,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.settings_outlined,
+                        label: 'MES Management',
+                        route: '/mes-management',
+                        isSelected: currentLocation == '/mes-management',
                       ),
                       // User Management (Admin only)
                       if (authService.userRole == 'admin')
@@ -325,6 +323,80 @@ class AppScaffold extends StatelessWidget {
                         label: 'Settings',
                         route: '/settings',
                         isSelected: currentLocation == '/settings',
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.verified_user_outlined,
+                        label: 'Quality Setup',
+                        onTap: () =>
+                            _showComingSoonDialog(context, 'Quality Setup'),
+                        isSelected: false,
+                      ),
+
+                      // Analytics section
+                      const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Divider(),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: Text(
+                          'ANALYTICS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textLight,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.insert_chart_outlined,
+                        label: 'MES',
+                        route: '/mes-reports',
+                        isSelected: currentLocation == '/mes-reports',
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.insights_outlined,
+                        label: 'SOP',
+                        route: '/analytics',
+                        isSelected: currentLocation == '/analytics',
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.analytics_outlined,
+                        label: 'Maintenance',
+                        onTap: () => _showComingSoonDialog(
+                            context, 'Maintenance Analytics'),
+                        isSelected: false,
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.trending_up_outlined,
+                        label: 'Training',
+                        onTap: () => _showComingSoonDialog(
+                            context, 'Training Analytics'),
+                        isSelected: false,
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.bar_chart_outlined,
+                        label: 'Kanban',
+                        onTap: () =>
+                            _showComingSoonDialog(context, 'Kanban Analytics'),
+                        isSelected: false,
+                      ),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.assessment_outlined,
+                        label: 'Quality',
+                        onTap: () =>
+                            _showComingSoonDialog(context, 'Quality Analytics'),
+                        isSelected: false,
                       ),
                     ],
                   ),
@@ -442,6 +514,75 @@ class AppScaffold extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showComingSoonDialog(BuildContext context, String featureName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.construction_outlined,
+                color: AppColors.primaryBlue,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Coming Soon!',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'The $featureName feature is currently under development.',
+                style: const TextStyle(
+                  fontSize: 16,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'We\'re working hard to bring you this exciting new functionality. Stay tuned for updates!',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textMedium,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryBlue,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text(
+                'Got it!',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

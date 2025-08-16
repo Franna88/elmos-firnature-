@@ -73,7 +73,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/dashboard'),
+          onPressed: () => context.go('/sops'),
         ),
         elevation: 0,
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -100,6 +100,11 @@ class _MESManagementScreenState extends State<MESManagementScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: 'Home (SOPs)',
+            onPressed: () => context.go('/sops'),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: _getAddButtonTooltip(),
