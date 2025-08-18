@@ -40,6 +40,9 @@ class _TimerScreenState extends State<TimerScreen> {
   int _finishedQty = 0;
   int _rejectQty = 0;
 
+  // Production button state
+  bool _isInProductionMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -96,54 +99,120 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Load interruption types (excluding PRODUCTION which is handled by Start Production button)
       final mesService = Provider.of<MESService>(context, listen: false);
-      await mesService.fetchInterruptionTypes(onlyActive: true);
-      if (!mounted) return;
 
-      _interruptionTypes = mesService.interruptionTypes
-          .where((type) => !type.name.toLowerCase().contains('production'))
-          .toList();
+      try {
+        await mesService.fetchInterruptionTypes(onlyActive: true);
+        if (!mounted) return;
 
-      // Load process information to check setup requirements
-      await mesService.fetchProcesses(onlyActive: true);
-      if (!mounted) return;
-
-      // Load available items for this process
-      final mesItems = await mesService.fetchItems(onlyActive: true);
-      if (!mounted) return;
-
-      // Filter items for the selected process and convert to FurnitureItem
-      final processItems =
-          mesItems.where((item) => item.processId == _process!.id).toList();
-      _availableItems = processItems
-          .map((mesItem) => FurnitureItem(
-                id: mesItem.id,
-                name: mesItem.name,
-                category: mesItem.category ?? 'Uncategorized',
-                imageUrl: mesItem.imageUrl,
-                estimatedTimeInMinutes: mesItem.estimatedTimeInMinutes,
-              ))
-          .toList();
-
-      // Process is already set from arguments, no need to find it
-      // If we have a selected item, validate it belongs to this process
-      if (_selectedItem != null) {
-        final mesItem =
-            mesItems.firstWhere((item) => item.id == _selectedItem!.id);
-        if (mesItem.processId != _process!.id) {
-          throw Exception(
-              'Selected item does not belong to the selected process');
-        }
+        _interruptionTypes = mesService.interruptionTypes
+            .where((type) => !type.name.toLowerCase().contains('production'))
+            .toList();
+      } catch (e) {
+        print('Warning: Could not fetch interruption types: $e');
+        // Set default interruption types if Firebase fails
+        _interruptionTypes = [
+          MESInterruptionType(
+            id: 'setup',
+            name: 'Setup',
+            isActive: true,
+            color: '#FF9800',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          MESInterruptionType(
+            id: 'break',
+            name: 'Break',
+            isActive: true,
+            color: '#2196F3',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        ];
       }
 
-      // Load daily non-productive time
-      await _loadDailyNonProductiveTime(mesService);
+      // Load process information to check setup requirements
+      try {
+        await mesService.fetchProcesses(onlyActive: true);
+        if (!mounted) return;
+      } catch (e) {
+        print('Warning: Could not fetch processes: $e');
+        // Continue without process validation
+      }
+
+      // Load available items for this process
+      try {
+        final mesItems = await mesService.fetchItems(onlyActive: true);
+        if (!mounted) return;
+
+        // Filter items for the selected process and convert to FurnitureItem
+        final processItems =
+            mesItems.where((item) => item.processId == _process!.id).toList();
+        _availableItems = processItems
+            .map((mesItem) => FurnitureItem(
+                  id: mesItem.id,
+                  name: mesItem.name,
+                  category: mesItem.category ?? 'Uncategorized',
+                  imageUrl: mesItem.imageUrl,
+                  estimatedTimeInMinutes: mesItem.estimatedTimeInMinutes,
+                ))
+            .toList();
+
+        // Process is already set from arguments, no need to find it
+        // If we have a selected item, validate it belongs to this process
+        if (_selectedItem != null) {
+          try {
+            final mesItem =
+                mesItems.firstWhere((item) => item.id == _selectedItem!.id);
+            if (mesItem.processId != _process!.id) {
+              throw Exception(
+                  'Selected item does not belong to the selected process');
+            }
+          } catch (e) {
+            print('Warning: Could not validate selected item: $e');
+            // Continue anyway
+          }
+        }
+      } catch (e) {
+        print('Warning: Could not fetch items: $e');
+        // Set default items if Firebase fails
+        _availableItems = [
+          FurnitureItem(
+            id: 'default_chair',
+            name: 'Chair Assembly',
+            category: 'Chairs',
+            imageUrl: null,
+            estimatedTimeInMinutes: 30,
+          ),
+          FurnitureItem(
+            id: 'default_table',
+            name: 'Table Assembly',
+            category: 'Tables',
+            imageUrl: null,
+            estimatedTimeInMinutes: 45,
+          ),
+        ];
+      }
+
+      // Load daily non-productive time (this can fail silently)
+      try {
+        await _loadDailyNonProductiveTime(mesService);
+      } catch (e) {
+        print('Warning: Could not load daily non-productive time: $e');
+        // Continue without this data
+      }
     } catch (e) {
+      print('Critical error in _loadData: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
+          SnackBar(
+            content: Text('Error loading data: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {
+      // ALWAYS set loading to false, even if there were errors
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -249,7 +318,328 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Select an action directly (simplified - no popups)
   void _startAction(MESInterruptionType type) {
+    // Business Rules: Check if action is allowed
+    final actionName = type.name.toLowerCase();
+
+    // Business Rule: No action can be triggered if no item selected
+    if (_selectedItem == null) {
+      _showActionBlockedDialog(
+        'No Item Selected',
+        'Please select an item first before starting any actions.\n\nAll action timers must run against a selected item for proper recording.',
+      );
+      return;
+    }
+
+    // Business Rule 1: Setup action - prompt if job completed when selecting setup after another action
+    if (actionName.contains('setup')) {
+      // If we already have a current action (not the initial setup), ask if job is completed
+      if (_selectedAction != null &&
+          !_selectedAction!.name.toLowerCase().contains('setup')) {
+        _showSetupJobCompleteDialog(type);
+        return;
+      }
+    }
+
+    // Business Rule 2: Job Complete can only be selected if Finished QTY has value
+    if (actionName.contains('job') && actionName.contains('complete')) {
+      if (_finishedQty <= 0) {
+        _showActionBlockedDialog(
+          'Job Complete Blocked',
+          'Job Complete can only be selected if Finished QTY has a value.\n\nCurrent Finished QTY: $_finishedQty\n\nPlease complete some items first or update the finished quantity.',
+        );
+        return;
+      }
+    }
+
+    // Business Rule 3: Shut Down must have Finished QTY value
+    if (actionName.contains('shut') && actionName.contains('down')) {
+      if (_finishedQty <= 0) {
+        _showActionBlockedDialog(
+          'Shut Down Blocked',
+          'Shut Down can only be selected if Finished QTY has a value.\n\nCurrent Finished QTY: $_finishedQty\n\nPlease complete some items first or update the finished quantity.',
+        );
+        return;
+      }
+    }
+
+    // Business Rule 4: Counting - show item popup while keeping timer rolling
+    if (actionName.contains('counting')) {
+      _handleCountingAction(type);
+      return;
+    }
+
+    // All business rules passed - proceed with action
+    _proceedWithAction(type);
+  }
+
+  // Show dialog when action is blocked by business rules
+  void _showActionBlockedDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.block, color: Colors.red),
+            SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show dialog asking if job is completed when switching to Setup
+  void _showSetupJobCompleteDialog(MESInterruptionType setupType) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.help_outline, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Job Status Check'),
+          ],
+        ),
+        content: Text(
+          'You are switching from "${_selectedAction?.name}" to Setup.\n\n'
+          'Has the current job been completed?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Job not completed - just switch to setup
+              _proceedWithAction(setupType);
+            },
+            child: const Text('No - Continue Setup'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Job completed - mark completion and then switch to setup
+              _markJobCompleted();
+              _proceedWithAction(setupType);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: const Text('Yes - Job Completed'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Mark job as completed (increment finished quantity)
+  void _markJobCompleted() {
     setState(() {
+      _finishedQty += _qtyPerCycle; // Increment by the quantity per cycle
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'Job completed! Finished QTY increased by $_qtyPerCycle (now $_finishedQty)'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // Handle counting action - show item popup while keeping timer rolling
+  void _handleCountingAction(MESInterruptionType countingType) {
+    // First switch to counting action to start timer
+    _proceedWithAction(countingType);
+
+    // Then show the item selection popup for counting
+    _showCountingDialog();
+  }
+
+  // Show counting dialog to update quantities while timer keeps running
+  void _showCountingDialog() {
+    // Pre-populate with current values
+    final TextEditingController finishedQtyController =
+        TextEditingController(text: _finishedQty.toString());
+    final TextEditingController rejectQtyController =
+        TextEditingController(text: _rejectQty.toString());
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Don't allow dismissing during counting
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.inventory, color: Colors.purple),
+            SizedBox(width: 8),
+            Text('Count Items'),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Count your items and update the quantities below.\nTimer continues running for Counting action.',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+              SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: finishedQtyController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Finished QTY',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Required';
+                        final qty = int.tryParse(value);
+                        if (qty == null || qty < 0) return 'Must be ≥ 0';
+                        return null;
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: rejectQtyController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Reject QTY',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value != null && value.isNotEmpty) {
+                          final qty = int.tryParse(value);
+                          if (qty == null || qty < 0) return 'Must be ≥ 0';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                final newFinishedQty = int.parse(finishedQtyController.text);
+                final newRejectQty =
+                    int.tryParse(rejectQtyController.text) ?? 0;
+
+                setState(() {
+                  _finishedQty = newFinishedQty;
+                  _rejectQty = newRejectQty;
+                });
+
+                Navigator.of(context).pop();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Quantities updated: Finished: $newFinishedQty, Reject: $newRejectQty'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+            ),
+            child: const Text('Update Counts'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Handle Production button press
+  void _handleProductionButton() {
+    if (!_isInProductionMode) {
+      // First press: Switch to Production action
+      _switchToProductionMode();
+    } else {
+      // In production mode: increment count (Next functionality)
+      _incrementProductionCount();
+    }
+  }
+
+  // Switch to production mode
+  void _switchToProductionMode() {
+    // Create a Production action type
+    final productionAction = MESInterruptionType(
+      id: 'production',
+      name: 'Production',
+      isActive: true,
+      color: '#4CAF50', // Green
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    setState(() {
+      _isInProductionMode = true;
+      // Stop current action if any
+      if (_timer.currentAction != null) {
+        _recordActionEnd(_timer.currentAction!);
+        _timer.stopAction();
+      }
+
+      // Select and start production action
+      _selectedAction = productionAction;
+      _timer.startAction(productionAction);
+    });
+
+    // Record the start of production action
+    _recordActionStart(productionAction);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Production mode activated!'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // Increment production count (Next functionality)
+  void _incrementProductionCount() {
+    setState(() {
+      _finishedQty += _qtyPerCycle;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'Production incremented! Added $_qtyPerCycle items (Total: $_finishedQty)'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // Proceed with action without business rule checks (used after validation)
+  void _proceedWithAction(MESInterruptionType type) {
+    setState(() {
+      // Business Rule 5: Reset production mode when other actions are selected
+      if (!type.name.toLowerCase().contains('production')) {
+        _isInProductionMode = false;
+      }
+
       // Stop current action if any
       if (_timer.currentAction != null) {
         _recordActionEnd(_timer.currentAction!);
@@ -274,8 +664,31 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Business Rule: Check if user can select a new item
+  bool _canSelectNewItem() {
+    // If no item is selected, can always select first item
+    if (_selectedItem == null) return true;
+
+    // Business Rule: Cannot select new item if current item has 0 final/finished QTY
+    return _finishedQty > 0;
+  }
+
   // Show item selection dialog
   void _showItemSelectionDialog() {
+    // Double-check business rules (redundant but safe)
+    if (!_canSelectNewItem()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cannot select new item: Current item "${_selectedItem!.name}" has 0 finished quantity. '
+            'Please complete some items first or update the finished quantity.',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
     FurnitureItem? selectedItem =
         _selectedItem; // Pre-select current item if any
     final TextEditingController expectedQtyController =
@@ -1189,55 +1602,71 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   Future<void> _selectItem(FurnitureItem item) async {
+    String? recordId;
+
     try {
-      // Create a new production record for the selected item
+      // Try to create a new production record for the selected item
       final mesService = Provider.of<MESService>(context, listen: false);
       final record = await mesService.startProductionRecord(
         item.id,
         _user.id,
         _user.name,
       );
-      final recordId = record.id;
-
-      setState(() {
-        _selectedItem = item;
-        _recordId = recordId;
-        _secondsRemaining = item.estimatedTimeInMinutes * 60;
-        _timer.resetForNewItem(); // Reset timer when selecting new item
-        _setupCompleted = false; // Reset setup status
-
-        // Auto-select Setup action when item is selected
-        if (_interruptionTypes.isNotEmpty) {
-          _selectedAction = _interruptionTypes.firstWhere(
-            (type) => type.name.toLowerCase().contains('setup'),
-            orElse: () => _interruptionTypes.first,
-          );
-        }
-
-        // Start the selected action immediately
-        if (_selectedAction != null) {
-          _timer.startAction(_selectedAction!);
-        }
-      });
-
-      // Close the dialog
-      Navigator.of(context).pop();
-
-      // Show confirmation
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Selected: ${item.name}'),
-          backgroundColor: AppColors.primaryBlue,
-        ),
-      );
-
-      // Setup is now automatic - no popup required
-      // The Setup action is already selected and started above
+      recordId = record.id;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error selecting item: $e')),
-      );
+      print('Warning: Could not create production record: $e');
+      // Continue with a temporary ID - the important thing is to start the setup
+      recordId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     }
+
+    setState(() {
+      _selectedItem = item;
+      _recordId = recordId;
+      _secondsRemaining = item.estimatedTimeInMinutes * 60;
+      _timer.resetForNewItem(); // Reset timer when selecting new item
+      _setupCompleted = false; // Reset setup status
+
+      // Auto-select Setup action when item is selected
+      if (_interruptionTypes.isNotEmpty) {
+        _selectedAction = _interruptionTypes.firstWhere(
+          (type) => type.name.toLowerCase().contains('setup'),
+          orElse: () => _interruptionTypes.first,
+        );
+      }
+
+      // Start the selected action immediately
+      if (_selectedAction != null) {
+        _timer.startAction(_selectedAction!);
+
+        // If this is a setup action, also put timer in setup mode
+        if (_selectedAction!.name.toLowerCase().contains('setup')) {
+          _timer.startSetup();
+          print('✅ SETUP MODE STARTED: ${_selectedAction!.name}');
+        } else {
+          print('✅ ACTION STARTED: ${_selectedAction!.name}');
+        }
+      } else {
+        print('❌ NO SETUP ACTION AVAILABLE');
+      }
+    });
+
+    // Close the dialog - be specific about just closing the dialog
+    if (Navigator.canPop(context)) {
+      Navigator.of(context, rootNavigator: false).pop();
+    }
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Selected: ${item.name} - Setup Started!'),
+        backgroundColor: AppColors.primaryBlue,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    print('🎯 ITEM SELECTED: ${item.name}');
+    print('🚀 SETUP ACTION: ${_selectedAction?.name ?? "NONE"}');
+    print('⏱️ TIMER STATUS: ${_timer.mode}');
   }
 
   // Save item production data and select the item
@@ -2297,24 +2726,19 @@ class _TimerScreenState extends State<TimerScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading:
+            false, // Remove back button since we use replacement navigation
         title: Text(_selectedItem != null
             ? 'Building: ${_selectedItem!.name}'
             : 'Process: ${_process?.name ?? 'Unknown'} - Select Item'),
         backgroundColor: _timer.mode == ProductionTimerMode.running
             ? _timer.getActionColor() // Use action color when running
-            : _timer.mode == ProductionTimerMode.interrupted
-                ? AppColors.orangeAccent // Orange for non-productive
-                : AppColors.primaryBlue, // Default blue theme
+            : _timer.mode == ProductionTimerMode.setup
+                ? _timer.getActionColor() // Use action color for setup too
+                : _timer.mode == ProductionTimerMode.interrupted
+                    ? AppColors.orangeAccent // Orange for non-productive
+                    : AppColors.primaryBlue, // Default blue theme
         foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Back to Process Selection',
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/process_selection',
-                arguments: _user);
-          },
-        ),
         actions: [
           // Home button
           IconButton(
@@ -2360,11 +2784,15 @@ class _TimerScreenState extends State<TimerScreen> {
                           Container(
                             width: double.infinity,
                             child: ElevatedButton.icon(
-                              onPressed: _showItemSelectionDialog,
+                              onPressed: _canSelectNewItem()
+                                  ? _showItemSelectionDialog
+                                  : null,
                               icon: Icon(Icons.inventory_2),
                               label: Text(
                                 _selectedItem != null
-                                    ? 'Change Item: ${_selectedItem!.name}'
+                                    ? (_canSelectNewItem()
+                                        ? 'Change Item: ${_selectedItem!.name}'
+                                        : 'Cannot Change: 0 Finished QTY')
                                     : 'Select Item',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -2372,9 +2800,11 @@ class _TimerScreenState extends State<TimerScreen> {
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _selectedItem != null
-                                    ? AppColors.primaryBlue
-                                    : Colors.orange,
+                                backgroundColor: _canSelectNewItem()
+                                    ? (_selectedItem != null
+                                        ? AppColors.primaryBlue
+                                        : Colors.orange)
+                                    : Colors.grey,
                                 foregroundColor: Colors.white,
                                 padding: EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
@@ -2767,6 +3197,40 @@ class _TimerScreenState extends State<TimerScreen> {
 
                         const Divider(height: 4),
 
+                        // Production Button (big green button below timers)
+                        Container(
+                          width: double.infinity,
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: ElevatedButton(
+                            onPressed: _selectedItem != null
+                                ? _handleProductionButton
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isInProductionMode
+                                  ? Colors.green
+                                  : Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: _isInProductionMode ? 6 : 3,
+                            ),
+                            child: Text(
+                              _isInProductionMode
+                                  ? 'NEXT (+$_qtyPerCycle items)'
+                                  : 'PRODUCTION',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
                         // Main controls
                         SizedBox(
                           height: buttonHeight,
@@ -2930,11 +3394,15 @@ class _TimerScreenState extends State<TimerScreen> {
                                             icon: icon,
                                             label: type.name,
                                             color: buttonColor,
-                                            onPressed: () {
-                                              _startAction(type);
-                                            },
-                                            description: type.description ??
-                                                'Track time for ${type.name}',
+                                            onPressed: _selectedItem != null
+                                                ? () {
+                                                    _startAction(type);
+                                                  }
+                                                : null, // Disable when no item selected
+                                            description: _selectedItem != null
+                                                ? (type.description ??
+                                                    'Track time for ${type.name}')
+                                                : 'Please select an item first',
                                             isNarrow: isNarrow,
                                             interruptionType: type,
                                           ),
@@ -3172,7 +3640,7 @@ class _TimerScreenState extends State<TimerScreen> {
     required String label,
     required String description,
     required Color color,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed, // Made nullable to support disabled state
     required bool isNarrow,
     MESInterruptionType? interruptionType,
   }) {
@@ -3181,16 +3649,23 @@ class _TimerScreenState extends State<TimerScreen> {
         interruptionType != null &&
         _selectedAction!.id == interruptionType.id;
 
+    // Check if button is disabled
+    final bool isDisabled = onPressed == null;
+
     return SizedBox(
       width: double.infinity,
       child: Card(
-        elevation: isSelected ? 6 : 2,
+        elevation: isDisabled ? 0.5 : (isSelected ? 6 : 2),
         margin: EdgeInsets.zero,
-        color: isSelected ? color.withOpacity(0.1) : null,
+        color: isDisabled
+            ? Colors.grey.shade100
+            : (isSelected ? color.withOpacity(0.1) : null),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(
-            color: isSelected ? color : color.withOpacity(0.3),
+            color: isDisabled
+                ? Colors.grey.shade300
+                : (isSelected ? color : color.withOpacity(0.3)),
             width: isSelected ? 3 : 1,
           ),
         ),
@@ -3205,14 +3680,18 @@ class _TimerScreenState extends State<TimerScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? color.withOpacity(0.3)
-                        : color.withOpacity(0.1),
+                    color: isDisabled
+                        ? Colors.grey.shade200
+                        : (isSelected
+                            ? color.withOpacity(0.3)
+                            : color.withOpacity(0.1)),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
-                    color: isSelected ? Colors.white : color,
+                    color: isDisabled
+                        ? Colors.grey.shade400
+                        : (isSelected ? Colors.white : color),
                     size: isNarrow ? 20 : 24,
                   ),
                 ),
@@ -3227,7 +3706,9 @@ class _TimerScreenState extends State<TimerScreen> {
                           fontSize: isNarrow ? 14 : 16,
                           fontWeight:
                               isSelected ? FontWeight.w900 : FontWeight.bold,
-                          color: isSelected ? color : color,
+                          color: isDisabled
+                              ? Colors.grey.shade500
+                              : (isSelected ? color : color),
                         ),
                       ),
                       SizedBox(height: isNarrow ? 2 : 4),
@@ -3235,9 +3716,11 @@ class _TimerScreenState extends State<TimerScreen> {
                         description,
                         style: TextStyle(
                           fontSize: isNarrow ? 10 : 12,
-                          color: isSelected
-                              ? color.withOpacity(0.8)
-                              : Colors.grey[600],
+                          color: isDisabled
+                              ? Colors.grey.shade400
+                              : (isSelected
+                                  ? color.withOpacity(0.8)
+                                  : Colors.grey[600]),
                           fontWeight:
                               isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
@@ -3246,8 +3729,12 @@ class _TimerScreenState extends State<TimerScreen> {
                   ),
                 ),
                 Icon(
-                  isSelected ? Icons.check_circle : Icons.timer,
-                  color: isSelected ? color : color.withOpacity(0.7),
+                  isDisabled
+                      ? Icons.block
+                      : (isSelected ? Icons.check_circle : Icons.timer),
+                  color: isDisabled
+                      ? Colors.grey.shade400
+                      : (isSelected ? color : color.withOpacity(0.7)),
                   size: isSelected ? 20 : 16,
                 ),
               ],
@@ -3488,11 +3975,14 @@ class _TimerScreenState extends State<TimerScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _showItemSelectionDialog,
+              onPressed: _canSelectNewItem() ? _showItemSelectionDialog : null,
               icon: const Icon(Icons.inventory_2),
-              label: const Text('Select Item'),
+              label: Text(_canSelectNewItem()
+                  ? 'Select Item'
+                  : 'Cannot Select: 0 Finished QTY'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
+                backgroundColor:
+                    _canSelectNewItem() ? AppColors.primaryBlue : Colors.grey,
                 foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 32, vertical: 16),

@@ -397,8 +397,11 @@ class _ProcessSelectionScreenState extends State<ProcessSelectionScreen> {
     });
 
     try {
+      print(
+          '🔄 PROCESS SELECTION: Navigating to timer screen with process: ${process.name}');
+
       // Navigate directly to timer with the selected process and user
-      Navigator.pushNamed(
+      await Navigator.pushReplacementNamed(
         context,
         '/timer',
         arguments: {
@@ -406,11 +409,25 @@ class _ProcessSelectionScreenState extends State<ProcessSelectionScreen> {
           'process': process,
         },
       );
+
+      print('✅ PROCESS SELECTION: Successfully navigated to timer screen');
     } catch (e) {
+      print('❌ PROCESS SELECTION: Navigation error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error navigating: $e')),
+          SnackBar(
+            content: Text('Error navigating to timer: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } finally {
+      // Always reset loading state when navigation completes or fails
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
