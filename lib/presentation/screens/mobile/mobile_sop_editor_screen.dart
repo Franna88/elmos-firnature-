@@ -1872,14 +1872,20 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (_currentSection > 0) {
-              // Navigate to previous section
-              setState(() {
-                _currentSection--;
-              });
+            if (widget.sopId == 'new') {
+              // For new SOPs, navigate through sections or exit to SOPs screen
+              if (_currentSection > 0) {
+                // Navigate to previous section
+                setState(() {
+                  _currentSection--;
+                });
+              } else {
+                // Exit to SOPs screen
+                context.go('/mobile/sops');
+              }
             } else {
-              // Exit to SOPs screen
-              context.go('/mobile/sops');
+              // For existing SOPs, return to the SOP viewer
+              context.go('/mobile/sop/${widget.sopId}');
             }
           },
         ),
@@ -1895,36 +1901,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       ),
       body: Column(
         children: [
-          // Progress indicator
-          LinearProgressIndicator(
-            value: (_currentSection + 1) / _sectionTitles.length,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlue),
-          ),
-
-          // Section title
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'SOP Build Step ${_currentSection + 1}/${_sectionTitles.length}: ',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                Text(
-                  _sectionTitles[_currentSection],
-                  style: const TextStyle(
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
           // Current section content
           Expanded(
             child: _buildCurrentSectionContent(),
@@ -1936,7 +1912,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (_currentSection > 0)
+                if (widget.sopId == 'new' && _currentSection > 0)
                   ElevatedButton.icon(
                     onPressed: () {
                       setState(() {
@@ -1952,64 +1928,107 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 else
                   const SizedBox(width: 100), // Placeholder for spacing
 
-                _currentSection < _sectionTitles.length - 1
-                    ? ElevatedButton.icon(
-                        onPressed: () {
-                          // Validate current section before proceeding
-                          if (_validateCurrentSection()) {
-                            // Update SOP locally before moving to next section
-                            _updateSOPLocally().then((_) {
-                              setState(() {
-                                _currentSection++;
+                // For new SOPs, show Next/Save navigation
+                if (widget.sopId == 'new')
+                  _currentSection < _sectionTitles.length - 1
+                      ? ElevatedButton.icon(
+                          onPressed: () {
+                            // Validate current section before proceeding
+                            if (_validateCurrentSection()) {
+                              // Update SOP locally before moving to next section
+                              _updateSOPLocally().then((_) {
+                                setState(() {
+                                  _currentSection++;
+                                });
                               });
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.arrow_forward),
-                        label: const Text('Next'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                        ),
-                      )
-                    : ElevatedButton.icon(
-                        onPressed: _isLoading
-                            ? null
-                            : () {
-                                // Validate current section before saving
-                                if (_validateCurrentSection()) {
-                                  // Save to Firebase only on the final submission
-                                  _saveSOP().then((_) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content:
-                                            Text('SOP saved successfully!'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                    context.go('/mobile/sops');
-                                  });
-                                }
-                              },
-                        icon: _isLoading
-                            ? SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white)),
-                              )
-                            : const Icon(Icons.save),
-                        label: _isLoading
-                            ? const Text('Saving...')
-                            : const Text('Save SOP'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.green[200],
-                        ),
-                      ),
+                            }
+                          },
+                          icon: const Icon(Icons.arrow_forward),
+                          label: const Text('Next'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                        )
+                      : ElevatedButton.icon(
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  // Validate current section before saving
+                                  if (_validateCurrentSection()) {
+                                    // Save to Firebase only on the final submission
+                                    _saveSOP().then((_) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content:
+                                              Text('SOP saved successfully!'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      context.go('/mobile/sops');
+                                    });
+                                  }
+                                },
+                          icon: _isLoading
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white)),
+                                )
+                              : const Icon(Icons.save),
+                          label: _isLoading
+                              ? const Text('Saving...')
+                              : const Text('Save SOP'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.green[200],
+                          ),
+                        )
+                // For existing SOPs, always show Save button
+                else
+                  ElevatedButton.icon(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            // Validate current section before saving
+                            if (_validateCurrentSection()) {
+                              // Save to Firebase
+                              _saveSOP().then((_) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('SOP updated successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                                // Return to SOP viewer for existing SOPs
+                                context.go('/mobile/sop/${widget.sopId}');
+                              });
+                            }
+                          },
+                    icon: _isLoading
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white)),
+                          )
+                        : const Icon(Icons.save),
+                    label: _isLoading
+                        ? const Text('Saving...')
+                        : const Text('Save Changes'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.green[200],
+                    ),
+                  ),
               ],
             ),
           ),
