@@ -107,14 +107,21 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     _stepEstimatedSecondsController = TextEditingController(text: '0');
 
     _loadSOP().then((_) {
-      // If initialStepIndex is provided and valid, open the step editor for that step
+      // If initialStepIndex is provided and valid, navigate to the Steps section and set the correct tab
       if (widget.initialStepIndex != null &&
           widget.initialStepIndex! >= 0 &&
           _sop.steps.isNotEmpty &&
           widget.initialStepIndex! < _sop.steps.length) {
-        // Schedule the step editor to open after the build is complete
+        // Schedule the navigation after the build is complete
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _editStep(widget.initialStepIndex!);
+          // Navigate to the Steps section (last section in the list)
+          setState(() {
+            _currentSection =
+                _sectionTitles.length - 1; // Steps is always the last section
+            // Ensure the selected step tab is within bounds
+            _selectedStepTab =
+                widget.initialStepIndex!.clamp(0, _sop.steps.length - 1);
+          });
         });
       }
     });
@@ -1529,7 +1536,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: _selectedStepTab == index
-                                      ? Colors.red[700]
+                                      ? AppColors.primaryBlue
                                       : Colors.grey[200],
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -1541,7 +1548,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                                       decoration: BoxDecoration(
                                         color: _selectedStepTab == index
                                             ? Colors.white.withOpacity(0.3)
-                                            : Colors.red[700],
+                                            : AppColors.primaryBlue,
                                         shape: BoxShape.circle,
                                       ),
                                       child: Center(
@@ -1582,7 +1589,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
                       // Currently selected step details
                       Expanded(
-                        child: _sop.steps.isNotEmpty
+                        child: _sop.steps.isNotEmpty &&
+                                _selectedStepTab < _sop.steps.length
                             ? _buildStepCard(
                                 _sop.steps[_selectedStepTab], _selectedStepTab)
                             : Container(),
@@ -1598,6 +1606,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   // Build a card to display step details in the tabbed view
   Widget _buildStepCard(SOPStep step, int index) {
     return Card(
+      key: ValueKey(
+          'step_card_$index'), // Add unique key to force rebuild when step changes
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1659,7 +1669,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                     // Step image
                     if (step.imageUrl != null && step.imageUrl!.isNotEmpty)
                       Container(
-                        height: 150,
+                        height: 400,
                         width: double.infinity,
                         margin: const EdgeInsets.only(bottom: 16),
                         child: ClipRRect(
@@ -1889,7 +1899,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           LinearProgressIndicator(
             value: (_currentSection + 1) / _sectionTitles.length,
             backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.red[700]!),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlue),
           ),
 
           // Section title
@@ -2200,7 +2210,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               const SizedBox(height: 8),
               if (imageUrl.isNotEmpty)
                 Container(
-                  height: 200,
+                  height: 250,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey),
@@ -2329,7 +2339,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     if (imageUrl == null) {
       return Container(
         width: double.infinity,
-        height: 200,
+        height: 400,
         decoration: BoxDecoration(
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(8),
@@ -2348,11 +2358,17 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       );
     }
 
-    return CrossPlatformImage(
-      imageUrl: imageUrl,
-      width: double.infinity,
-      height: 200,
-      fit: BoxFit.contain,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return CrossPlatformImage(
+          key: ValueKey(
+              imageUrl), // Add unique key to force rebuild when image changes
+          imageUrl: imageUrl,
+          width: constraints.maxWidth,
+          height: 400,
+          fit: BoxFit.contain,
+        );
+      },
     );
   }
 
@@ -2362,7 +2378,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       onTap: () => _uploadSOPThumbnail(),
       child: Container(
         width: double.infinity,
-        height: 200,
+        height: 250,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(8),
@@ -2370,11 +2386,15 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         child: _thumbnailUrl != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(7),
-                child: CrossPlatformImage(
-                  imageUrl: _thumbnailUrl!,
-                  width: double.infinity,
-                  height: 200,
-                  fit: BoxFit.cover,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return CrossPlatformImage(
+                      imageUrl: _thumbnailUrl!,
+                      width: constraints.maxWidth,
+                      height: 250,
+                      fit: BoxFit.cover,
+                    );
+                  },
                 ),
               )
             : Column(
@@ -2405,11 +2425,15 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       child: imageUrl != null
           ? ClipRRect(
               borderRadius: BorderRadius.circular(7),
-              child: CrossPlatformImage(
-                imageUrl: imageUrl,
-                width: double.infinity,
-                height: 200,
-                fit: BoxFit.contain,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return CrossPlatformImage(
+                    imageUrl: imageUrl,
+                    width: constraints.maxWidth,
+                    height: 250,
+                    fit: BoxFit.contain,
+                  );
+                },
               ),
             )
           : Column(

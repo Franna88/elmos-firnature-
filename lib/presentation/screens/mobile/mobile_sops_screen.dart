@@ -75,7 +75,10 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
       _selectedCategory = widget.extraParams!['category'] as String;
     }
 
-    _loadData();
+    // Use addPostFrameCallback to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   @override
@@ -721,190 +724,187 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     // Adjust image height based on device type
     final double imageHeight = isTablet ? 250.0 : 200.0;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () async {
-          // Show a loading indicator
-          final sopService = Provider.of<SOPService>(context, listen: false);
+    return InkWell(
+      onTap: () async {
+        // Show a loading indicator
+        final sopService = Provider.of<SOPService>(context, listen: false);
 
-          // Show loading dialog
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return Dialog(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(width: 20),
-                      Text('Loading images...'),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-
-          // Preload all images for this SOP before navigating
-          await sopService.forcePreloadSOP(sop.id);
-
-          // Close the dialog after preloading is complete
-          if (context.mounted) {
-            Navigator.of(context).pop();
-
-            // Now navigate to the SOP viewer
-            context.go('/mobile/sop/${sop.id}');
-          }
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Category header at the top
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: categoryColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                ),
+        // Show loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Dialog(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Text(
-                        sop.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Rev ${sop.revisionNumber}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
+                    const CircularProgressIndicator(),
+                    const SizedBox(width: 20),
+                    Text('Loading images...'),
                   ],
                 ),
               ),
+            );
+          },
+        );
 
-              // Image section
-              SizedBox(
-                height: imageHeight,
-                width: double.infinity,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return imageUrl != null
-                        ? CrossPlatformImage(
-                            key: ValueKey(imageUrl),
-                            imageUrl: imageUrl,
-                            width: constraints.maxWidth,
-                            height: constraints.maxHeight,
-                            fit: BoxFit.cover,
-                            errorWidget: _buildImageError(),
-                          )
-                        : _buildImageError();
-                  },
+        // Preload all images for this SOP before navigating
+        await sopService.forcePreloadSOP(sop.id);
+
+        // Close the dialog after preloading is complete
+        if (context.mounted) {
+          Navigator.of(context).pop();
+
+          // Now navigate to the SOP viewer
+          context.go('/mobile/sop/${sop.id}');
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Category header at the top
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: categoryColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
                 ),
               ),
-
-              // Content section
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      "Category | : ${sop.categoryName ?? "Unknown"}",
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      sop.title,
                       style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF4A5363),
+                        fontSize: 14,
                       ),
-                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-
-                    // Description (if available)
-                    if (sop.description.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        sop.description,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMedium,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Rev ${sop.revisionNumber}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
-                    ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                    const SizedBox(height: 8),
+            // Image section
+            SizedBox(
+              height: imageHeight,
+              width: double.infinity,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return imageUrl != null
+                      ? CrossPlatformImage(
+                          key: ValueKey(imageUrl),
+                          imageUrl: imageUrl,
+                          width: constraints.maxWidth,
+                          height: constraints.maxHeight,
+                          fit: BoxFit.cover,
+                          errorWidget: _buildImageError(),
+                        )
+                      : _buildImageError();
+                },
+              ),
+            ),
 
-                    // Stats in a row
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.format_list_numbered,
-                          size: 14,
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${sop.steps.length} steps',
-                          style: const TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 14,
-                          color: AppColors.textLight,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDate(sop.updatedAt),
-                          style: const TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+            // Content section
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    "Category | : ${sop.categoryName ?? "Unknown"}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Color(0xFF4A5363),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // Description (if available)
+                  if (sop.description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      sop.description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMedium,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
+
+                  const SizedBox(height: 8),
+
+                  // Stats in a row
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.format_list_numbered,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${sop.steps.length} steps',
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 14,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(sop.updatedAt),
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
