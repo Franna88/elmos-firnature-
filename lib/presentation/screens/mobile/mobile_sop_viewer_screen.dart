@@ -434,474 +434,461 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
         // Use different layouts based on orientation
         if (isLandscape) {
           // LANDSCAPE: Side-by-side layout but with cleaner image display
-          return Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Image section (left side) - Use CrossPlatformImage as in desktop
-                Expanded(
-                  flex: 8,
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image section (left side) - Optimized container width
+              Expanded(
+                flex: 8,
+                child: Center(
+                  child: Container(
+                    height: imageHeight,
+                    margin:
+                        const EdgeInsets.all(5), // 5px padding around container
+                    constraints: BoxConstraints(
+                      maxWidth: double.infinity,
+                      maxHeight: imageHeight,
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    elevation: 2,
-                    child: Container(
-                      height: imageHeight,
-                      width: imageWidth,
-                      child: step.imageUrl != null
-                          ? CrossPlatformImage(
-                              imageUrl: step.imageUrl!,
-                              fit: BoxFit.contain,
-                              height: imageHeight,
-                              errorWidget: Container(
-                                color: Colors.grey[100],
-                                child: Center(
-                                  child: Icon(
-                                    Icons.broken_image,
-                                    size: 40,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Container(
+                    child: step.imageUrl != null
+                        ? CrossPlatformImage(
+                            imageUrl: step.imageUrl!,
+                            fit: BoxFit
+                                .contain, // Maintain aspect ratio without cropping
+                            errorWidget: Container(
                               color: Colors.grey[100],
                               child: Center(
                                 child: Icon(
-                                  Icons.image_not_supported,
+                                  Icons.broken_image,
                                   size: 40,
                                   color: Colors.grey,
                                 ),
                               ),
                             ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 12.0),
-
-                // Instructions section (right side) - Reduced flex to 2 (from 4)
-                Expanded(
-                  flex: 2,
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Step number indicator
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryBlue,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Text(
-                                'Step ${index + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
+                          )
+                        : Container(
+                            color: Colors.grey[100],
+                            child: Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                size: 40,
+                                color: Colors.grey,
                               ),
                             ),
+                          ),
+                  ),
+                ),
+              ),
 
-                            const SizedBox(height: 12),
+              const SizedBox(width: 12.0),
 
-                            // Title
-                            Text(
-                              step.title,
+              // Instructions section (right side) - Reduced flex to 2 (from 4)
+              Expanded(
+                flex: 2,
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Step number indicator
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlue,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              'Step ${index + 1}',
                               style: const TextStyle(
-                                fontSize: 18.0,
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                fontSize: 12,
                               ),
                             ),
+                          ),
 
-                            const SizedBox(height: 8),
-                            const Divider(),
-                            const SizedBox(height: 8),
+                          const SizedBox(height: 12),
 
-                            // Main instruction
-                            Text(
-                              step.instruction,
-                              style: const TextStyle(
-                                fontSize: 15.0,
-                                height: 1.4,
-                                color: Colors.black87,
-                              ),
+                          // Title
+                          Text(
+                            step.title,
+                            style: const TextStyle(
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
                             ),
+                          ),
 
-                            // Help note if available
-                            if (step.helpNote != null &&
-                                step.helpNote!.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border:
-                                      Border.all(color: Colors.amber.shade200),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.lightbulb,
-                                            color: Colors.amber[700], size: 14),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          "Helpful Tip",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      step.helpNote!,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.amber[900],
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          const SizedBox(height: 8),
+                          const Divider(),
+                          const SizedBox(height: 8),
 
-                            // Tools if available
-                            if (step.stepTools.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border:
-                                      Border.all(color: Colors.blue.shade200),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.build,
-                                            color: Colors.blue[700], size: 14),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          "Required Tools",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: step.stepTools.map((tool) {
-                                        return Chip(
-                                          label: Text(tool),
-                                          backgroundColor: Colors.white,
-                                          side: BorderSide(
-                                              color: Colors.blue.shade300),
-                                          labelStyle: TextStyle(
-                                            color: Colors.blue[800],
-                                            fontSize: 11,
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                          labelPadding:
-                                              const EdgeInsets.symmetric(
-                                                  horizontal: 6, vertical: 0),
-                                          visualDensity: VisualDensity.compact,
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-
-                            // Complete button
-                            if (isLastStep) ...[
-                              const SizedBox(height: 24),
-                              Center(
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    context.go('/mobile/sops');
-                                  },
-                                  icon:
-                                      const Icon(Icons.check_circle, size: 18),
-                                  label: const Text('COMPLETE SOP'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(160, 40),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    elevation: 4,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 8, horizontal: 16),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        } else {
-          // PORTRAIT: Side-by-side layout (original implementation)
-          return Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Image section (left side) - Use CrossPlatformImage as in desktop
-                Expanded(
-                  flex: 6,
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    elevation: 2,
-                    child: Container(
-                      height: 400,
-                      width: 450,
-                      child: step.imageUrl != null
-                          ? Center(
-                              child: CrossPlatformImage(
-                                imageUrl: step.imageUrl!,
-                                fit: BoxFit.cover,
-                                width: 450,
-                                height: 400,
-                                errorWidget: Container(
-                                  color: Colors.grey[100],
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.broken_image,
-                                      size: 40,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              color: Colors.grey[100],
-                              child: Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  size: 40,
-                                  color: Colors.grey,
-                                ),
-                              ),
+                          // Main instruction
+                          Text(
+                            step.instruction,
+                            style: const TextStyle(
+                              fontSize: 15.0,
+                              height: 1.4,
+                              color: Colors.black87,
                             ),
-                    ),
-                  ),
-                ),
+                          ),
 
-                const SizedBox(width: 24.0),
-
-                // Instructions section (right side)
-                Expanded(
-                  flex: 4,
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Title with step number
+                          // Help note if available
+                          if (step.helpNote != null &&
+                              step.helpNote!.isNotEmpty) ...[
+                            const SizedBox(height: 16),
                             Container(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.grey.shade200,
-                                    width: 1,
-                                  ),
-                                ),
+                                color: Colors.amber[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: Colors.amber.shade200),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.lightbulb,
+                                          color: Colors.amber[700], size: 14),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Helpful Tip",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
                                   Text(
-                                    step.title,
-                                    style: const TextStyle(
-                                      fontSize: 24.0,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
+                                    step.helpNote!,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.amber[900],
+                                      height: 1.3,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                          ],
 
-                            // Main instruction
-                            Text(
-                              step.instruction,
-                              style: const TextStyle(
-                                fontSize: 18.0,
-                                height: 1.5,
-                                color: Colors.black87,
+                          // Tools if available
+                          if (step.stepTools.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.build,
+                                          color: Colors.blue[700], size: 14),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Required Tools",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: step.stepTools.map((tool) {
+                                      return Chip(
+                                        label: Text(tool),
+                                        backgroundColor: Colors.white,
+                                        side: BorderSide(
+                                            color: Colors.blue.shade300),
+                                        labelStyle: TextStyle(
+                                          color: Colors.blue[800],
+                                          fontSize: 11,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        labelPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 0),
+                                        visualDensity: VisualDensity.compact,
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ),
                             ),
+                          ],
 
-                            // Help note if available
-                            if (step.helpNote != null &&
-                                step.helpNote!.isNotEmpty) ...[
-                              const SizedBox(height: 24),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border:
-                                      Border.all(color: Colors.amber.shade200),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.lightbulb,
-                                            color: Colors.amber[700]),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          "Helpful Tip",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      step.helpNote!,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.amber[900],
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-
-                            // Tools if available
-                            if (step.stepTools.isNotEmpty) ...[
-                              const SizedBox(height: 24),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border:
-                                      Border.all(color: Colors.blue.shade200),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.build,
-                                            color: Colors.blue[700]),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          "Required Tools",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: step.stepTools.map((tool) {
-                                        return Chip(
-                                          label: Text(tool),
-                                          backgroundColor: Colors.white,
-                                          side: BorderSide(
-                                              color: Colors.blue.shade300),
-                                          labelStyle: TextStyle(
-                                            color: Colors.blue[800],
-                                            fontSize: 14,
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-
-                            // Complete button (tablet only shows this on the instruction card)
-                            if (isLastStep) ...[
-                              const SizedBox(height: 40),
-                              ElevatedButton.icon(
+                          // Complete button
+                          if (isLastStep) ...[
+                            const SizedBox(height: 24),
+                            Center(
+                              child: ElevatedButton.icon(
                                 onPressed: () {
                                   context.go('/mobile/sops');
                                 },
-                                icon: const Icon(Icons.check_circle),
+                                icon: const Icon(Icons.check_circle, size: 18),
                                 label: const Text('COMPLETE SOP'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green,
                                   foregroundColor: Colors.white,
-                                  minimumSize: const Size(double.infinity, 56),
+                                  minimumSize: const Size(160, 40),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   elevation: 4,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 16),
                                 ),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          );
+        } else {
+          // PORTRAIT: Side-by-side layout (original implementation)
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image section (left side) - Optimized container width
+              Expanded(
+                flex: 6,
+                child: Center(
+                  child: Container(
+                    height: 400,
+                    margin:
+                        const EdgeInsets.all(5), // 5px padding around container
+                    constraints: BoxConstraints(
+                      maxWidth: double.infinity,
+                      maxHeight: 400,
+                    ),
+                    child: step.imageUrl != null
+                        ? CrossPlatformImage(
+                            imageUrl: step.imageUrl!,
+                            fit: BoxFit
+                                .contain, // Maintain aspect ratio without cropping
+                            errorWidget: Container(
+                              color: Colors.grey[100],
+                              child: Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  size: 40,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey[100],
+                            child: Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 24.0),
+
+              // Instructions section (right side)
+              Expanded(
+                flex: 4,
+                child: Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title with step number
+                          Container(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Colors.grey.shade200,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  step.title,
+                                  style: const TextStyle(
+                                    fontSize: 24.0,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Main instruction
+                          Text(
+                            step.instruction,
+                            style: const TextStyle(
+                              fontSize: 18.0,
+                              height: 1.5,
+                              color: Colors.black87,
+                            ),
+                          ),
+
+                          // Help note if available
+                          if (step.helpNote != null &&
+                              step.helpNote!.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.amber[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: Colors.amber.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.lightbulb,
+                                          color: Colors.amber[700]),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Helpful Tip",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    step.helpNote!,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.amber[900],
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // Tools if available
+                          if (step.stepTools.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.build,
+                                          color: Colors.blue[700]),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Required Tools",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: step.stepTools.map((tool) {
+                                      return Chip(
+                                        label: Text(tool),
+                                        backgroundColor: Colors.white,
+                                        side: BorderSide(
+                                            color: Colors.blue.shade300),
+                                        labelStyle: TextStyle(
+                                          color: Colors.blue[800],
+                                          fontSize: 14,
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // Complete button (tablet only shows this on the instruction card)
+                          if (isLastStep) ...[
+                            const SizedBox(height: 40),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                context.go('/mobile/sops');
+                              },
+                              icon: const Icon(Icons.check_circle),
+                              label: const Text('COMPLETE SOP'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 56),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 4,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         }
       },

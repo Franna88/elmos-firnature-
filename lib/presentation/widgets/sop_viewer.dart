@@ -815,27 +815,14 @@ class _SOPViewerState extends State<SOPViewer> {
             Stack(
               key: ValueKey('step-image-stack-$index'),
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Center(
-                    child: FractionallySizedBox(
-                      widthFactor: 0.95,
-                      child: Container(
-                        height: 500,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                        ),
-                        child: CrossPlatformImage(
-                          key: ValueKey('step-image-${step.imageUrl}'),
-                          imageUrl: step.imageUrl!,
-                          width: 650,
-                          height: 500,
-                          fit: BoxFit.contain,
-                          errorWidget: _buildImageError(),
-                        ),
-                      ),
-                    ),
+                Container(
+                  height: 500,
+                  width: double.infinity,
+                  child: CrossPlatformImage(
+                    key: ValueKey('step-image-${step.imageUrl}'),
+                    imageUrl: step.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorWidget: _buildImageError(),
                   ),
                 ),
                 // Fullscreen button overlay
