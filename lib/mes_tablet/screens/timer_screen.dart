@@ -35,8 +35,8 @@ class _TimerScreenState extends State<TimerScreen> {
   List<FurnitureItem> _availableItems = []; // Items available for selection
 
   // Production data fields
-  int _expectedQty = 1;
-  int _qtyPerCycle = 1;
+  int _expectedQty = 0;
+  int _qtyPerCycle = 0;
   int _finishedQty = 0;
   int _rejectQty = 0;
 
@@ -297,11 +297,12 @@ class _TimerScreenState extends State<TimerScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
           child: Container(
-            width:
-                MediaQuery.of(context).size.width * 0.85, // Much larger width
-            height:
-                MediaQuery.of(context).size.height * 0.9, // Almost full height
-            padding: const EdgeInsets.all(32), // More padding
+            width: MediaQuery.of(context).size.width * 0.85,
+            height: MediaQuery.of(context).size.height * 0.85,
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(context).size.width * 0.02,
+              vertical: MediaQuery.of(context).size.height * 0.015,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -309,36 +310,47 @@ class _TimerScreenState extends State<TimerScreen> {
                 Row(
                   children: [
                     Icon(Icons.settings,
-                        color: AppColors.primaryBlue, size: 36), // Larger icon
-                    const SizedBox(width: 16), // More spacing
-                    Text(
-                      'Item Production Setup',
-                      style: TextStyle(
-                        // Direct style for larger text
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
                         color: AppColors.primaryBlue,
+                        size: MediaQuery.of(context).size.height *
+                            0.035), // Responsive icon
+                    SizedBox(
+                        width: MediaQuery.of(context).size.width *
+                            0.012), // Responsive spacing
+                    Flexible(
+                      child: Text(
+                        'Item Production Setup',
+                        style: TextStyle(
+                          fontSize: MediaQuery.of(context).size.height *
+                              0.028, // Responsive text
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryBlue,
+                        ),
                       ),
                     ),
-                    const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.close,
-                          size: 32), // Larger close button
+                      icon: Icon(Icons.close,
+                          size: MediaQuery.of(context).size.height *
+                              0.03), // Responsive close
                       onPressed: () => Navigator.of(context).pop(),
-                      iconSize: 48, // Make the button itself larger
+                      padding: EdgeInsets.all(4),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16), // More spacing
+                SizedBox(
+                    height: MediaQuery.of(context).size.height *
+                        0.012), // Responsive spacing
                 Text(
                   'Process: ${_process?.name ?? 'Unknown'}',
                   style: TextStyle(
-                    fontSize: 20, // Much larger process text
+                    fontSize: MediaQuery.of(context).size.height *
+                        0.022, // Responsive font size
                     color: Colors.grey.shade600,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 32), // More spacing
+                SizedBox(
+                    height: MediaQuery.of(context).size.height *
+                        0.015), // Responsive spacing
 
                 // Form content
                 Expanded(
@@ -351,22 +363,21 @@ class _TimerScreenState extends State<TimerScreen> {
                           label: 'Selected Item',
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 20), // Much larger padding
+                            padding: EdgeInsets.symmetric(
+                                horizontal:
+                                    MediaQuery.of(context).size.width * 0.02,
+                                vertical: MediaQuery.of(context).size.height *
+                                    0.015), // Responsive padding
                             decoration: BoxDecoration(
                               border: Border.all(
-                                  color: Colors.grey.shade300,
-                                  width: 2), // Thicker border
-                              borderRadius:
-                                  BorderRadius.circular(12), // Larger radius
+                                  color: Colors.grey.shade300, width: 1.5),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<FurnitureItem>(
                                 value: selectedItem,
                                 hint: Text('Select an item to build',
-                                    style: TextStyle(
-                                        fontSize: 20)), // Larger hint text
+                                    style: TextStyle(fontSize: 16)),
                                 isExpanded: true,
                                 items: _availableItems.isEmpty
                                     ? [
@@ -376,7 +387,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                             'No items available for this process',
                                             style: TextStyle(
                                                 color: Colors.grey.shade600,
-                                                fontSize: 18), // Larger text
+                                                fontSize: 14),
                                           ),
                                         )
                                       ]
@@ -386,10 +397,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                           child: Row(
                                             children: [
                                               Icon(Icons.inventory_2,
-                                                  size: 24, // Larger icon
+                                                  size: 20,
                                                   color: AppColors.primaryBlue),
-                                              const SizedBox(
-                                                  width: 16), // More spacing
+                                              const SizedBox(width: 12),
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
@@ -402,14 +412,12 @@ class _TimerScreenState extends State<TimerScreen> {
                                                       style: TextStyle(
                                                           fontWeight:
                                                               FontWeight.w500,
-                                                          fontSize:
-                                                              20), // Larger item name
+                                                          fontSize: 16),
                                                     ),
                                                     Text(
                                                       '${item.estimatedTimeInMinutes} min est.',
                                                       style: TextStyle(
-                                                        fontSize:
-                                                            16, // Larger estimate text
+                                                        fontSize: 12,
                                                         color: Colors
                                                             .grey.shade600,
                                                       ),
@@ -431,35 +439,32 @@ class _TimerScreenState extends State<TimerScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
 
-                        // 2. Select Part Dropdown (Coming Soon)
-                        _buildFormField(
+                        // 2. Select Part Dropdown (Coming Soon) - More compact
+                        _buildCompactFormField(
                           label: 'Select Part',
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 24), // Much larger
+                                horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                  color: Colors.grey.shade300,
-                                  width: 2), // Thicker border
-                              borderRadius:
-                                  BorderRadius.circular(12), // Larger radius
+                                  color: Colors.grey.shade300, width: 1.5),
+                              borderRadius: BorderRadius.circular(8),
                               color: Colors.grey.shade50,
                             ),
                             child: Row(
                               children: [
                                 Icon(Icons.construction,
-                                    size: 28,
-                                    color: Colors.grey.shade400), // Larger icon
-                                const SizedBox(width: 16), // More spacing
+                                    size: 20, color: Colors.grey.shade400),
+                                const SizedBox(width: 12),
                                 Text(
                                   'Coming Soon',
                                   style: TextStyle(
                                     color: Colors.grey.shade600,
                                     fontStyle: FontStyle.italic,
-                                    fontSize: 20, // Larger text
+                                    fontSize: 16,
                                   ),
                                 ),
                               ],
@@ -467,181 +472,60 @@ class _TimerScreenState extends State<TimerScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.02),
 
-                        // Quantity fields in a 2x2 grid
+                        // Quantity fields in a 2x2 grid - Responsive
                         Row(
                           children: [
-                            // 3. Expected QTY
                             Expanded(
-                              child: _buildFormField(
+                              child: _buildCompactFormField(
                                 label: 'Expected QTY',
-                                child: GestureDetector(
-                                  onTap: () => _showNumberPad(
-                                      expectedQtyController, 'Expected QTY'),
-                                  child: TextFormField(
-                                    controller: expectedQtyController,
-                                    enabled:
-                                        false, // Prevent keyboard, use custom numpad
-                                    style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w600,
-                                        color:
-                                            Colors.black), // Much larger text
-                                    decoration: InputDecoration(
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(
-                                            16), // Larger radius
-                                        borderSide: BorderSide(
-                                            width: 2), // Thicker border
-                                      ),
-                                      disabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                            width: 2,
-                                            color: Colors.grey.shade300),
-                                      ),
-                                      contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 28), // Much larger padding
-                                      suffixIcon: Icon(Icons.touch_app,
-                                          color: AppColors.primaryBlue,
-                                          size: 32), // Touch icon
-                                    ),
-                                  ),
-                                ),
+                                child: _buildCompactNumberField(
+                                    expectedQtyController,
+                                    'Expected QTY',
+                                    AppColors.primaryBlue),
                               ),
                             ),
-                            const SizedBox(width: 24), // More spacing
-                            // 4. QTY per Cycle
+                            SizedBox(
+                                width:
+                                    MediaQuery.of(context).size.width * 0.02),
                             Expanded(
-                              child: _buildFormField(
+                              child: _buildCompactFormField(
                                 label: 'QTY per Cycle',
-                                child: GestureDetector(
-                                  onTap: () => _showNumberPad(
-                                      qtyPerCycleController, 'QTY per Cycle'),
-                                  child: TextFormField(
-                                    controller: qtyPerCycleController,
-                                    enabled:
-                                        false, // Prevent keyboard, use custom numpad
-                                    style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w600,
-                                        color:
-                                            Colors.black), // Much larger text
-                                    decoration: InputDecoration(
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(
-                                            16), // Larger radius
-                                        borderSide: BorderSide(
-                                            width: 2), // Thicker border
-                                      ),
-                                      disabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                            width: 2,
-                                            color: Colors.grey.shade300),
-                                      ),
-                                      contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 28), // Much larger padding
-                                      suffixIcon: Icon(Icons.touch_app,
-                                          color: AppColors.greenAccent,
-                                          size: 32), // Touch icon
-                                      helperText: 'Incremented with "Next"',
-                                      helperStyle: TextStyle(
-                                          fontSize: 14), // Larger helper text
-                                    ),
-                                  ),
-                                ),
+                                child: _buildCompactNumberField(
+                                    qtyPerCycleController,
+                                    'QTY per Cycle',
+                                    AppColors.greenAccent,
+                                    helperText: 'Incremented with "Next"'),
                               ),
                             ),
                           ],
                         ),
-
-                        const SizedBox(height: 40), // Much more spacing
-
+                        SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.015),
+                        // Bottom row: Finished QTY and Reject QTY
                         Row(
                           children: [
-                            // 5. Finished QTY
                             Expanded(
-                              child: _buildFormField(
+                              child: _buildCompactFormField(
                                 label: 'Finished QTY',
-                                child: GestureDetector(
-                                  onTap: () => _showNumberPad(
-                                      finishedQtyController, 'Finished QTY'),
-                                  child: TextFormField(
-                                    controller: finishedQtyController,
-                                    enabled:
-                                        false, // Prevent keyboard, use custom numpad
-                                    style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w600,
-                                        color:
-                                            Colors.black), // Much larger text
-                                    decoration: InputDecoration(
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(
-                                            16), // Larger radius
-                                        borderSide: BorderSide(
-                                            width: 2), // Thicker border
-                                      ),
-                                      disabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                            width: 2,
-                                            color: Colors.grey.shade300),
-                                      ),
-                                      contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 28), // Much larger padding
-                                      suffixIcon: Icon(Icons.touch_app,
-                                          color: AppColors.greenAccent,
-                                          size: 32), // Touch icon
-                                    ),
-                                  ),
-                                ),
+                                child: _buildCompactNumberField(
+                                    finishedQtyController,
+                                    'Finished QTY',
+                                    AppColors.greenAccent),
                               ),
                             ),
-                            const SizedBox(width: 24), // More spacing
-                            // 6. Reject QTY
+                            SizedBox(
+                                width:
+                                    MediaQuery.of(context).size.width * 0.02),
                             Expanded(
-                              child: _buildFormField(
+                              child: _buildCompactFormField(
                                 label: 'Reject QTY',
-                                child: GestureDetector(
-                                  onTap: () => _showNumberPad(
-                                      rejectQtyController, 'Reject QTY'),
-                                  child: TextFormField(
-                                    controller: rejectQtyController,
-                                    enabled:
-                                        false, // Prevent keyboard, use custom numpad
-                                    style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w600,
-                                        color:
-                                            Colors.black), // Much larger text
-                                    decoration: InputDecoration(
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(
-                                            16), // Larger radius
-                                        borderSide: BorderSide(
-                                            width: 2), // Thicker border
-                                      ),
-                                      disabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                            width: 2,
-                                            color: Colors.grey.shade300),
-                                      ),
-                                      contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 28), // Much larger padding
-                                      suffixIcon: Icon(Icons.touch_app,
-                                          color: AppColors.orangeAccent,
-                                          size: 32), // Touch icon
-                                    ),
-                                  ),
-                                ),
+                                child: _buildCompactNumberField(
+                                    rejectQtyController,
+                                    'Reject QTY',
+                                    AppColors.orangeAccent),
                               ),
                             ),
                           ],
@@ -651,9 +535,11 @@ class _TimerScreenState extends State<TimerScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 48), // Much more spacing
+                SizedBox(
+                    height: MediaQuery.of(context).size.height *
+                        0.02), // Responsive spacing
 
-                // Action buttons
+                // Action buttons - More compact
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -661,16 +547,22 @@ class _TimerScreenState extends State<TimerScreen> {
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.symmetric(
-                            horizontal: 48, vertical: 20), // Much larger
+                            horizontal:
+                                MediaQuery.of(context).size.width * 0.03,
+                            vertical: MediaQuery.of(context).size.height *
+                                0.015), // Responsive padding
                       ),
                       child: Text(
                         'Cancel',
                         style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600), // Larger text
+                            fontSize:
+                                MediaQuery.of(context).size.height * 0.022,
+                            fontWeight: FontWeight.w600), // Responsive text
                       ),
                     ),
-                    const SizedBox(width: 32), // More spacing
+                    SizedBox(
+                        width: MediaQuery.of(context).size.width *
+                            0.02), // Responsive spacing
                     ElevatedButton(
                       onPressed: selectedItem == null
                           ? null
@@ -679,10 +571,10 @@ class _TimerScreenState extends State<TimerScreen> {
                                 item: selectedItem!,
                                 expectedQty:
                                     int.tryParse(expectedQtyController.text) ??
-                                        1,
+                                        0,
                                 qtyPerCycle:
                                     int.tryParse(qtyPerCycleController.text) ??
-                                        1,
+                                        0,
                                 finishedQty:
                                     int.tryParse(finishedQtyController.text) ??
                                         0,
@@ -695,18 +587,224 @@ class _TimerScreenState extends State<TimerScreen> {
                         backgroundColor: AppColors.primaryBlue,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
-                            horizontal: 64,
-                            vertical: 24), // Much larger padding
+                            horizontal:
+                                MediaQuery.of(context).size.width * 0.04,
+                            vertical: MediaQuery.of(context).size.height *
+                                0.018), // Responsive padding
                         shape: RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius.circular(16), // Larger radius
+                              BorderRadius.circular(10), // Responsive radius
                         ),
                       ),
                       child: Text(
                         'OK',
                         style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold), // Much larger text
+                            fontSize:
+                                MediaQuery.of(context).size.height * 0.025,
+                            fontWeight: FontWeight.bold), // Responsive text
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build responsive form fields with labels
+  Widget _buildFormField({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: MediaQuery.of(context).size.height * 0.025,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+        child,
+      ],
+    );
+  }
+
+  // Show compact number pad optimized for mobile web
+  void _showCompactNumberPad(TextEditingController controller, String title) {
+    String currentValue = controller.text;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Dialog(
+          child: Container(
+            width: 400,
+            //MediaQuery.of(context).size.width * 0.40, // Optimized width
+            height: 600,
+            //MediaQuery.of(context).size.height, // Reduced height to prevent overflow
+            padding: const EdgeInsets.all(20), // Reduced padding
+            child: Column(
+              children: [
+                // Header - Compact
+                Row(
+                  children: [
+                    Icon(Icons.dialpad, color: AppColors.primaryBlue, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryBlue,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.all(4),
+                      constraints: BoxConstraints(minWidth: 24, minHeight: 24),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Display current value - Compact
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: MediaQuery.of(context).size.height * 0.01,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.grey.shade50,
+                  ),
+                  child: Text(
+                    currentValue.isEmpty ? '0' : currentValue,
+                    style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.height *
+                          0.025, // Responsive text
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Number pad grid - Compact for screen fit
+                Container(
+                  height: 180, // Reduced height for better screen fit
+                  child: GridView.count(
+                    crossAxisCount: 3,
+                    childAspectRatio: 2.0, // Even wider, shorter buttons
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 4,
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    children: [
+                      // Numbers 1-9
+                      for (int i = 1; i <= 9; i++)
+                        _buildMobileNumberButton(i.toString(), () {
+                          setState(() {
+                            if (currentValue == '0') {
+                              currentValue = i.toString();
+                            } else {
+                              currentValue += i.toString();
+                            }
+                          });
+                        }),
+
+                      // Clear button
+                      _buildMobileNumberButton('C', () {
+                        setState(() {
+                          currentValue = '0';
+                        });
+                      }, color: AppColors.orangeAccent),
+
+                      // Zero
+                      _buildMobileNumberButton('0', () {
+                        setState(() {
+                          if (currentValue != '0') {
+                            currentValue += '0';
+                          }
+                        });
+                      }),
+
+                      // Backspace
+                      _buildMobileNumberButton('⌫', () {
+                        setState(() {
+                          if (currentValue.length > 1) {
+                            currentValue = currentValue.substring(
+                                0, currentValue.length - 1);
+                          } else {
+                            currentValue = '0';
+                          }
+                        });
+                      }, color: AppColors.orangeAccent),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+
+                // Action buttons - Compact
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            vertical:
+                                MediaQuery.of(context).size.height * 0.012,
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize:
+                                MediaQuery.of(context).size.height * 0.018,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          controller.text = currentValue;
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            vertical:
+                                MediaQuery.of(context).size.height * 0.012,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: Text(
+                          'OK',
+                          style: TextStyle(
+                            fontSize: MediaQuery.of(context).size.height * 0.02,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -880,6 +978,56 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Build compact number pad button
+  Widget _buildCompactNumberButton(String text, VoidCallback onPressed,
+      {Color? color}) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color ?? Colors.grey.shade100,
+        foregroundColor: color != null ? Colors.white : Colors.black,
+        padding: EdgeInsets.all(6), // Smaller padding for compact buttons
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8), // Smaller radius
+        ),
+        elevation: 1, // Less elevation
+        minimumSize: Size(50, 50), // Set minimum size for touch-friendliness
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 18, // Smaller font to fit better
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  // Build mobile web optimized number pad button
+  Widget _buildMobileNumberButton(String text, VoidCallback onPressed,
+      {Color? color}) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color ?? Colors.grey.shade100,
+        foregroundColor: color != null ? Colors.white : Colors.black,
+        padding: const EdgeInsets.all(4), // Much smaller padding
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+        ),
+        elevation: 1,
+        minimumSize: const Size(50, 35), // Compact size for screen fit
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 14, // Compact font size
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   // Build large number pad button
   Widget _buildNumberButton(String text, VoidCallback onPressed,
       {Color? color}) {
@@ -888,7 +1036,7 @@ class _TimerScreenState extends State<TimerScreen> {
       style: ElevatedButton.styleFrom(
         backgroundColor: color ?? Colors.grey.shade100,
         foregroundColor: color != null ? Colors.white : Colors.black,
-        padding: EdgeInsets.all(20),
+        padding: EdgeInsets.all(8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -904,22 +1052,61 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // Helper method to build form fields with labels
-  Widget _buildFormField({required String label, required Widget child}) {
+  // Helper method to build compact form fields with labels
+  Widget _buildCompactFormField(
+      {required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: 22, // Much larger label text
-            fontWeight: FontWeight.w700,
+            fontSize: 14, // Compact label text
+            fontWeight: FontWeight.w600,
             color: Colors.grey.shade700,
           ),
         ),
-        const SizedBox(height: 16), // More spacing
+        const SizedBox(height: 8), // Less spacing
         child,
       ],
+    );
+  }
+
+  // Helper method to build compact number input fields
+  Widget _buildCompactNumberField(
+    TextEditingController controller,
+    String title,
+    Color iconColor, {
+    String? helperText,
+  }) {
+    return GestureDetector(
+      onTap: () => _showCompactNumberPad(controller, title),
+      child: Container(
+        height: 60, // Fixed height to prevent overflow
+        child: TextFormField(
+          controller: controller,
+          enabled: false, // Prevent keyboard, use custom numpad
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(width: 1.5),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(width: 1.5, color: Colors.grey.shade300),
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            suffixIcon: Icon(Icons.touch_app, color: iconColor, size: 20),
+            helperText: helperText,
+            helperStyle: TextStyle(fontSize: 10),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1491,7 +1678,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                   color: dialogColor,
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(
+                                  height: MediaQuery.of(context).size.height *
+                                      0.015),
                               // Display timer with larger digits and no background
                               Text(
                                 formattedTime,
