@@ -5,16 +5,17 @@ import 'package:elmos_furniture_app/data/services/category_service.dart';
 import 'package:elmos_furniture_app/data/services/mes_service.dart';
 import 'package:elmos_furniture_app/data/services/user_management_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 // Conditional import for web-only plugins
 import 'utils/url_strategy_stub.dart'
     if (dart.library.html) 'utils/url_strategy_web.dart';
 import 'utils/deep_link_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'utils/populate_firebase.dart';
+
 import 'util/setup_services.dart';
 
 // Screens
@@ -23,13 +24,13 @@ import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/auth/register_screen.dart';
 import 'presentation/screens/auth/create_profile_screen.dart';
 import 'presentation/screens/auth/register_company_screen.dart';
-import 'presentation/screens/dashboard/dashboard_screen.dart';
+
 import 'presentation/screens/categories/categories_screen.dart';
 import 'presentation/screens/sop_editor/sop_editor_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/screens/analytics/analytics_screen.dart';
 import 'presentation/screens/sops/sops_screen.dart';
-import 'presentation/screens/mobile/mobile_redirect_screen.dart';
+
 import 'presentation/screens/mobile/mobile_sop_viewer_screen.dart';
 import 'presentation/screens/mobile/mobile_categories_screen.dart';
 import 'presentation/screens/mobile/mobile_sops_screen.dart';
@@ -173,10 +174,9 @@ class MyApp extends StatelessWidget {
           return null;
         }
 
-        // If logged in, redirect to appropriate dashboard based on device
+        // If logged in, redirect to appropriate main screen based on device
         if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
-          final redirectPath =
-              isMobileDevice ? '/mobile/selection' : '/dashboard';
+          final redirectPath = isMobileDevice ? '/mobile/selection' : '/sops';
           debugPrint(
               '  🔄 Logged in user on auth route, redirecting to: $redirectPath');
           return redirectPath;
@@ -195,38 +195,11 @@ class MyApp extends StatelessWidget {
       routes: [
         GoRoute(
           path: '/',
-          redirect: (context, state) {
-            // If AuthService is not yet initialized, don't redirect yet
-            if (!authService.isInitialized) {
-              debugPrint(
-                  '  ⏳ Root route: AuthService not initialized yet, waiting...');
-              return null;
-            }
-
-            // Check if this is the very first app start (no current location)
-            final currentLocation = state.matchedLocation;
-            final browserUrl = Uri.base.path;
-
-            debugPrint(
-                '  🔍 Root route check - currentLocation: $currentLocation, browserUrl: $browserUrl');
-
-            // Only redirect if we're actually on the root path (first app start)
-            if (currentLocation == '/' && browserUrl == '/') {
-              debugPrint(
-                  '  🚀 First app start detected, redirecting to dashboard');
-              // First app start - redirect to appropriate dashboard
-              if (authService.isLoggedIn) {
-                return _isMobileDevice(context)
-                    ? '/mobile/selection'
-                    : '/dashboard';
-              }
-              return _isMobileDevice(context) ? '/mobile/login' : '/login';
-            }
-
-            // For any other route, don't redirect (preserve current location)
-            debugPrint('  ✅ Preserving current location: $currentLocation');
-            return null;
-          },
+          builder: (context, state) => const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
         ),
         GoRoute(
           path: '/login',
@@ -242,12 +215,7 @@ class MyApp extends StatelessWidget {
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
         ),
-        GoRoute(
-          path: '/dashboard',
-          builder: (context, state) => _isMobileDevice(context)
-              ? const MobileSelectionScreen()
-              : const DashboardScreen(),
-        ),
+
         // Mobile selection screen route
         GoRoute(
           path: '/mobile/selection',
@@ -359,7 +327,7 @@ class MyApp extends StatelessWidget {
             final authService =
                 Provider.of<AuthService>(context, listen: false);
             if (authService.userRole != 'admin') {
-              return '/dashboard'; // Redirect non-admins to dashboard
+              return '/sops'; // Redirect non-admins to SOPs
             }
             return null; // Allow access for admins
           },
