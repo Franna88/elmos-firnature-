@@ -192,36 +192,11 @@ class MyApp extends StatelessWidget {
       routes: [
         GoRoute(
           path: '/',
-          redirect: (context, state) {
-            // If AuthService is not yet initialized, don't redirect yet
-            if (!authService.isInitialized) {
-              debugPrint(
-                  '  ⏳ Root route: AuthService not initialized yet, waiting...');
-              return null;
-            }
-
-            // Check if this is the very first app start (no current location)
-            final currentLocation = state.matchedLocation;
-            final browserUrl = Uri.base.path;
-
-            debugPrint(
-                '  🔍 Root route check - currentLocation: $currentLocation, browserUrl: $browserUrl');
-
-            // Only redirect if we're actually on the root path (first app start)
-            if (currentLocation == '/' && browserUrl == '/') {
-              debugPrint(
-                  '  🚀 First app start detected, redirecting to main screen');
-              // First app start - redirect to appropriate main screen
-              if (authService.isLoggedIn) {
-                return _isMobileDevice(context) ? '/mobile/selection' : '/sops';
-              }
-              return _isMobileDevice(context) ? '/mobile/login' : '/login';
-            }
-
-            // For any other route, don't redirect (preserve current location)
-            debugPrint('  ✅ Preserving current location: $currentLocation');
-            return null;
-          },
+          builder: (context, state) => const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
         ),
         GoRoute(
           path: '/login',

@@ -437,45 +437,47 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image section (left side) - Optimized container width
+              // Image section (left side) - Flexible container that adapts to image
               Expanded(
                 flex: 8,
-                child: Center(
-                  child: Container(
-                    height: imageHeight,
-                    margin:
-                        const EdgeInsets.all(5), // 5px padding around container
-                    constraints: BoxConstraints(
-                      maxWidth: double.infinity,
-                      maxHeight: imageHeight,
-                    ),
-                    child: step.imageUrl != null
-                        ? CrossPlatformImage(
-                            imageUrl: step.imageUrl!,
-                            fit: BoxFit
-                                .contain, // Maintain aspect ratio without cropping
-                            errorWidget: Container(
-                              color: Colors.grey[100],
-                              child: Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 40,
-                                  color: Colors.grey,
+                child: Container(
+                  margin:
+                      const EdgeInsets.all(5), // 5px padding around container
+                  child: step.imageUrl != null
+                      ? LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Use available height and width for image display
+                            return CrossPlatformImage(
+                              imageUrl: step.imageUrl!,
+                              fit: BoxFit
+                                  .cover, // Fill the entire available space
+                              width: constraints.maxWidth,
+                              height: constraints.maxHeight,
+                              errorWidget: Container(
+                                height: 200,
+                                color: Colors.grey[100],
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    size: 40,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                        : Container(
-                            color: Colors.grey[100],
-                            child: Center(
-                              child: Icon(
-                                Icons.image_not_supported,
-                                size: 40,
-                                color: Colors.grey,
-                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          height: 200,
+                          color: Colors.grey[100],
+                          child: Center(
+                            child: Icon(
+                              Icons.image_not_supported,
+                              size: 40,
+                              color: Colors.grey,
                             ),
                           ),
-                  ),
+                        ),
                 ),
               ),
 
@@ -673,45 +675,47 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image section (left side) - Optimized container width
+              // Image section (left side) - Flexible container that adapts to image
               Expanded(
                 flex: 6,
-                child: Center(
-                  child: Container(
-                    height: 400,
-                    margin:
-                        const EdgeInsets.all(5), // 5px padding around container
-                    constraints: BoxConstraints(
-                      maxWidth: double.infinity,
-                      maxHeight: 400,
-                    ),
-                    child: step.imageUrl != null
-                        ? CrossPlatformImage(
-                            imageUrl: step.imageUrl!,
-                            fit: BoxFit
-                                .contain, // Maintain aspect ratio without cropping
-                            errorWidget: Container(
-                              color: Colors.grey[100],
-                              child: Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 40,
-                                  color: Colors.grey,
+                child: Container(
+                  margin:
+                      const EdgeInsets.all(5), // 5px padding around container
+                  child: step.imageUrl != null
+                      ? LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Use available height and width for image display
+                            return CrossPlatformImage(
+                              imageUrl: step.imageUrl!,
+                              fit: BoxFit
+                                  .cover, // Fill the entire available space
+                              width: constraints.maxWidth,
+                              height: constraints.maxHeight,
+                              errorWidget: Container(
+                                height: 200,
+                                color: Colors.grey[100],
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    size: 40,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                        : Container(
-                            color: Colors.grey[100],
-                            child: Center(
-                              child: Icon(
-                                Icons.image_not_supported,
-                                size: 40,
-                                color: Colors.grey,
-                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          height: 200,
+                          color: Colors.grey[100],
+                          child: Center(
+                            child: Icon(
+                              Icons.image_not_supported,
+                              size: 40,
+                              color: Colors.grey,
                             ),
                           ),
-                  ),
+                        ),
                 ),
               ),
 
