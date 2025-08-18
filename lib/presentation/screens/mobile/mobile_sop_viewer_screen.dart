@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/production_timer_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../data/services/print_service.dart';
-import 'package:image_network/image_network.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import '../../widgets/cross_platform_image.dart';
-import '../../widgets/app_scaffold.dart';
-import '../sop_editor/sop_editor_screen.dart';
+import '../../widgets/production_timer_widget.dart';
 import '../../../data/services/category_service.dart';
 
 class MobileSOPViewerScreen extends StatefulWidget {
@@ -43,6 +40,10 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   bool _initialized = false;
   final PrintService _printService = PrintService();
 
+  // Production timer service
+  ProductionTimerService? _timerService;
+  bool _showTimer = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +56,9 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+
+    // Initialize production timer service
+    _timerService = ProductionTimerService();
   }
 
   @override
@@ -81,6 +85,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
   void dispose() {
     _pageController.dispose();
     _animationController.dispose();
+    _timerService?.dispose();
     super.dispose();
   }
 
@@ -178,8 +183,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     final bool useTabletLayout =
         isTablet && orientation == Orientation.landscape;
 
-    final imageHeight = isTablet ? 320.0 : 220.0;
-    final imageWidth = isTablet ? 400.0 : double.infinity;
+    // Removed unused variables imageHeight and imageWidth
 
     if (_isLoading) {
       return Scaffold(
@@ -245,6 +249,22 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2.0),
             child: IconButton(
+              icon: Icon(
+                _showTimer ? Icons.timer_off : Icons.timer,
+                size: 20 * 0.85,
+                color: _showTimer ? Colors.green : Colors.white,
+              ),
+              tooltip: _showTimer ? 'Hide Timer' : 'Show Production Timer',
+              onPressed: () {
+                setState(() {
+                  _showTimer = !_showTimer;
+                });
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+            child: IconButton(
               icon: const Icon(Icons.info_outline, size: 20 * 0.85),
               tooltip: 'SOP Details',
               onPressed: () => _showSOPInfoDialog(context),
@@ -300,6 +320,13 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                   ),
                 ),
               ),
+            ),
+
+          // Production Timer (when enabled)
+          if (_showTimer && _timerService != null)
+            ChangeNotifierProvider<ProductionTimerService>.value(
+              value: _timerService!,
+              child: const ProductionTimerWidget(),
             ),
 
           // Progress indicator
@@ -901,7 +928,6 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
 
   // Vertical layout (image on top, text below) - used for portrait mode on all devices
   Widget _buildPhoneStepContent() {
-    final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLargeScreen = screenWidth > 600; // Is tablet in portrait mode
 
