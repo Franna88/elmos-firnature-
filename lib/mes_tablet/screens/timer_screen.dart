@@ -203,11 +203,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Start or resume production
   void _startTimer() async {
-    // Check if setup is required and not yet completed
-    if (_process?.requiresSetup == true && !_setupCompleted) {
-      _showSetupDialog();
-      return;
-    }
+    // Setup handling removed - actions switch immediately
 
     setState(() {
       _timer.startProduction();
@@ -1235,10 +1231,8 @@ class _TimerScreenState extends State<TimerScreen> {
         ),
       );
 
-      // Show setup dialog if required
-      if (_process?.requiresSetup == true && !_setupCompleted) {
-        _showSetupDialog();
-      }
+      // Setup is now automatic - no popup required
+      // The Setup action is already selected and started above
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error selecting item: $e')),
@@ -1330,108 +1324,7 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
-  // Show setup dialog before starting production
-  void _showSetupDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent dismissing without action
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.build, color: AppColors.primaryBlue, size: 24),
-            const SizedBox(width: 8),
-            const Text('Setup Required'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This process requires setup before production can begin.',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Please complete the setup tasks and then click "Complete Setup" to proceed with production.',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 16),
-            if (_timer.mode == ProductionTimerMode.setup)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border:
-                      Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Setup in progress for:',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      ProductionTimer.formatDuration(_timer.getSetupTime()),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryBlue,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          if (_timer.mode != ProductionTimerMode.setup)
-            ElevatedButton(
-              onPressed: () async {
-                setState(() {
-                  _timer.startSetup();
-                });
-
-                // Record setup start after starting the timer
-                await _recordSetupStart();
-
-                Navigator.of(context).pop();
-                // Show the dialog again to track progress
-                _showSetupDialog();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Start Setup'),
-            ),
-          if (_timer.mode == ProductionTimerMode.setup)
-            ElevatedButton(
-              onPressed: () async {
-                // Record setup time as an interruption before completing
-                await _recordSetupCompletion();
-
-                setState(() {
-                  _timer.completeSetup();
-                  _setupCompleted = true;
-                });
-                Navigator.of(context).pop();
-
-                // Start periodic saving since this is the first time starting
-                _startPeriodicSaving();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.greenAccent,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Complete Setup'),
-            ),
-        ],
-      ),
-    );
-  }
+  // Setup dialog removed - actions now switch immediately without popups
 
   // Record action start in Firebase
   Future<void> _recordActionStart(MESInterruptionType action) async {
