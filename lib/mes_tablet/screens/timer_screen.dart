@@ -3113,86 +3113,93 @@ class _TimerScreenState extends State<TimerScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  SizedBox(
-                                      height:
-                                          20), // Small top padding instead of centering
-                                  // Status
-                                  Text(
-                                    _getStatusText(),
-                                    style: TextStyle(
-                                      fontSize: isNarrow ? 22 : 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: _getStatusColor(),
-                                    ),
-                                  ),
-                                  SizedBox(height: isNarrow ? 8 : 12),
+                                  SizedBox(height: 10), // Reduced top padding
 
                                   // Clock - Vertical layout
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
+                                      // Timer indicator moved to top with increased height
+                                      Container(
+                                        width: double.infinity,
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: isNarrow ? 8 : 12,
+                                          vertical: isNarrow
+                                              ? 16
+                                              : 20, // Increased by 30%
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor()
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: _getStatusColor()
+                                                .withOpacity(0.3),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              _timer.mode ==
+                                                      ProductionTimerMode.setup
+                                                  ? Icons.build
+                                                  : Icons.timer,
+                                              color: _getStatusColor(),
+                                              size: isNarrow
+                                                  ? 26
+                                                  : 31, // Increased by 30%
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              _timer.mode ==
+                                                      ProductionTimerMode.setup
+                                                  ? 'SETUP TIMER'
+                                                  : (_timer.currentAction?.name
+                                                              .toUpperCase() ??
+                                                          'PRODUCTION') +
+                                                      ' TIMER',
+                                              style: TextStyle(
+                                                fontSize: isNarrow
+                                                    ? 23
+                                                    : 26, // Increased by 30%
+                                                fontWeight: FontWeight.bold,
+                                                color: _getStatusColor(),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            if (_timer.completedCount > 0)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 3,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _getStatusColor(),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  '${_timer.completedCount} items',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+
                                       // Dual Timer Display
                                       Column(
                                         children: [
-                                          // Header with item count
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                _timer.mode ==
-                                                        ProductionTimerMode
-                                                            .setup
-                                                    ? Icons.build
-                                                    : Icons.timer,
-                                                color: _getStatusColor(),
-                                                size: isNarrow ? 20 : 24,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                _timer.mode ==
-                                                        ProductionTimerMode
-                                                            .setup
-                                                    ? 'SETUP TIMER'
-                                                    : (_timer.currentAction
-                                                                ?.name
-                                                                .toUpperCase() ??
-                                                            'PRODUCTION') +
-                                                        ' TIMER',
-                                                style: TextStyle(
-                                                  fontSize: isNarrow ? 18 : 20,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: _getStatusColor(),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              if (_timer.completedCount > 0)
-                                                Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 2,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: _getStatusColor(),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            12),
-                                                  ),
-                                                  child: Text(
-                                                    '${_timer.completedCount} items',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-
                                           // Dual timer display only for debugging/management (never show for normal production)
                                           if (false) ...[
                                             // Action Timer
@@ -3376,7 +3383,21 @@ class _TimerScreenState extends State<TimerScreen> {
                                             ),
                                           ],
 
-                                          // Item counter below timer
+                                          // Action text below timer (increased by 50%)
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            _getStatusText(),
+                                            style: TextStyle(
+                                              fontSize: isNarrow
+                                                  ? 27
+                                                  : 36, // Increased by 50%
+                                              fontWeight: FontWeight.bold,
+                                              color: _getStatusColor(),
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+
+                                          // Item counter below action text
                                           const SizedBox(height: 8),
                                           Text(
                                             '${_timer.completedCount} items completed',
@@ -3418,8 +3439,10 @@ class _TimerScreenState extends State<TimerScreen> {
                         // Production Button (big green button below timers)
                         Container(
                           width: double.infinity,
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical:
+                                  8), // Reduced horizontal padding to make button wider (30% wider button = less padding)
                           child: ElevatedButton(
                             onPressed: _selectedItem != null
                                 ? _handleProductionButton
