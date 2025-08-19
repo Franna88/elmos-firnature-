@@ -351,15 +351,10 @@ class _TimerScreenState extends State<TimerScreen> {
       }
     }
 
-    // Business Rule 3: Shut Down must have Finished QTY value
+    // Business Rule 3: Shut Down - check Total QTY and confirm end of day
     if (actionName.contains('shut') && actionName.contains('down')) {
-      if (_finishedQty <= 0) {
-        _showActionBlockedDialog(
-          'Shut Down Blocked',
-          'Shut Down can only be selected if Finished QTY has a value.\n\nCurrent Finished QTY: $_finishedQty\n\nPlease complete some items first or update the finished quantity.',
-        );
-        return;
-      }
+      _handleShutdownAction(type);
+      return;
     }
 
     // Business Rule 4: Counting - show item popup while keeping timer rolling
@@ -458,8 +453,88 @@ class _TimerScreenState extends State<TimerScreen> {
     // First switch to counting action to start timer
     _proceedWithAction(countingType);
 
-    // Then show the item selection popup for counting
-    _showCountingDialog();
+    // Then show the item selection popup for quantity updates
+    _showItemSelectionDialog();
+  }
+
+  // Handle End Job action - auto-activate counting and show item popup
+  void _handleEndJobAction() {
+    // Find counting action from interruption types
+    final countingAction = _interruptionTypes.firstWhere(
+      (type) => type.name.toLowerCase().contains('counting'),
+      orElse: () => MESInterruptionType(
+        id: 'counting',
+        name: 'Counting',
+        isActive: true,
+        color: '#2196F3',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    // Auto-activate counting action
+    _proceedWithAction(countingAction);
+
+    // Show item popup for quantity updates
+    _showItemSelectionDialog();
+  }
+
+  // Handle Shutdown action - check total qty and confirm end of day
+  void _handleShutdownAction(MESInterruptionType shutdownType) {
+    // Check if Total QTY is not 0
+    if (_finishedQty <= 0) {
+      _showActionBlockedDialog(
+        'Shutdown Blocked',
+        'Shutdown can only be selected if Total QTY is not 0.\n\nCurrent Total QTY: $_finishedQty\n\nPlease complete some items first or update the finished quantity.',
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('End of Day Confirmation'),
+          content: Text(
+            'Are you sure you want to end the day?\n\nThis will complete the current job and return to the process selection screen.\n\nCurrent Total QTY: $_finishedQty',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                _proceedWithShutdown(shutdownType);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: Text('End Day'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Proceed with shutdown after confirmation
+  void _proceedWithShutdown(MESInterruptionType shutdownType) async {
+    // First execute the shutdown action
+    _proceedWithAction(shutdownType);
+
+    // Wait a moment for the action to be recorded
+    await Future.delayed(Duration(seconds: 1));
+
+    // Navigate back to process selection screen
+    if (mounted) {
+      Navigator.of(context).pushReplacementNamed('/mes');
+    }
   }
 
   // Show counting dialog to update quantities while timer keeps running
@@ -659,20 +734,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Show item selection dialog
   void _showItemSelectionDialog() {
-    // Double-check business rules (redundant but safe)
-    if (!_canSelectNewItem()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Cannot select new item: Current item "${_selectedItem!.name}" has 0 finished quantity. '
-            'Please complete some items first or update the finished quantity.',
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      return;
-    }
+    // Always show the dialog - restrictions will be handled inside the dialog
     FurnitureItem? selectedItem =
         _selectedItem; // Pre-select current item if any
     final TextEditingController expectedQtyController =
@@ -751,6 +813,35 @@ class _TimerScreenState extends State<TimerScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Warning message when item selection is restricted
+                        if (!_canSelectNewItem())
+                          Container(
+                            margin: EdgeInsets.only(bottom: 16),
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              border: Border.all(color: Colors.orange.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning,
+                                    color: Colors.orange.shade700, size: 20),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Cannot change item: Current item "${_selectedItem!.name}" has 0 finished quantity. Complete some items first or update the finished quantity to select a different item.',
+                                    style: TextStyle(
+                                      color: Colors.orange.shade700,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
                         // 1. Selected Item Dropdown
                         _buildFormField(
                           label: 'Selected Item',
@@ -822,11 +913,13 @@ class _TimerScreenState extends State<TimerScreen> {
                                           ),
                                         );
                                       }).toList(),
-                                onChanged: (FurnitureItem? value) {
-                                  setDialogState(() {
-                                    selectedItem = value;
-                                  });
-                                },
+                                onChanged: _canSelectNewItem()
+                                    ? (FurnitureItem? value) {
+                                        setDialogState(() {
+                                          selectedItem = value;
+                                        });
+                                      }
+                                    : null, // Disable dropdown when cannot select new item
                               ),
                             ),
                           ),
@@ -960,20 +1053,63 @@ class _TimerScreenState extends State<TimerScreen> {
                       onPressed: selectedItem == null
                           ? null
                           : () {
-                              _saveItemProductionData(
-                                item: selectedItem!,
-                                expectedQty:
-                                    int.tryParse(expectedQtyController.text) ??
-                                        0,
-                                qtyPerCycle:
-                                    int.tryParse(qtyPerCycleController.text) ??
-                                        0,
-                                finishedQty:
-                                    int.tryParse(finishedQtyController.text) ??
-                                        0,
-                                rejectQty:
-                                    int.tryParse(rejectQtyController.text) ?? 0,
-                              );
+                              // Check if item has changed or timer is not running
+                              bool itemChanged =
+                                  _selectedItem?.id != selectedItem!.id;
+                              bool timerIsRunning =
+                                  _timer.mode != ProductionTimerMode.notStarted;
+
+                              if (itemChanged && timerIsRunning) {
+                                // Item changed and timer is running - save with item change
+                                _saveItemProductionData(
+                                  item: selectedItem!,
+                                  expectedQty: int.tryParse(
+                                          expectedQtyController.text) ??
+                                      0,
+                                  qtyPerCycle: int.tryParse(
+                                          qtyPerCycleController.text) ??
+                                      0,
+                                  finishedQty: int.tryParse(
+                                          finishedQtyController.text) ??
+                                      0,
+                                  rejectQty:
+                                      int.tryParse(rejectQtyController.text) ??
+                                          0,
+                                );
+                              } else if (!itemChanged && timerIsRunning) {
+                                // Same item and timer is running - just save data, don't restart
+                                _saveQuantityDataOnly(
+                                  expectedQty: int.tryParse(
+                                          expectedQtyController.text) ??
+                                      0,
+                                  qtyPerCycle: int.tryParse(
+                                          qtyPerCycleController.text) ??
+                                      0,
+                                  finishedQty: int.tryParse(
+                                          finishedQtyController.text) ??
+                                      0,
+                                  rejectQty:
+                                      int.tryParse(rejectQtyController.text) ??
+                                          0,
+                                );
+                              } else {
+                                // Timer not running or initial setup - normal flow
+                                _saveItemProductionData(
+                                  item: selectedItem!,
+                                  expectedQty: int.tryParse(
+                                          expectedQtyController.text) ??
+                                      0,
+                                  qtyPerCycle: int.tryParse(
+                                          qtyPerCycleController.text) ??
+                                      0,
+                                  finishedQty: int.tryParse(
+                                          finishedQtyController.text) ??
+                                      0,
+                                  rejectQty:
+                                      int.tryParse(rejectQtyController.text) ??
+                                          0,
+                                );
+                              }
                               Navigator.of(context).pop();
                             },
                       style: ElevatedButton.styleFrom(
@@ -1651,6 +1787,41 @@ class _TimerScreenState extends State<TimerScreen> {
     print('🎯 ITEM SELECTED: ${item.name}');
     print('🚀 SETUP ACTION: ${_selectedAction?.name ?? "NONE"}');
     print('⏱️ TIMER STATUS: ${_timer.mode}');
+  }
+
+  // Save quantity data only (without restarting timer or changing item)
+  Future<void> _saveQuantityDataOnly({
+    required int expectedQty,
+    required int qtyPerCycle,
+    required int finishedQty,
+    required int rejectQty,
+  }) async {
+    try {
+      // Update production data fields only
+      setState(() {
+        _expectedQty = expectedQty;
+        _qtyPerCycle = qtyPerCycle;
+        _finishedQty = finishedQty;
+        _rejectQty = rejectQty;
+      });
+
+      // Save to Firebase with current item (no item change)
+      if (_selectedItem != null) {
+        await _saveProductionDataToFirebase(
+          item: _selectedItem!,
+          expectedQty: expectedQty,
+          qtyPerCycle: qtyPerCycle,
+          finishedQty: finishedQty,
+          rejectQty: rejectQty,
+        );
+      }
+
+      print('📊 QUANTITY DATA UPDATED: No timer restart needed');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating production data: $e')),
+      );
+    }
   }
 
   // Save item production data and select the item
@@ -3258,7 +3429,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                   ? Colors.green
                                   : Colors.green,
                               foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(vertical: 20),
+                              padding: EdgeInsets.symmetric(
+                                  vertical:
+                                      26), // Increased by 30% for easier pressing
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -3416,6 +3589,22 @@ class _TimerScreenState extends State<TimerScreen> {
                                       );
                                     }).toList(),
 
+                                    // End Job button - permanent action
+                                    _buildFullWidthButton(
+                                      icon: Icons.stop_circle,
+                                      label: 'End Job',
+                                      color: Colors.red.shade600,
+                                      onPressed: _selectedItem != null
+                                          ? _handleEndJobAction
+                                          : null,
+                                      description: _selectedItem != null
+                                          ? 'Complete current job and count items'
+                                          : 'Please select an item first',
+                                      isNarrow: isNarrow,
+                                      interruptionType: null,
+                                    ),
+                                    SizedBox(height: isNarrow ? 6 : 8),
+
                                     // Help button always available
                                     _buildFullWidthButton(
                                       icon: Icons.help_outline,
@@ -3469,7 +3658,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 Expanded(
                   child: _buildStatisticRow(
                     'Value Added:',
-                    _formatTimeForStatistics(_timer.getProductionTime()),
+                    _formatTimeForStatistics(_getProductionActionTime()),
                     Colors.green,
                   ),
                 ),
@@ -3478,7 +3667,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 Expanded(
                   child: _buildStatisticRow(
                     'No Value Added:',
-                    _formatTimeForStatistics(_timer.getTotalInterruptionTime()),
+                    _formatTimeForStatistics(_getNonProductionActionTime()),
                     Colors.red,
                   ),
                 ),
@@ -3768,6 +3957,60 @@ class _TimerScreenState extends State<TimerScreen> {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
+  // Get time spent only on production actions (Value Added)
+  int _getProductionActionTime() {
+    int productionTime = 0;
+
+    // Get completed items action records
+    for (var item in _timer.completedItems) {
+      for (var actionRecord in item.actionRecords) {
+        if (actionRecord.action.name.toLowerCase().contains('production')) {
+          productionTime += actionRecord.durationSeconds;
+        }
+      }
+    }
+
+    // Add current action time if it's a production action
+    if (_timer.currentAction != null &&
+        _timer.currentAction!.name.toLowerCase().contains('production')) {
+      // For current action, we need to calculate the time differently
+      int currentActionTime =
+          _timer.getActionTime() - _timer.getProductionTime();
+      if (currentActionTime > 0) {
+        productionTime += currentActionTime;
+      }
+    }
+
+    return productionTime;
+  }
+
+  // Get time spent on all non-production actions (No Value)
+  int _getNonProductionActionTime() {
+    int nonProductionTime = 0;
+
+    // Get completed items action records
+    for (var item in _timer.completedItems) {
+      for (var actionRecord in item.actionRecords) {
+        if (!actionRecord.action.name.toLowerCase().contains('production')) {
+          nonProductionTime += actionRecord.durationSeconds;
+        }
+      }
+    }
+
+    // Add current action time if it's not a production action
+    if (_timer.currentAction != null &&
+        !_timer.currentAction!.name.toLowerCase().contains('production')) {
+      // For current action, we need to calculate the time differently
+      int currentActionTime =
+          _timer.getActionTime() - _timer.getProductionTime();
+      if (currentActionTime > 0) {
+        nonProductionTime += currentActionTime;
+      }
+    }
+
+    return nonProductionTime;
+  }
+
   Color _getStatusColor() {
     switch (_timer.mode) {
       case ProductionTimerMode.setup:
@@ -3886,7 +4129,7 @@ class _TimerScreenState extends State<TimerScreen> {
               Expanded(
                 child: _buildCompactStatCard(
                   'Value Added',
-                  _formatTimeForStatistics(_timer.getProductionTime()),
+                  _formatTimeForStatistics(_getProductionActionTime()),
                   Colors.green,
                   Icons.trending_up,
                 ),
@@ -3895,7 +4138,7 @@ class _TimerScreenState extends State<TimerScreen> {
               Expanded(
                 child: _buildCompactStatCard(
                   'No Value',
-                  _formatTimeForStatistics(_timer.getTotalInterruptionTime()),
+                  _formatTimeForStatistics(_getNonProductionActionTime()),
                   Colors.red,
                   Icons.pause_circle_outline,
                 ),
@@ -3910,33 +4153,7 @@ class _TimerScreenState extends State<TimerScreen> {
             Icons.schedule,
             fullWidth: true,
           ),
-          // Finish button - only show when production is running
-          if (_timer.mode != ProductionTimerMode.notStarted) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _finishProduction,
-                icon: Icon(Icons.stop, size: 16),
-                label: Text(
-                  'Finish',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeAccent,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 2,
-                ),
-              ),
-            ),
-          ],
+          // Finish button removed as per requirements
         ],
       ),
     );
