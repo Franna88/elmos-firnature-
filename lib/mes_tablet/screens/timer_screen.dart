@@ -1681,13 +1681,6 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Select the item (this will create production record)
       await _selectItem(item);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Production setup saved for ${item.name}'),
-          backgroundColor: AppColors.greenAccent,
-        ),
-      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving production data: $e')),
@@ -2757,20 +2750,16 @@ class _TimerScreenState extends State<TimerScreen> {
                               onPressed: _showItemSelectionDialog,
                               icon: Icon(Icons.inventory_2),
                               label: Text(
-                                _selectedItem != null
-                                    ? 'Change Item: ${_selectedItem!.name}'
-                                    : 'Select Item',
+                                'Item',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _selectedItem != null
-                                    ? AppColors.primaryBlue
-                                    : Colors.orange,
+                                backgroundColor: Colors.orange,
                                 foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(vertical: 16),
+                                padding: EdgeInsets.symmetric(vertical: 21),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -2934,14 +2923,13 @@ class _TimerScreenState extends State<TimerScreen> {
                   elevation: 4,
                   color: _timer.mode == ProductionTimerMode.running
                       ? _timer.getActionColor().withOpacity(
-                          0.1) // Light tint of action color when running
+                          0.4) // More prominent tint of action color when running
                       : _timer.mode == ProductionTimerMode.setup
-                          ? _timer
-                              .getActionColor()
-                              .withOpacity(0.1) // Light tint for setup too
+                          ? _timer.getActionColor().withOpacity(
+                              0.4) // More prominent tint for setup too
                           : _timer.mode == ProductionTimerMode.interrupted
                               ? AppColors.orangeAccent.withOpacity(
-                                  0.1) // Light orange for interrupted
+                                  0.4) // More prominent orange for interrupted
                               : Colors.white, // Pure white by default
                   child: Padding(
                     padding: EdgeInsets.all(isNarrow ? 6.0 : 8.0),
