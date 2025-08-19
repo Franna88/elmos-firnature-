@@ -593,13 +593,20 @@ class _TimerScreenState extends State<TimerScreen> {
 
     setState(() {
       _isInProductionMode = true;
-      // Stop current action if any
+
+      // Start production if not already started
+      if (_timer.mode == ProductionTimerMode.notStarted ||
+          _timer.mode == ProductionTimerMode.setup) {
+        _timer.startProduction();
+      }
+
+      // If there's a current action, stop it first
       if (_timer.currentAction != null) {
         _recordActionEnd(_timer.currentAction!);
         _timer.stopAction();
       }
 
-      // Select and start production action
+      // Select and start Production action (this will start item timer because it's Production)
       _selectedAction = productionAction;
       _timer.startAction(productionAction);
     });
@@ -607,29 +614,13 @@ class _TimerScreenState extends State<TimerScreen> {
     // Record the start of production action
     _recordActionStart(productionAction);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Production mode activated!'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    // Production mode activated - no feedback message needed
   }
 
   // Increment production count (Next functionality)
   void _incrementProductionCount() {
-    setState(() {
-      _finishedQty += _qtyPerCycle;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'Production incremented! Added $_qtyPerCycle items (Total: $_finishedQty)'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    // Call the same functionality as Next Item
+    _nextItem();
   }
 
   // Proceed with action without business rule checks (used after validation)
@@ -654,14 +645,7 @@ class _TimerScreenState extends State<TimerScreen> {
     // Record the start of this action in Firebase
     _recordActionStart(type);
 
-    // Show brief feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Selected: ${type.name}'),
-        duration: const Duration(seconds: 1),
-        backgroundColor: _timer.getActionColor(),
-      ),
-    );
+    // Action selected - no feedback message needed
   }
 
   // Business Rule: Check if user can select a new item
@@ -1862,14 +1846,7 @@ class _TimerScreenState extends State<TimerScreen> {
         _timer.stopAction();
       });
 
-      // Show brief feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Stopped: $actionName'),
-          duration: const Duration(seconds: 1),
-          backgroundColor: _timer.getActionColor(),
-        ),
-      );
+      // Action stopped - no feedback message needed
     }
   }
 
@@ -2228,7 +2205,7 @@ class _TimerScreenState extends State<TimerScreen> {
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
       await mesService.updateProductionRecord(
-        await mesService.getProductionRecord(_recordId!).then(
+        await mesService.getProductionRecordWithActions(_recordId!).then(
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
                 totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
@@ -2241,14 +2218,7 @@ class _TimerScreenState extends State<TimerScreen> {
       print('Error saving item completion: $e');
     }
 
-    // Show brief confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'Item ${_timer.completedCount} completed! Production continues.'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+    // Item completed - no feedback message needed
   }
 
   // Periodically save production data to Firebase (call this regularly)
@@ -2784,15 +2754,11 @@ class _TimerScreenState extends State<TimerScreen> {
                           Container(
                             width: double.infinity,
                             child: ElevatedButton.icon(
-                              onPressed: _canSelectNewItem()
-                                  ? _showItemSelectionDialog
-                                  : null,
+                              onPressed: _showItemSelectionDialog,
                               icon: Icon(Icons.inventory_2),
                               label: Text(
                                 _selectedItem != null
-                                    ? (_canSelectNewItem()
-                                        ? 'Change Item: ${_selectedItem!.name}'
-                                        : 'Cannot Change: 0 Finished QTY')
+                                    ? 'Change Item: ${_selectedItem!.name}'
                                     : 'Select Item',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -2800,11 +2766,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _canSelectNewItem()
-                                    ? (_selectedItem != null
-                                        ? AppColors.primaryBlue
-                                        : Colors.orange)
-                                    : Colors.grey,
+                                backgroundColor: _selectedItem != null
+                                    ? AppColors.primaryBlue
+                                    : Colors.orange,
                                 foregroundColor: Colors.white,
                                 padding: EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
@@ -2968,6 +2932,17 @@ class _TimerScreenState extends State<TimerScreen> {
                 flex: 4,
                 child: Card(
                   elevation: 4,
+                  color: _timer.mode == ProductionTimerMode.running
+                      ? _timer.getActionColor().withOpacity(
+                          0.1) // Light tint of action color when running
+                      : _timer.mode == ProductionTimerMode.setup
+                          ? _timer
+                              .getActionColor()
+                              .withOpacity(0.1) // Light tint for setup too
+                          : _timer.mode == ProductionTimerMode.interrupted
+                              ? AppColors.orangeAccent.withOpacity(
+                                  0.1) // Light orange for interrupted
+                              : Colors.white, // Pure white by default
                   child: Padding(
                     padding: EdgeInsets.all(isNarrow ? 6.0 : 8.0),
                     child: Column(
@@ -2997,9 +2972,10 @@ class _TimerScreenState extends State<TimerScreen> {
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      // Main Production Timer
+                                      // Dual Timer Display
                                       Column(
                                         children: [
+                                          // Header with item count
                                           Row(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
@@ -3019,7 +2995,11 @@ class _TimerScreenState extends State<TimerScreen> {
                                                         ProductionTimerMode
                                                             .setup
                                                     ? 'SETUP TIMER'
-                                                    : 'ITEM TIMER',
+                                                    : (_timer.currentAction
+                                                                ?.name
+                                                                .toUpperCase() ??
+                                                            'PRODUCTION') +
+                                                        ' TIMER',
                                                 style: TextStyle(
                                                   fontSize: isNarrow ? 18 : 20,
                                                   fontWeight: FontWeight.bold,
@@ -3052,44 +3032,208 @@ class _TimerScreenState extends State<TimerScreen> {
                                                 ),
                                             ],
                                           ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            width: double.infinity,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: isNarrow ? 8 : 12,
-                                              vertical: isNarrow ? 12 : 16,
+                                          const SizedBox(height: 8),
+
+                                          // Dual timer display only for debugging/management (never show for normal production)
+                                          if (false) ...[
+                                            // Action Timer
+                                            Column(
+                                              children: [
+                                                Text(
+                                                  _timer.currentAction != null
+                                                      ? '${_timer.currentAction!.name.toUpperCase()} TIMER'
+                                                      : 'ACTION TIMER',
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        isNarrow ? 14 : 16,
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        _timer.getActionColor(),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Container(
+                                                  width: double.infinity,
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal:
+                                                        isNarrow ? 8 : 12,
+                                                    vertical: isNarrow ? 8 : 12,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        _timer.getActionColor(),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: FittedBox(
+                                                    child: Text(
+                                                      ProductionTimer
+                                                          .formatDuration(_timer
+                                                              .getActionTime()),
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            isNarrow ? 32 : 40,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontFamily: 'monospace',
+                                                        color: Colors.white,
+                                                        height: 1.0,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            decoration: BoxDecoration(
-                                              color: _getStatusColor(),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+
+                                            const SizedBox(height: 12),
+
+                                            // Item Timer
+                                            Column(
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      _timer.isItemTimerRunning
+                                                          ? Icons
+                                                              .play_circle_filled
+                                                          : Icons
+                                                              .pause_circle_filled,
+                                                      color: _timer
+                                                              .isItemTimerRunning
+                                                          ? const Color(
+                                                              0xFF4CAF50)
+                                                          : Colors.orange,
+                                                      size: isNarrow ? 16 : 18,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'ITEM TIMER',
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            isNarrow ? 14 : 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: _timer
+                                                                .isItemTimerRunning
+                                                            ? const Color(
+                                                                0xFF4CAF50)
+                                                            : Colors.orange,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      _timer.isItemTimerRunning
+                                                          ? '(Running)'
+                                                          : '(Paused)',
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            isNarrow ? 10 : 12,
+                                                        fontStyle:
+                                                            FontStyle.italic,
+                                                        color: _timer
+                                                                .isItemTimerRunning
+                                                            ? const Color(
+                                                                0xFF4CAF50)
+                                                            : Colors.orange,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Container(
+                                                  width: double.infinity,
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal:
+                                                        isNarrow ? 8 : 12,
+                                                    vertical:
+                                                        isNarrow ? 12 : 16,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: _timer
+                                                            .isItemTimerRunning
+                                                        ? const Color(
+                                                            0xFF4CAF50)
+                                                        : Colors.orange,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: FittedBox(
+                                                    child: Text(
+                                                      ProductionTimer
+                                                          .formatDuration(_timer
+                                                              .getCurrentItemTimerTime()),
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            isNarrow ? 48 : 64,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontFamily: 'monospace',
+                                                        color: Colors.white,
+                                                        height: 1.0,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            child: FittedBox(
-                                              child: Text(
-                                                _timer.mode ==
-                                                        ProductionTimerMode
-                                                            .setup
-                                                    ? ProductionTimer
-                                                        .formatDuration(_timer
-                                                            .getSetupTime())
-                                                    : ProductionTimer
-                                                        .formatDuration(_timer
-                                                            .getCurrentItemTime()),
-                                                style: TextStyle(
-                                                  fontSize: isNarrow ? 48 : 64,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontFamily: 'monospace',
-                                                  color: Colors.white,
-                                                  height: 1.0,
+                                          ] else ...[
+                                            // Single timer (for both setup and production)
+                                            Container(
+                                              width: double.infinity,
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: isNarrow ? 8 : 12,
+                                                vertical: isNarrow ? 12 : 16,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _getStatusColor(),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: FittedBox(
+                                                child: Text(
+                                                  ProductionTimer
+                                                      .formatDuration(_timer
+                                                                  .mode ==
+                                                              ProductionTimerMode
+                                                                  .setup
+                                                          ? _timer
+                                                              .getSetupTime()
+                                                          : _timer
+                                                              .getActionTime()),
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        isNarrow ? 48 : 64,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontFamily: 'monospace',
+                                                    color: Colors.white,
+                                                    height: 1.0,
+                                                  ),
                                                 ),
                                               ),
                                             ),
+                                          ],
+
+                                          // Item counter below timer
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            '${_timer.completedCount} items completed',
+                                            style: TextStyle(
+                                              fontSize: isNarrow ? 14 : 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: _getStatusColor(),
+                                            ),
+                                            textAlign: TextAlign.center,
                                           ),
-                                          // Average time display moved outside the main timer container
+
+                                          // Average time display
                                           if (_timer.completedCount > 0) ...[
-                                            const SizedBox(height: 4),
+                                            const SizedBox(height: 8),
                                             Text(
-                                              'Avg: ${ProductionTimer.formatDuration(_timer.getAverageItemTime().isFinite ? _timer.getAverageItemTime().round() : 0)}',
+                                              'Avg Item Time: ${ProductionTimer.formatDuration(_timer.getAverageItemTime().isFinite ? _timer.getAverageItemTime().round() : 0)}',
                                               style: TextStyle(
                                                 fontSize: isNarrow ? 12 : 14,
                                                 color: _getStatusColor()
@@ -3100,91 +3244,6 @@ class _TimerScreenState extends State<TimerScreen> {
                                               textAlign: TextAlign.center,
                                             ),
                                           ],
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 8),
-
-                                      // Action Timer
-                                      Column(
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                _timer.currentAction != null
-                                                    ? _getActionIcon(
-                                                        _timer.currentAction!)
-                                                    : Icons
-                                                        .production_quantity_limits,
-                                                color: _timer.getActionColor(),
-                                                size: isNarrow ? 20 : 24,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  _timer.currentAction?.name
-                                                          .toUpperCase() ??
-                                                      'PRODUCTION',
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        isNarrow ? 18 : 20,
-                                                    fontWeight: FontWeight.bold,
-                                                    color:
-                                                        _timer.getActionColor(),
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ),
-                                              if (_timer.currentAction != null)
-                                                GestureDetector(
-                                                  onTap: _stopAction,
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white
-                                                          .withOpacity(0.2),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              4),
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons.close,
-                                                      color: Colors.white,
-                                                      size: 16,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            width: double.infinity,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: isNarrow ? 8 : 12,
-                                              vertical: isNarrow ? 12 : 16,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _timer.getActionColor(),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: FittedBox(
-                                              child: Text(
-                                                ProductionTimer.formatDuration(
-                                                    _timer.getActionTime()),
-                                                style: TextStyle(
-                                                  fontSize: isNarrow ? 48 : 64,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontFamily: 'monospace',
-                                                  color: Colors.white,
-                                                  height: 1.0,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
                                         ],
                                       ),
                                     ],
@@ -3219,55 +3278,13 @@ class _TimerScreenState extends State<TimerScreen> {
                             ),
                             child: Text(
                               _isInProductionMode
-                                  ? 'NEXT (+$_qtyPerCycle items)'
+                                  ? 'NEXT ITEM (+$_qtyPerCycle)'
                                   : 'PRODUCTION',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Main controls
-                        SizedBox(
-                          height: buttonHeight,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Next Item button (only show when Production action is selected)
-                              if (_selectedAction != null &&
-                                  _selectedAction!.name
-                                      .toLowerCase()
-                                      .contains('production'))
-                                Expanded(
-                                  child: _buildControlButton(
-                                    icon: Icons.add_circle,
-                                    label:
-                                        'Next +$_qtyPerCycle (${_finishedQty}/${_expectedQty})',
-                                    color: AppColors.greenAccent,
-                                    onPressed: _nextItem,
-                                    isNarrow: isNarrow,
-                                  ),
-                                ),
-
-                              // Next button (always show when in running/paused/interrupted modes)
-                              if (_timer.mode == ProductionTimerMode.running ||
-                                  _timer.mode == ProductionTimerMode.paused ||
-                                  _timer.mode ==
-                                      ProductionTimerMode.interrupted)
-                                Expanded(
-                                  child: _buildControlButton(
-                                    icon: Icons.arrow_forward,
-                                    label: 'Next Item',
-                                    color: AppColors.greenAccent,
-                                    onPressed: _nextItem,
-                                    isNarrow: isNarrow,
-                                  ),
-                                ),
-                            ],
                           ),
                         ),
                       ],
@@ -3590,11 +3607,11 @@ class _TimerScreenState extends State<TimerScreen> {
       case ProductionTimerMode.setup:
         return 'Setup in Progress';
       case ProductionTimerMode.running:
-        return 'Production in Progress';
+        return '${_timer.currentAction?.name ?? 'Production'} in Progress';
       case ProductionTimerMode.paused:
-        return 'Production Paused';
+        return '${_timer.currentAction?.name ?? 'Production'} Paused';
       case ProductionTimerMode.interrupted:
-        return 'Production Interrupted';
+        return '${_timer.currentAction?.name ?? 'Production'} Interrupted';
     }
   }
 

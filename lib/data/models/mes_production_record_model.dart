@@ -46,7 +46,8 @@ class MESProductionRecord {
     List<ItemCompletionRecord> itemCompletionRecords = [];
     if (data['itemCompletionRecords'] != null) {
       for (var item in data['itemCompletionRecords']) {
-        itemCompletionRecords.add(ItemCompletionRecord.fromMap(item));
+        // For backwards compatibility, create empty action list if not available
+        itemCompletionRecords.add(ItemCompletionRecord.fromMap(item, []));
       }
     }
 
