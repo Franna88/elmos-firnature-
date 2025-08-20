@@ -79,9 +79,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
   late TextEditingController _stepTitleController;
   late TextEditingController _stepInstructionController;
   late TextEditingController _stepHelpNoteController;
-  late TextEditingController _stepEstimatedHoursController;
-  late TextEditingController _stepEstimatedMinutesController;
-  late TextEditingController _stepEstimatedSecondsController;
+  // Estimated time controllers removed - no longer used
   // Tools and hazards for the current step being edited
   List<String> _currentStepTools = [];
   List<String> _currentStepHazards = [];
@@ -102,9 +100,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     _stepTitleController = TextEditingController();
     _stepInstructionController = TextEditingController();
     _stepHelpNoteController = TextEditingController();
-    _stepEstimatedHoursController = TextEditingController(text: '0');
-    _stepEstimatedMinutesController = TextEditingController(text: '0');
-    _stepEstimatedSecondsController = TextEditingController(text: '0');
+    // Estimated time controllers removed - no longer used
 
     _loadSOP().then((_) {
       // If initialStepIndex is provided and valid, navigate to the Steps section and set the correct tab
@@ -135,9 +131,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     _stepTitleController.dispose();
     _stepInstructionController.dispose();
     _stepHelpNoteController.dispose();
-    _stepEstimatedHoursController.dispose();
-    _stepEstimatedMinutesController.dispose();
-    _stepEstimatedSecondsController.dispose();
+    // Estimated time controllers removed - no longer used
 
     // Dispose focus nodes
     _stepToolFocusNode.dispose();
@@ -177,12 +171,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 _stepTitleController = TextEditingController();
                 _stepInstructionController = TextEditingController();
                 _stepHelpNoteController = TextEditingController();
-                _stepEstimatedHoursController =
-                    TextEditingController(text: '0');
-                _stepEstimatedMinutesController =
-                    TextEditingController(text: '0');
-                _stepEstimatedSecondsController =
-                    TextEditingController(text: '0');
+                // Estimated time controllers removed - no longer used
                 _currentStepTools = [];
                 _currentStepHazards = [];
                 _sopTools = [];
@@ -254,9 +243,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       _stepTitleController = TextEditingController();
       _stepInstructionController = TextEditingController();
       _stepHelpNoteController = TextEditingController();
-      _stepEstimatedHoursController = TextEditingController(text: '0');
-      _stepEstimatedMinutesController = TextEditingController(text: '0');
-      _stepEstimatedSecondsController = TextEditingController(text: '0');
+      // Estimated time controllers removed - no longer used
 
       setState(() {
         _isLoading = false;
@@ -393,21 +380,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       _stepInstructionController.text = step.instruction;
       _stepHelpNoteController.text = step.helpNote ?? '';
 
-      // Parse and set time controllers
-      if (step.estimatedTime != null) {
-        int totalSeconds = step.estimatedTime!;
-        int hours = totalSeconds ~/ 3600;
-        int minutes = (totalSeconds % 3600) ~/ 60;
-        int seconds = totalSeconds % 60;
-
-        _stepEstimatedHoursController.text = hours.toString();
-        _stepEstimatedMinutesController.text = minutes.toString();
-        _stepEstimatedSecondsController.text = seconds.toString();
-      } else {
-        _stepEstimatedHoursController.text = '0';
-        _stepEstimatedMinutesController.text = '0';
-        _stepEstimatedSecondsController.text = '0';
-      }
+      // Estimated time parsing removed - no longer used
 
       _currentStepTools = List.from(step.stepTools);
       _currentStepHazards = List.from(step.stepHazards);
@@ -415,9 +388,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       _stepTitleController.text = '';
       _stepInstructionController.text = '';
       _stepHelpNoteController.text = '';
-      _stepEstimatedHoursController.text = '0';
-      _stepEstimatedMinutesController.text = '0';
-      _stepEstimatedSecondsController.text = '0';
+      // Estimated time controllers removed - no longer used
       _currentStepTools = [];
       _currentStepHazards = [];
     }
@@ -450,24 +421,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           ? _sop.steps[_currentStepIndex].id
           : '${_sop.id}_step_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Calculate total time in seconds
-      int? estimatedTime;
-      try {
-        int hours = int.tryParse(_stepEstimatedHoursController.text) ?? 0;
-        int minutes = int.tryParse(_stepEstimatedMinutesController.text) ?? 0;
-        int seconds = int.tryParse(_stepEstimatedSecondsController.text) ?? 0;
-
-        // Convert to total seconds
-        estimatedTime = (hours * 3600) + (minutes * 60) + seconds;
-
-        // If all values are 0, set to null
-        if (estimatedTime == 0) {
-          estimatedTime = null;
-        }
-      } catch (e) {
-        estimatedTime = null;
-      }
-
       final newStep = SOPStep(
         id: stepId,
         title: _stepTitleController.text,
@@ -478,15 +431,10 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         helpNote: _stepHelpNoteController.text.isEmpty
             ? null
             : _stepHelpNoteController.text,
-        estimatedTime: estimatedTime,
+        estimatedTime: null, // Estimated time removed from UI
         stepTools: _currentStepTools,
         stepHazards: _currentStepHazards,
       );
-
-      // Store the current step index for navigation after saving
-      final int savedStepIndex = _currentStepIndex < updatedSteps.length
-          ? _currentStepIndex // For existing step, use current index
-          : updatedSteps.length; // For new step, it will be added at the end
 
       if (_currentStepIndex < updatedSteps.length) {
         // Update existing step
@@ -495,6 +443,12 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
         // Add new step
         updatedSteps.add(newStep);
       }
+
+      // Store the correct step index for navigation after saving
+      final int savedStepIndex = _currentStepIndex < _sop.steps.length
+          ? _currentStepIndex // For existing step, use current index
+          : updatedSteps.length -
+              1; // For new step, use the index of the newly added step
 
       final updatedSop = _sop.copyWith(steps: updatedSteps);
 
@@ -526,6 +480,9 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
       // Navigate back to SOP viewer with the saved step index
       if (widget.sopId != 'new') {
+        if (kDebugMode) {
+          print('Navigating back to step index: $savedStepIndex');
+        }
         context.go('/mobile/sop/${finalSop.id}?stepIndex=$savedStepIndex');
       } else {
         // For new SOPs, return to the main editor form
@@ -1471,17 +1428,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  _editStep(_sop.steps.length); // Create new step
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Add Step'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1506,7 +1452,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Tap the "Add Step" button to add your first step.',
+                          'Tap the "+" icon in the app bar to add your first step.',
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -1646,16 +1592,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                           ),
                         ),
                       ),
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _editStep(index),
-                      tooltip: 'Edit Step',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () => _showDeleteConfirmation(index),
-                      tooltip: 'Delete Step',
-                    ),
                   ],
                 ),
               ],
@@ -1853,10 +1789,31 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
             onPressed: _isLoading
                 ? null // Disable back button when loading
                 : () {
+                    if (kDebugMode) {
+                      print(
+                          'Back button: navigating to step index: $_currentStepIndex');
+                    }
                     context.go(
                         '/mobile/sop/${_sop.id}?stepIndex=${_currentStepIndex}');
                   },
           ),
+          actions: [
+            // Save step button in app bar
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _isLoading ? null : _saveStep,
+              tooltip: 'Save Step',
+            ),
+            // Delete step button in app bar (only for existing steps)
+            if (_currentStepIndex < _sop.steps.length)
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: _isLoading
+                    ? null
+                    : () => _showDeleteConfirmation(_currentStepIndex),
+                tooltip: 'Delete Step',
+              ),
+          ],
         ),
         body: _buildStepEditorForm(),
       );
@@ -1890,6 +1847,39 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           },
         ),
         actions: [
+          // Add Step button - only show when in steps section
+          if (_currentSection == _sectionTitles.length - 1) // Steps section
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                _editStep(_sop.steps.length); // Create new step
+              },
+              tooltip: 'Add Step',
+            ),
+          // Save button
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _isLoading
+                ? null
+                : () {
+                    if (widget.sopId == 'new') {
+                      // For new SOPs, save the SOP
+                      if (_validateCurrentSection()) {
+                        _updateSOPLocally().then((_) {
+                          _saveSOP();
+                        });
+                      }
+                    } else {
+                      // For existing SOPs, save changes
+                      if (_validateCurrentSection()) {
+                        _updateSOPLocally().then((_) {
+                          _saveSOP();
+                        });
+                      }
+                    }
+                  },
+            tooltip: widget.sopId == 'new' ? 'Save SOP' : 'Save Changes',
+          ),
           // Only show delete button for existing SOPs (not new ones)
           if (widget.sopId != 'new')
             IconButton(
@@ -1950,85 +1940,11 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                             foregroundColor: Colors.white,
                           ),
                         )
-                      : ElevatedButton.icon(
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  // Validate current section before saving
-                                  if (_validateCurrentSection()) {
-                                    // Save to Firebase only on the final submission
-                                    _saveSOP().then((_) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content:
-                                              Text('SOP saved successfully!'),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                      context.go('/mobile/sops');
-                                    });
-                                  }
-                                },
-                          icon: _isLoading
-                              ? SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white)),
-                                )
-                              : const Icon(Icons.save),
-                          label: _isLoading
-                              ? const Text('Saving...')
-                              : const Text('Save SOP'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: Colors.green[200],
-                          ),
-                        )
-                // For existing SOPs, always show Save button
+                      : const SizedBox
+                          .shrink() // Hide save button for new SOPs in last section
+                // For existing SOPs, don't show save button at bottom
                 else
-                  ElevatedButton.icon(
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            // Validate current section before saving
-                            if (_validateCurrentSection()) {
-                              // Save to Firebase
-                              _saveSOP().then((_) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('SOP updated successfully!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                                // Return to SOP viewer for existing SOPs
-                                context.go('/mobile/sop/${widget.sopId}');
-                              });
-                            }
-                          },
-                    icon: _isLoading
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white)),
-                          )
-                        : const Icon(Icons.save),
-                    label: _isLoading
-                        ? const Text('Saving...')
-                        : const Text('Save Changes'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.green[200],
-                    ),
-                  ),
+                  const SizedBox.shrink(),
               ],
             ),
           ),
@@ -2134,7 +2050,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           padding: const EdgeInsets.all(16.0),
           child: ListView(
             children: [
-              // Step basic info
+              // Step Title
               TextFormField(
                 controller: _stepTitleController,
                 decoration: const InputDecoration(
@@ -2143,81 +2059,8 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 ),
                 enabled: !_isLoading,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _stepInstructionController,
-                decoration: const InputDecoration(
-                  labelText: 'Step Instructions',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 5,
-                enabled: !_isLoading,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _stepHelpNoteController,
-                decoration: const InputDecoration(
-                  labelText: 'Help Note (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-                enabled: !_isLoading,
-              ),
 
-              // Estimated time fields (hours, minutes, seconds)
-              const SizedBox(height: 16),
-              const Text(
-                'Estimated Time',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  // Hours
-                  Expanded(
-                    child: TextFormField(
-                      controller: _stepEstimatedHoursController,
-                      decoration: const InputDecoration(
-                        labelText: 'Hours',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      enabled: !_isLoading,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Minutes
-                  Expanded(
-                    child: TextFormField(
-                      controller: _stepEstimatedMinutesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Minutes',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      enabled: !_isLoading,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Seconds
-                  Expanded(
-                    child: TextFormField(
-                      controller: _stepEstimatedSecondsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Seconds',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      enabled: !_isLoading,
-                    ),
-                  ),
-                ],
-              ),
-
-              // Step image
+              // Step Image (moved after title to match SOP view layout)
               const SizedBox(height: 24),
               const Text(
                 'Step Image',
@@ -2270,40 +2113,29 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 ),
               ),
 
-              // Action buttons
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _saveStep,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[700],
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.red[300],
-                      ),
-                      child: _isLoading
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('SAVING...'),
-                              ],
-                            )
-                          : const Text('SAVE STEP'),
-                    ),
-                  ),
-                ],
+              // Step Instructions (moved after image to match SOP view layout)
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _stepInstructionController,
+                decoration: const InputDecoration(
+                  labelText: 'Step Instructions',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 5,
+                enabled: !_isLoading,
               ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _stepHelpNoteController,
+                decoration: const InputDecoration(
+                  labelText: 'Help Note (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                enabled: !_isLoading,
+              ),
+
+              // Save button removed - now in app bar
               // Add extra space at the bottom for the loading overlay
               if (_isLoading) const SizedBox(height: 80),
             ],
