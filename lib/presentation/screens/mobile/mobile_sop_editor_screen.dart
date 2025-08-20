@@ -3,11 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
@@ -17,7 +14,9 @@ import '../../widgets/cross_platform_image.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import '../../../utils/permission_handler.dart';
+import '../../../utils/image_crop_service.dart';
 import 'package:image/image.dart' as img;
+import 'package:image_cropper/image_cropper.dart';
 
 class MobileSOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -764,13 +763,22 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Select Image Source'),
+          title: const Text('Add SOP Step Image'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16.0),
+                child: Text(
+                  'Select an image source. You\'ll be able to crop and adjust the image to fit perfectly in the SOP viewer.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ),
               ListTile(
-                leading: const Icon(Icons.photo_library),
+                leading: const Icon(Icons.photo_library, color: Colors.blue),
                 title: const Text('Gallery'),
+                subtitle: const Text('Choose from your photos'),
                 onTap: () async {
                   Navigator.pop(context);
                   final image = await PermissionHandler.pickImage(
@@ -780,9 +788,11 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                   }
                 },
               ),
+              const Divider(),
               ListTile(
-                leading: const Icon(Icons.photo_camera),
+                leading: const Icon(Icons.photo_camera, color: Colors.green),
                 title: const Text('Camera'),
+                subtitle: const Text('Take a new photo'),
                 onTap: () async {
                   Navigator.pop(context);
                   final image = await PermissionHandler.pickImage(
@@ -806,16 +816,49 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
     });
 
     try {
+      // Step 1: Crop the image first
+      if (kDebugMode) {
+        print('Starting image cropping process for step image');
+      }
+
+      final CroppedFile? croppedFile =
+          await ImageCropService.cropImageForStepImage(
+        imagePath: image.path,
+        context: context,
+      );
+
+      // If user cancelled cropping, exit early
+      if (croppedFile == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image selection cancelled'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      if (kDebugMode) {
+        print('Image successfully cropped: ${croppedFile.path}');
+      }
+
+      // Step 2: Create XFile from cropped image for optimization
+      final XFile croppedXFile = XFile(croppedFile.path);
+
       final sopService = Provider.of<SOPService>(context, listen: false);
 
-      // Optimize the image before uploading
+      // Step 3: Optimize the cropped image before uploading
       final Uint8List optimizedBytes =
-          await _optimizeImage(image, isThumbnail: true);
+          await _optimizeImage(croppedXFile, isThumbnail: false);
 
-      // Create data URL for the optimized image
+      // Step 4: Create data URL for the optimized image
       final String dataUrl =
           'data:image/jpeg;base64,${base64Encode(optimizedBytes)}';
 
+      // Step 5: Handle storage based on SOP state
       // If this is a new SOP (not saved to Firebase yet), store the image as a base64 string temporarily
       if (widget.sopId == 'new' && !_sop.id.startsWith('firebase')) {
         // Just store the data URL directly as the image URL
@@ -826,7 +869,10 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Image added - save step to apply changes')),
+            content:
+                Text('Image cropped and added - save step to apply changes'),
+            backgroundColor: Colors.green,
+          ),
         );
         return;
       }
@@ -841,7 +887,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           await sopService.uploadImageFromDataUrl(dataUrl, _sop.id, stepId);
 
       if (kDebugMode) {
-        print('Uploaded image for step $stepId: $imageUrl');
+        print('Uploaded cropped image for step $stepId: $imageUrl');
       }
 
       // If editing an existing step, update that step
@@ -860,13 +906,27 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           _isLoading = false;
         });
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Image cropped and processed successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error processing image: $e')),
+        SnackBar(
+          content: Text('Error processing image: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
+
+      if (kDebugMode) {
+        print('Error in _processPickedImage: $e');
+      }
     }
   }
 
@@ -2261,14 +2321,25 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _uploadStepImage,
-                icon: const Icon(Icons.image),
-                label: Text(imageUrl.isNotEmpty ? 'Change Image' : 'Add Image'),
+                icon: const Icon(Icons.crop),
+                label: Text(imageUrl.isNotEmpty
+                    ? 'Crop & Change Image'
+                    : 'Add & Crop Image'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey,
                 ),
               ),
+              if (imageUrl.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'You can crop and adjust your image to fit perfectly in the SOP viewer',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
 
               // Action buttons
               const SizedBox(height: 32),
@@ -2429,44 +2500,6 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 ],
               ),
       ),
-    );
-  }
-
-  // Update step image display code
-  Widget _buildStepImageDisplay(String? imageUrl) {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: imageUrl != null
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(7),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return CrossPlatformImage(
-                    imageUrl: imageUrl,
-                    width: constraints.maxWidth,
-                    height: 250,
-                    fit: BoxFit.contain,
-                  );
-                },
-              ),
-            )
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_photo_alternate,
-                    size: 48, color: Colors.grey[400]),
-                const SizedBox(height: 8),
-                Text(
-                  'No Image',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
-            ),
     );
   }
 

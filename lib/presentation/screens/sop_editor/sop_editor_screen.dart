@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'dart:io';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -21,6 +21,8 @@ import '../../widgets/sop_viewer.dart';
 import '../../widgets/cross_platform_image.dart'; // Import CrossPlatformImage
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/services.dart';
+import '../../../utils/image_crop_service.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 class SOPEditorScreen extends StatefulWidget {
   final String sopId;
@@ -3661,7 +3663,36 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       );
 
       if (image != null) {
-        final Uint8List imageBytes = await image.readAsBytes();
+        // Step 1: Crop the image for optimal SOP display
+        if (kDebugMode) {
+          print(
+              'Starting image cropping process for desktop/web SOP step image');
+        }
+
+        final CroppedFile? croppedFile =
+            await ImageCropService.cropImageForStepImage(
+          imagePath: image.path,
+          context: context,
+        );
+
+        // If user cancelled cropping, return null
+        if (croppedFile == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image selection cancelled'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return null;
+        }
+
+        if (kDebugMode) {
+          print(
+              'Image successfully cropped for desktop/web: ${croppedFile.path}');
+        }
+
+        // Step 2: Convert cropped image to bytes
+        final Uint8List imageBytes = await croppedFile.readAsBytes();
         final sopService = Provider.of<SOPService>(context, listen: false);
 
         // For web, encode as a data URL
@@ -3694,16 +3725,19 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       return null;
     } catch (e) {
       if (kDebugMode) {
-        print('Error in image picking process: $e');
+        print('Error in image picking and cropping process: $e');
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not select image: $e')),
+        SnackBar(
+          content: Text('Could not select or crop image: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
       return null;
     }
   }
 
-  // New method to handle image selection with immediate preview
+  // New method to handle image selection with immediate preview and cropping
   Future<String?> _pickImageWithPreview() async {
     try {
       final ImagePicker picker = ImagePicker();
@@ -3715,18 +3749,60 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
       );
 
       if (image != null) {
-        final Uint8List imageBytes = await image.readAsBytes();
+        // Step 1: Crop the image for optimal SOP display
+        if (kDebugMode) {
+          print(
+              'Starting image cropping process for desktop/web SOP step image');
+        }
+
+        final CroppedFile? croppedFile =
+            await ImageCropService.cropImageForStepImage(
+          imagePath: image.path,
+          context: context,
+        );
+
+        // If user cancelled cropping, return null
+        if (croppedFile == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image selection cancelled'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return null;
+        }
+
+        if (kDebugMode) {
+          print(
+              'Image successfully cropped for desktop/web: ${croppedFile.path}');
+        }
+
+        // Step 2: Convert cropped image to bytes and data URL
+        final Uint8List imageBytes = await croppedFile.readAsBytes();
 
         // Return a data URL immediately for preview
-        return 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+        final String dataUrl =
+            'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image cropped and ready for upload'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        return dataUrl;
       }
       return null;
     } catch (e) {
       if (kDebugMode) {
-        print('Error in image picking process: $e');
+        print('Error in image picking and cropping process: $e');
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not select image: $e')),
+        SnackBar(
+          content: Text('Could not select or crop image: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
       return null;
     }
@@ -4090,10 +4166,10 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                     }
                                   }
                                 },
-                                icon: const Icon(Icons.image),
+                                icon: const Icon(Icons.crop),
                                 label: Text(imageUrl != null
-                                    ? 'Change Image'
-                                    : 'Add Image'),
+                                    ? 'Crop & Change Image'
+                                    : 'Add & Crop Image'),
                               ),
                               if (imageUrl != null) ...[
                                 const SizedBox(width: 8),
