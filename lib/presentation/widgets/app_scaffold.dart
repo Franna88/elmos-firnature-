@@ -363,8 +363,9 @@ class AppScaffold extends StatelessWidget {
                         context,
                         icon: Icons.insights_outlined,
                         label: 'SOP',
-                        route: '/analytics',
-                        isSelected: currentLocation == '/analytics',
+                        onTap: () =>
+                            _showComingSoonDialog(context, 'SOP Analytics'),
+                        isSelected: false,
                       ),
                       _buildNavItem(
                         context,
