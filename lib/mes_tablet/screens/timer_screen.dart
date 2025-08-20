@@ -11,6 +11,9 @@ import '../../data/models/mes_process_model.dart';
 import '../../data/models/mes_production_record_model.dart';
 import '../../presentation/widgets/cross_platform_image.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/sop_model.dart';
+import '../../data/services/sop_service.dart';
+import '../../presentation/widgets/sop_viewer.dart';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({Key? key}) : super(key: key);
@@ -3092,20 +3095,143 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
-  // Show help request dialog
+  // Show SOP help dialog
   void _requestHelp() {
+    _showSOPListDialog();
+  }
+
+  // Show SOP list popup
+  void _showSOPListDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Help Request'),
-        content:
-            const Text('Your help request has been sent to the supervisor.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.8,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Standard Operating Procedures',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Divider(),
+
+              // SOP List
+              Expanded(
+                child: Consumer<SOPService>(
+                  builder: (context, sopService, child) {
+                    if (sopService.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (sopService.sops.isEmpty) {
+                      return const Center(
+                        child: Text('No SOPs available'),
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: sopService.sops.length,
+                      itemBuilder: (context, index) {
+                        final sop = sopService.sops[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            leading: const Icon(Icons.description),
+                            title: Text(sop.title),
+                            subtitle: Text(sop.description),
+                            trailing: const Icon(Icons.arrow_forward_ios),
+                            onTap: () {
+                              Navigator.pop(context); // Close SOP list
+                              _showSOPViewerDialog(sop); // Show SOP viewer
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  // Show SOP viewer popup
+  void _showSOPViewerDialog(SOP sop) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.9,
+          child: Column(
+            children: [
+              // Header with back and close buttons
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Close viewer
+                        _showSOPListDialog(); // Show list again
+                      },
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                    Expanded(
+                      child: Text(
+                        sop.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+
+              // SOP Viewer Content
+              Expanded(
+                child: SOPViewer(
+                  sop: sop,
+                  showFullDetails: true,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -3706,7 +3832,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                                     ? 23
                                                     : 26, // Increased by 30%
                                                 fontWeight: FontWeight.bold,
-                                                color: _getStatusColor(),
+                                                color: _getContrastingTextColor(
+                                                    _getStatusColor()),
                                               ),
                                             ),
                                             const SizedBox(width: 10),
@@ -3916,7 +4043,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                                         isNarrow ? 48 : 64,
                                                     fontWeight: FontWeight.bold,
                                                     fontFamily: 'monospace',
-                                                    color: Colors.white,
+                                                    color:
+                                                        _getContrastingTextColor(
+                                                            _getStatusColor()),
                                                     height: 1.0,
                                                   ),
                                                 ),
@@ -3933,7 +4062,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                                   ? 27
                                                   : 36, // Increased by 50%
                                               fontWeight: FontWeight.bold,
-                                              color: _getStatusColor(),
+                                              color: _getContrastingTextColor(
+                                                  _getStatusColor()),
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
@@ -3945,13 +4075,17 @@ class _TimerScreenState extends State<TimerScreen> {
                                             style: TextStyle(
                                               fontSize: isNarrow ? 14 : 16,
                                               fontWeight: FontWeight.w600,
-                                              color: _getStatusColor(),
+                                              color: _getContrastingTextColor(
+                                                  _getStatusColor()),
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
 
                                           // Cycle time display (only show when in production)
-                                          if (_selectedItem != null) ...[
+                                          if (_timer.currentAction != null &&
+                                              _timer.currentAction!.name
+                                                  .toLowerCase()
+                                                  .contains('production')) ...[
                                             const SizedBox(height: 4),
                                             Text(
                                               'Cycle Time: ${ProductionTimer.formatDuration(_timer.getCycleTime())}',
@@ -3959,16 +4093,6 @@ class _TimerScreenState extends State<TimerScreen> {
                                                 fontSize: isNarrow ? 11 : 13,
                                                 fontWeight: FontWeight.w500,
                                                 color: Colors.grey[600],
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                            // Debug info to see what's happening
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              'Debug: Action=${_timer.currentAction?.name ?? "NULL"}, CycleTime=${_timer.getCycleTime()}',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.red,
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
@@ -3981,7 +4105,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                               'Avg Item Time: ${ProductionTimer.formatDuration(_timer.getAverageItemTime().isFinite ? _timer.getAverageItemTime().round() : 0)}',
                                               style: TextStyle(
                                                 fontSize: isNarrow ? 12 : 14,
-                                                color: _getStatusColor()
+                                                color: _getContrastingTextColor(
+                                                        _getStatusColor())
                                                     .withOpacity(0.8),
                                                 fontFamily: 'monospace',
                                                 fontWeight: FontWeight.w500,
@@ -4992,5 +5117,18 @@ class _TimerScreenState extends State<TimerScreen> {
         SizedBox(height: isNarrow ? 6 : 8),
       ],
     );
+  }
+
+  // Helper method to determine if a color is light or dark
+  bool _isColorLight(Color color) {
+    // Calculate relative luminance using the formula: 0.299*R + 0.587*G + 0.114*B
+    final luminance =
+        (0.299 * color.red + 0.587 * color.green + 0.114 * color.blue) / 255;
+    return luminance > 0.5; // If luminance > 0.5, it's considered light
+  }
+
+  // Helper method to get contrasting text color based on background
+  Color _getContrastingTextColor(Color backgroundColor) {
+    return _isColorLight(backgroundColor) ? Colors.black : Colors.white;
   }
 }
