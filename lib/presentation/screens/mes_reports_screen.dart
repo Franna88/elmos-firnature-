@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../data/services/mes_service.dart';
 import '../../data/models/mes_production_record_model.dart';
@@ -28,7 +27,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
@@ -50,8 +49,9 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
 
-      // Load items and production records
+      // Load processes, items and production records
       await Future.wait([
+        mesService.fetchProcesses(),
         mesService.fetchItems(),
         mesService.fetchProductionRecords(
           userId: _selectedUserId == 'All' ? null : _selectedUserId,
@@ -120,11 +120,9 @@ class _MESReportsScreenState extends State<MESReportsScreen>
               unselectedLabelColor: Colors.grey[600],
               indicatorColor: AppColors.primaryBlue,
               tabs: const [
-                Tab(icon: Icon(Icons.analytics), text: 'Analyze'),
-                Tab(icon: Icon(Icons.inventory), text: 'Items'),
+                Tab(icon: Icon(Icons.settings), text: 'Process'),
+                Tab(icon: Icon(Icons.inventory), text: 'Item'),
                 Tab(icon: Icon(Icons.timeline), text: 'Actions'),
-                Tab(icon: Icon(Icons.people), text: 'Workers'),
-                Tab(icon: Icon(Icons.factory), text: 'Factory'),
               ],
             ),
           ),
@@ -134,11 +132,9 @@ class _MESReportsScreenState extends State<MESReportsScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildAnalyticsTab(),
-                _buildItemsTab(), // Renamed from Records
+                _buildProcessTab(),
+                _buildItemTab(),
                 _buildActionsTab(),
-                _buildWorkersTab(),
-                _buildFactoryTab(), // New tab
               ],
             ),
           ),
@@ -147,139 +143,268 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     );
   }
 
-  Widget _buildItemsTab() {
+  // Process Tab - Shows list of processes and detailed view with Date-Item-Finished QTY-Prod Time
+  Widget _buildProcessTab() {
     return Consumer<MESService>(
       builder: (context, mesService, child) {
         if (_isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final allRecords = mesService.productionRecords;
-        final filteredRecords = _filterRecords(allRecords);
-
-        if (filteredRecords.isEmpty) {
+        final processes = mesService.processes;
+        if (processes.isEmpty) {
           return _buildEmptyState(
-            Icons.inbox,
-            'No Records Found',
-            'No production records match your criteria.',
+            Icons.settings,
+            'No Processes Found',
+            'No MES processes are available.',
           );
         }
 
-        return Column(
-          children: [
-            // Date filter bar
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.grey[50],
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today,
-                      size: 20, color: AppColors.primaryBlue),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Filter by Date:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryBlue,
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: processes.length,
+          itemBuilder: (context, index) {
+            final process = processes[index];
+            return _buildProcessCard(process, mesService);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildProcessCard(dynamic process, MESService mesService) {
+    // Calculate process statistics
+    final processRecords = mesService.productionRecords.where((record) {
+      final item = mesService.items.firstWhere(
+        (item) => item.id == record.itemId,
+        orElse: () => MESItem(
+          id: 'unknown',
+          name: 'Unknown',
+          processId: '',
+          estimatedTimeInMinutes: 0,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+      return item.processId == process.id;
+    }).toList();
+
+    final totalItems = processRecords.fold(
+        0, (sum, record) => sum + record.itemCompletionRecords.length);
+    final totalProdTime = processRecords.fold(
+        0, (sum, record) => sum + record.totalProductionTimeSeconds);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.primaryBlue.withOpacity(0.3)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showProcessDetails(process, mesService),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Process Icon
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.settings,
+                  color: AppColors.primaryBlue,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Process Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      process.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Row(
+                    if (process.description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        process.description!,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: _selectStartDate,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(8),
-                                color: Colors.white,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.calendar_month,
-                                      size: 16, color: Colors.grey[600]),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    DateFormat('MMM dd, yyyy')
-                                        .format(_startDate),
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        _buildQuickMetric(
+                          'Items',
+                          '$totalItems',
+                          AppColors.primaryBlue,
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child:
-                              Text('to', style: TextStyle(color: Colors.grey)),
-                        ),
-                        Expanded(
-                          child: InkWell(
-                            onTap: _selectEndDate,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(8),
-                                color: Colors.white,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.calendar_month,
-                                      size: 16, color: Colors.grey[600]),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    DateFormat('MMM dd, yyyy').format(_endDate),
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        const SizedBox(width: 16),
+                        _buildQuickMetric(
+                          'Production Time',
+                          _formatSeconds(totalProdTime),
+                          AppColors.greenAccent,
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _loadData,
-                    icon: const Icon(Icons.search, size: 16),
-                    label: const Text('Apply'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Records list
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _loadData,
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredRecords.length,
-                  itemBuilder: (context, index) {
-                    final record = filteredRecords[index];
-                    final item = _getItemForRecord(mesService, record);
-                    return _buildRecordListItem(record, item);
-                  },
+                  ],
                 ),
               ),
-            ),
-          ],
+
+              // Arrow
+              Icon(
+                Icons.chevron_right,
+                color: Colors.grey[400],
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Item Tab - Shows list of items and detailed view with Date-Finished QTY-Ave Time per item
+  Widget _buildItemTab() {
+    return Consumer<MESService>(
+      builder: (context, mesService, child) {
+        if (_isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final items = mesService.items;
+        if (items.isEmpty) {
+          return _buildEmptyState(
+            Icons.inventory,
+            'No Items Found',
+            'No MES items are available.',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return _buildItemCard(item, mesService);
+          },
         );
       },
+    );
+  }
+
+  Widget _buildItemCard(dynamic item, MESService mesService) {
+    // Calculate item statistics
+    final itemRecords = mesService.productionRecords
+        .where((record) => record.itemId == item.id)
+        .toList();
+
+    final totalCompleted = itemRecords.fold(
+        0, (sum, record) => sum + record.itemCompletionRecords.length);
+    final totalProdTime = itemRecords.fold(
+        0, (sum, record) => sum + record.totalProductionTimeSeconds);
+    final avgTimePerItem =
+        totalCompleted > 0 ? totalProdTime / totalCompleted : 0.0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.primaryBlue.withOpacity(0.3)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showItemDetails(item, mesService),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Item Icon
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.inventory,
+                  color: AppColors.primaryBlue,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Item Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    if (item.category != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Category: ${item.category}',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildQuickMetric(
+                          'Completed',
+                          '$totalCompleted',
+                          AppColors.greenAccent,
+                        ),
+                        const SizedBox(width: 16),
+                        _buildQuickMetric(
+                          'Avg Time',
+                          avgTimePerItem > 0
+                              ? _formatSeconds(avgTimePerItem.round())
+                              : '0m',
+                          AppColors.orangeAccent,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Arrow
+              Icon(
+                Icons.chevron_right,
+                color: Colors.grey[400],
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -732,6 +857,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     );
   }
 
+  // Actions Tab - Shows list of actions and detailed view with Date-Total time-User-Process
   Widget _buildActionsTab() {
     return Consumer<MESService>(
       builder: (context, mesService, child) {
@@ -768,10 +894,100 @@ class _MESReportsScreenState extends State<MESReportsScreen>
           itemBuilder: (context, index) {
             final actionName = actionGroups.keys.elementAt(index);
             final actions = actionGroups[actionName]!;
-            return _buildActionGroupCard(actionName, actions);
+            return _buildActionTypeCard(actionName, actions, mesService);
           },
         );
       },
+    );
+  }
+
+  Widget _buildActionTypeCard(
+      String actionName, List<MESInterruption> actions, MESService mesService) {
+    final totalDuration =
+        actions.fold(0, (sum, action) => sum + action.durationSeconds);
+    final actionColor = _getActionColor(actionName);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: actionColor.withOpacity(0.3)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showActionDetails(actionName, actions, mesService),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Action Icon
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: actionColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _getActionIcon(actionName),
+                  color: actionColor,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Action Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      actionName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${actions.length} occurrences',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildQuickMetric(
+                          'Total Time',
+                          _formatSeconds(totalDuration),
+                          actionColor,
+                        ),
+                        const SizedBox(width: 16),
+                        _buildQuickMetric(
+                          'Average',
+                          _formatSeconds(
+                              (totalDuration / actions.length).round()),
+                          Colors.grey[600]!,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Arrow
+              Icon(
+                Icons.chevron_right,
+                color: Colors.grey[400],
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1769,6 +1985,464 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     }
 
     return workerStats;
+  }
+
+  void _showProcessDetails(dynamic process, MESService mesService) {
+    final processRecords = mesService.productionRecords.where((record) {
+      final item = mesService.items.firstWhere(
+        (item) => item.id == record.itemId,
+        orElse: () => MESItem(
+          id: 'unknown',
+          name: 'Unknown',
+          processId: '',
+          estimatedTimeInMinutes: 0,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+      return item.processId == process.id;
+    }).toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 900,
+          constraints: const BoxConstraints(maxHeight: 700),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryBlue,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.settings, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Process Details - ${process.name}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Production Records',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Headers
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(
+                                flex: 2,
+                                child: Text('Date',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 3,
+                                child: Text('Item',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 2,
+                                child: Text('Finished QTY',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 2,
+                                child: Text('Prod Time',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                          ],
+                        ),
+                      ),
+
+                      // Records
+                      ...processRecords.map((record) {
+                        final item = mesService.items.firstWhere(
+                          (item) => item.id == record.itemId,
+                          orElse: () => MESItem(
+                            id: 'unknown',
+                            name: 'Unknown',
+                            processId: '',
+                            estimatedTimeInMinutes: 0,
+                            createdAt: DateTime.now(),
+                            updatedAt: DateTime.now(),
+                          ),
+                        );
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                                bottom: BorderSide(color: Colors.grey[200]!)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Text(DateFormat('MM/dd/yyyy')
+                                    .format(record.startTime)),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(item.name),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                    '${record.itemCompletionRecords.length}'),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(_formatSeconds(
+                                    record.totalProductionTimeSeconds)),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showActionDetails(
+      String actionName, List<dynamic> actions, MESService mesService) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 1000,
+          constraints: const BoxConstraints(maxHeight: 700),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _getActionColor(actionName),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(_getActionIcon(actionName), color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Action Details - $actionName',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Action History',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Headers
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(
+                                flex: 2,
+                                child: Text('Date',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 2,
+                                child: Text('Total Time',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 2,
+                                child: Text('User',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 3,
+                                child: Text('Process',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                          ],
+                        ),
+                      ),
+
+                      // Group actions by date/session and aggregate data
+                      ...actions.map((action) {
+                        // Find the production record this action belongs to
+                        MESProductionRecord? productionRecord;
+                        try {
+                          productionRecord =
+                              mesService.productionRecords.firstWhere(
+                            (record) => record.interruptions.contains(action),
+                          );
+                        } catch (e) {
+                          productionRecord = null;
+                        }
+
+                        String? processName;
+                        if (productionRecord != null) {
+                          try {
+                            final item = mesService.items.firstWhere(
+                              (item) => item.id == productionRecord!.itemId,
+                            );
+                            final process = mesService.processes.firstWhere(
+                              (proc) => proc.id == item.processId,
+                            );
+                            processName = process.name;
+                          } catch (e) {
+                            processName = 'Unknown Process';
+                          }
+                        } else {
+                          processName = 'Unknown Process';
+                        }
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                                bottom: BorderSide(color: Colors.grey[200]!)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Text(DateFormat('MM/dd/yyyy')
+                                    .format(action.startTime)),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                    _formatSeconds(action.durationSeconds)),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                    productionRecord?.userName ?? 'Unknown'),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(processName),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showItemDetails(dynamic item, MESService mesService) {
+    final itemRecords = mesService.productionRecords
+        .where((record) => record.itemId == item.id)
+        .toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 900,
+          constraints: const BoxConstraints(maxHeight: 700),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryBlue,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.inventory, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Item Details - ${item.name}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Production History',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Headers
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(
+                                flex: 2,
+                                child: Text('Date',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 2,
+                                child: Text('Finished QTY',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                            Expanded(
+                                flex: 3,
+                                child: Text('Ave Time per Item',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold))),
+                          ],
+                        ),
+                      ),
+
+                      // Records
+                      ...itemRecords.map((record) {
+                        final completedCount =
+                            record.itemCompletionRecords.length;
+                        final avgTime = completedCount > 0
+                            ? record.totalProductionTimeSeconds / completedCount
+                            : 0.0;
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                                bottom: BorderSide(color: Colors.grey[200]!)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Text(DateFormat('MM/dd/yyyy')
+                                    .format(record.startTime)),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text('$completedCount'),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(_formatSeconds(avgTime.round())),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showFiltersDialog() {
