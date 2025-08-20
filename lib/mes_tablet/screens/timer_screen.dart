@@ -40,7 +40,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Production data fields
   int _expectedQty = 0;
-  int _qtyPerCycle = 0;
+  int _qtyPerCycle = 0; // Starts at 0, increments when Next button is pressed
   int _finishedQty = 0;
   int _rejectQty = 0;
 
@@ -455,16 +455,17 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // Mark job as completed (increment finished quantity)
+  // Mark job as completed (increment qty per cycle only)
   void _markJobCompleted() {
     setState(() {
-      _finishedQty += _qtyPerCycle; // Increment by the quantity per cycle
+      _qtyPerCycle += 1; // Increment qty per cycle
+      // Finished QTY remains manual entry only - not auto-incremented
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            'Job completed! Finished QTY increased by $_qtyPerCycle (now $_finishedQty)'),
+            'Job completed! QTY per cycle incremented (now $_qtyPerCycle)'),
         backgroundColor: Colors.green,
         duration: const Duration(seconds: 3),
       ),
@@ -852,8 +853,7 @@ class _TimerScreenState extends State<TimerScreen> {
         _selectedItem; // Pre-select current item if any
     final TextEditingController expectedQtyController =
         TextEditingController(text: _expectedQty.toString());
-    final TextEditingController qtyPerCycleController =
-        TextEditingController(text: _qtyPerCycle.toString());
+    // QTY per Cycle is now displayed dynamically, no controller needed
     final TextEditingController finishedQtyController =
         TextEditingController(text: _finishedQty.toString());
     final TextEditingController rejectQtyController =
@@ -1146,11 +1146,49 @@ class _TimerScreenState extends State<TimerScreen> {
                             Expanded(
                               child: _buildCompactFormField(
                                 label: 'QTY per Cycle',
-                                child: _buildCompactNumberField(
-                                    qtyPerCycleController,
-                                    'QTY per Cycle',
-                                    AppColors.greenAccent,
-                                    helperText: 'Incremented with "Next"'),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppColors.greenAccent.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: AppColors.greenAccent, width: 2),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '$_qtyPerCycle',
+                                            style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.greenAccent,
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.add_circle,
+                                            color: AppColors.greenAccent,
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Incremented with "Next"',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -1277,9 +1315,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                       expectedQty: int.tryParse(
                                               expectedQtyController.text) ??
                                           0,
-                                      qtyPerCycle: int.tryParse(
-                                              qtyPerCycleController.text) ??
-                                          0,
+                                      qtyPerCycle: _qtyPerCycle,
                                       finishedQty: int.tryParse(
                                               finishedQtyController.text) ??
                                           0,
@@ -1293,9 +1329,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                       expectedQty: int.tryParse(
                                               expectedQtyController.text) ??
                                           0,
-                                      qtyPerCycle: int.tryParse(
-                                              qtyPerCycleController.text) ??
-                                          0,
+                                      qtyPerCycle: _qtyPerCycle,
                                       finishedQty: int.tryParse(
                                               finishedQtyController.text) ??
                                           0,
@@ -1310,9 +1344,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                       expectedQty: int.tryParse(
                                               expectedQtyController.text) ??
                                           0,
-                                      qtyPerCycle: int.tryParse(
-                                              qtyPerCycleController.text) ??
-                                          0,
+                                      qtyPerCycle: _qtyPerCycle,
                                       finishedQty: int.tryParse(
                                               finishedQtyController.text) ??
                                           0,
@@ -1973,6 +2005,7 @@ class _TimerScreenState extends State<TimerScreen> {
       _secondsRemaining = item.estimatedTimeInMinutes * 60;
       _timer.resetForNewItem(); // Reset timer when selecting new item
       _setupCompleted = false; // Reset setup status
+      _qtyPerCycle = 0; // Reset qty per cycle for new item
 
       // Auto-select Setup action when item is selected
       if (_interruptionTypes.isNotEmpty) {
@@ -2642,10 +2675,11 @@ class _TimerScreenState extends State<TimerScreen> {
 
     setState(() {
       _timer.completeCurrentItem();
-      // Increment by the configured qty per cycle
-      _selectedItem!.completedCount += _qtyPerCycle;
-      // Also update finished qty
-      _finishedQty += _qtyPerCycle;
+      // Increment qty per cycle by 1 each time Next is pressed
+      _qtyPerCycle += 1;
+      // Increment item completed count by 1
+      _selectedItem!.completedCount += 1;
+      // Finished QTY remains manual entry only - not auto-incremented
     });
 
     // Save the updated item completion records to the database

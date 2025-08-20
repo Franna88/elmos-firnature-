@@ -118,7 +118,7 @@ class ItemCompletionRecord {
 class ProductionTimer {
   // Current timer state
   ProductionTimerMode _mode = ProductionTimerMode.notStarted;
-  ProductionTimerMode get mode => _mode;
+  RProductionTimerMode get mode => _mode;
 
   // Accumulated times (in seconds)
   int _productionTime = 0;
