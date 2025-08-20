@@ -477,7 +477,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                             return CrossPlatformImage(
                               imageUrl: step.imageUrl!,
                               fit: BoxFit
-                                  .cover, // Fill the entire available space
+                                  .contain, // Fill the entire available space
                               width: constraints.maxWidth,
                               height: constraints.maxHeight,
                               errorWidget: Container(
@@ -1002,8 +1002,8 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                       ? CrossPlatformImage(
                           imageUrl: step.imageUrl!,
                           fit: BoxFit.contain,
-                          height: 330,
-                          width: 330,
+                          height: isLargeScreen ? 450 : 335,
+                          width: isLargeScreen ? 460 : 335,
                           errorWidget: Container(
                             color: Colors.grey[100],
                             child: Center(
