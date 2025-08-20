@@ -118,7 +118,7 @@ class ItemCompletionRecord {
 class ProductionTimer {
   // Current timer state
   ProductionTimerMode _mode = ProductionTimerMode.notStarted;
-  RProductionTimerMode get mode => _mode;
+  ProductionTimerMode get mode => _mode;
 
   // Accumulated times (in seconds)
   int _productionTime = 0;
@@ -546,9 +546,21 @@ class ProductionTimer {
     _mode = ProductionTimerMode.notStarted;
     _productionStartTime = null;
     _interruptionStartTime = null;
+    _setupStartTime = null;
     _productionTime = 0;
     _interruptionTime = 0;
+    _setupTime = 0;
     _productionStartCount = 0;
+    _currentAction = null; // Clear current action
+    _actionStartTime = null; // Clear action start time
+    _actionTime = 0; // Reset action time
+    _currentItemStartTime = null; // Clear item start time
+    _currentItemProductionTime = 0; // Reset item production time
+    _currentItemTimerStartTime = null; // Clear item timer start time
+    _currentItemTimerSeconds = 0; // Reset item timer seconds
+    _currentItemActionRecords.clear(); // Clear action records
+    _completedCount = 0; // Reset completed items counter
+    _completedItems.clear(); // Clear completed items list
   }
 
   // Get total production time in seconds

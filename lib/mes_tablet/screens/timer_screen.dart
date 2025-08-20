@@ -347,11 +347,10 @@ class _TimerScreenState extends State<TimerScreen> {
       return;
     }
 
-    // Business Rule 1: Setup action - prompt if job completed when selecting setup after another action
+    // Business Rule 1: Setup action - prompt if job completed when selecting setup
     if (actionName.contains('setup')) {
-      // If we already have a current action (not the initial setup), ask if job is completed
-      if (_selectedAction != null &&
-          !_selectedAction!.name.toLowerCase().contains('setup')) {
+      // If we already have an item selected and any action running, ask if job is completed
+      if (_selectedItem != null && _selectedAction != null) {
         _showSetupJobCompleteDialog(type);
         return;
       }
@@ -441,9 +440,8 @@ class _TimerScreenState extends State<TimerScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Job completed - mark completion and then switch to setup
-              _markJobCompleted();
-              _proceedWithAction(setupType);
+              // Job completed - open item popup with counting action for final QTY entry
+              _showJobCompletionDialog();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
@@ -453,6 +451,243 @@ class _TimerScreenState extends State<TimerScreen> {
         ],
       ),
     );
+  }
+
+  // Show job completion dialog with counting action and final QTY requirement
+  void _showJobCompletionDialog() {
+    // Find the counting action
+    final countingAction = _interruptionTypes.firstWhere(
+      (type) => type.name.toLowerCase().contains('counting'),
+      orElse: () => _interruptionTypes.first,
+    );
+
+    // Switch to counting action first
+    _proceedWithAction(countingAction);
+
+    // Then show the item dialog with enforced final QTY entry
+    _showItemSelectionDialogForCompletion();
+  }
+
+  // Show item dialog for job completion with final QTY requirement
+  void _showItemSelectionDialogForCompletion() {
+    if (_selectedItem == null) return;
+
+    final TextEditingController expectedQtyController =
+        TextEditingController(text: _expectedQty.toString());
+    final TextEditingController finishedQtyController =
+        TextEditingController(text: _finishedQty.toString());
+    final TextEditingController rejectQtyController =
+        TextEditingController(text: _rejectQty.toString());
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Force user to complete the process
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.task_alt, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Complete Job: ${_selectedItem!.name}'),
+          ],
+        ),
+        content: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Please enter the final quantities before completing this job:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              SizedBox(height: 20),
+
+              // Expected QTY
+              TextFormField(
+                controller: expectedQtyController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Expected QTY',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 16),
+
+              // QTY per Cycle (display only)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.greenAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.greenAccent, width: 2),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('QTY per Cycle',
+                            style: TextStyle(fontWeight: FontWeight.w500)),
+                        SizedBox(height: 4),
+                        Text('$_qtyPerCycle',
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.greenAccent)),
+                      ],
+                    ),
+                    Icon(Icons.info_outline, color: AppColors.greenAccent),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+
+              // Finished QTY (REQUIRED)
+              TextFormField(
+                controller: finishedQtyController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Finished QTY *REQUIRED*',
+                  labelStyle:
+                      TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red, width: 2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red, width: 2),
+                  ),
+                  helperText:
+                      'You must enter the final count of finished items',
+                ),
+              ),
+              SizedBox(height: 16),
+
+              // Reject QTY
+              TextFormField(
+                controller: rejectQtyController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Reject QTY',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Cancel - go back to previous action without completing job
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Validate that Finished QTY has been entered
+              final finishedQty = int.tryParse(finishedQtyController.text) ?? 0;
+              if (finishedQty <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Please enter a valid Finished QTY greater than 0'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+                return;
+              }
+
+              // Save the final quantities
+              _completeJobAndReset(
+                expectedQty: int.tryParse(expectedQtyController.text) ?? 0,
+                finishedQty: finishedQty,
+                rejectQty: int.tryParse(rejectQtyController.text) ?? 0,
+              );
+
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: const Text('Complete Job'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Complete job and reset for new item selection
+  Future<void> _completeJobAndReset({
+    required int expectedQty,
+    required int finishedQty,
+    required int rejectQty,
+  }) async {
+    if (_selectedItem == null) return;
+
+    // Store item name before clearing state
+    final completedItemName = _selectedItem!.name;
+
+    try {
+      // Save final production data to Firebase
+      await _saveProductionDataToFirebase(
+        item: _selectedItem!,
+        expectedQty: expectedQty,
+        qtyPerCycle: _qtyPerCycle,
+        finishedQty: finishedQty,
+        rejectQty: rejectQty,
+      );
+
+      // Update production record status to completed
+      if (_recordId != null) {
+        final mesService = Provider.of<MESService>(context, listen: false);
+        final currentRecord = await mesService.getProductionRecord(_recordId!);
+        await mesService.updateProductionRecord(
+          currentRecord.copyWith(
+            status: ProductionStatus.completed,
+            endTime: DateTime.now(),
+            // Add other completion fields as needed
+          ),
+        );
+      }
+
+      // Reset all state for new item selection
+      setState(() {
+        _selectedItem = null;
+        _recordId = null;
+        _expectedQty = 0;
+        _qtyPerCycle = 0;
+        _finishedQty = 0;
+        _rejectQty = 0;
+        _selectedAction = null;
+        _isInProductionMode = false;
+        _timer.resetForNewItem(); // Clear timer completely
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Job completed successfully! $completedItemName finished with $finishedQty items.',
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+      print(
+          '✅ JOB COMPLETED: $completedItemName with $finishedQty finished items');
+    } catch (e) {
+      print('❌ Error completing job: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error completing job: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   // Mark job as completed (increment qty per cycle only)
