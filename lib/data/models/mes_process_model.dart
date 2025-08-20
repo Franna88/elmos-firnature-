@@ -9,6 +9,7 @@ class MESProcess {
   final bool isActive;
   final bool
       requiresSetup; // Whether this process requires setup before production
+  final int setupTimeMinutes; // Setup time required in minutes
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -20,6 +21,7 @@ class MESProcess {
     this.stationName,
     this.isActive = true,
     this.requiresSetup = false,
+    this.setupTimeMinutes = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -36,6 +38,7 @@ class MESProcess {
       stationName: data['stationName'],
       isActive: data['isActive'] ?? true,
       requiresSetup: data['requiresSetup'] ?? false,
+      setupTimeMinutes: data['setupTimeMinutes'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
@@ -50,6 +53,7 @@ class MESProcess {
       'stationName': stationName,
       'isActive': isActive,
       'requiresSetup': requiresSetup,
+      'setupTimeMinutes': setupTimeMinutes,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -63,6 +67,7 @@ class MESProcess {
     String? stationName,
     bool? isActive,
     bool? requiresSetup,
+    int? setupTimeMinutes,
   }) {
     return MESProcess(
       id: id,
@@ -72,6 +77,7 @@ class MESProcess {
       stationName: stationName ?? this.stationName,
       isActive: isActive ?? this.isActive,
       requiresSetup: requiresSetup ?? this.requiresSetup,
+      setupTimeMinutes: setupTimeMinutes ?? this.setupTimeMinutes,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );

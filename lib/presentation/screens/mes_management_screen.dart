@@ -900,6 +900,8 @@ class _MESManagementScreenState extends State<MESManagementScreen>
     final nameController = TextEditingController(text: process.name);
     final descriptionController =
         TextEditingController(text: process.description ?? '');
+    final setupTimeController =
+        TextEditingController(text: process.setupTimeMinutes.toString());
     String? selectedStationId = process.stationId;
     bool requiresSetup = process.requiresSetup;
 
@@ -1010,7 +1012,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Station',
+                          'Area',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -1021,7 +1023,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                         DropdownButtonFormField<String>(
                           value: selectedStationId,
                           decoration: InputDecoration(
-                            hintText: 'Select a station (optional)',
+                            hintText: 'Select an area (optional)',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -1110,6 +1112,48 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 20),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Setup Time (minutes)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: setupTimeController,
+                          decoration: InputDecoration(
+                            hintText: 'Enter setup time in minutes (e.g., 15)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon:
+                                Icon(Icons.schedule, color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1129,6 +1173,29 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                     return;
                   }
 
+                  // Validate setup time
+                  int setupTimeMinutes = 0;
+                  if (setupTimeController.text.trim().isNotEmpty) {
+                    try {
+                      setupTimeMinutes =
+                          int.parse(setupTimeController.text.trim());
+                      if (setupTimeMinutes < 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Setup time cannot be negative')),
+                        );
+                        return;
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Please enter a valid number for setup time')),
+                      );
+                      return;
+                    }
+                  }
+
                   try {
                     final station = selectedStationId != null
                         ? mesService.getStationById(selectedStationId!)
@@ -1143,6 +1210,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                         stationId: selectedStationId,
                         stationName: station?.name,
                         requiresSetup: requiresSetup,
+                        setupTimeMinutes: setupTimeMinutes,
                       ),
                     );
 

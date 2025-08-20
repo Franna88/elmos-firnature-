@@ -83,7 +83,8 @@ class MESService extends ChangeNotifier {
       {String? description,
       String? stationId,
       String? stationName,
-      bool requiresSetup = false}) async {
+      bool requiresSetup = false,
+      int setupTimeMinutes = 0}) async {
     try {
       final now = DateTime.now();
 
@@ -94,6 +95,7 @@ class MESService extends ChangeNotifier {
         'stationName': stationName,
         'isActive': true,
         'requiresSetup': requiresSetup,
+        'setupTimeMinutes': setupTimeMinutes,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
       });
@@ -106,6 +108,7 @@ class MESService extends ChangeNotifier {
         stationName: stationName,
         isActive: true,
         requiresSetup: requiresSetup,
+        setupTimeMinutes: setupTimeMinutes,
         createdAt: now,
         updatedAt: now,
       );
@@ -131,6 +134,7 @@ class MESService extends ChangeNotifier {
         'stationName': process.stationName,
         'isActive': process.isActive,
         'requiresSetup': process.requiresSetup,
+        'setupTimeMinutes': process.setupTimeMinutes,
         'updatedAt': Timestamp.fromDate(now),
       });
 
@@ -142,6 +146,7 @@ class MESService extends ChangeNotifier {
         stationName: process.stationName,
         isActive: process.isActive,
         requiresSetup: process.requiresSetup,
+        setupTimeMinutes: process.setupTimeMinutes,
         createdAt: process.createdAt,
         updatedAt: now,
       );
