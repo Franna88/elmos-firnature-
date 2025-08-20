@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
@@ -11,7 +11,7 @@ import '../../../data/models/sop_model.dart';
 import '../../../data/services/print_service.dart';
 import 'package:image_network/image_network.dart';
 import '../../../core/theme/app_theme.dart';
-import 'package:flutter/foundation.dart';
+
 import '../../widgets/cross_platform_image.dart';
 import '../../widgets/app_scaffold.dart';
 import '../sop_editor/sop_editor_screen.dart';
@@ -48,6 +48,10 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
     super.initState();
     // Initialize with the provided step index if available
     _currentStepIndex = widget.initialStepIndex ?? 0;
+    if (kDebugMode) {
+      print(
+          'MobileSOPViewer: initializing with step index: ${widget.initialStepIndex} -> $_currentStepIndex');
+    }
     _pageController = PageController(initialPage: _currentStepIndex);
 
     // Initialize animation controller for QR scan effect
