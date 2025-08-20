@@ -8,6 +8,7 @@ import '../models/user.dart';
 import '../../data/services/mes_service.dart';
 import '../../data/models/mes_interruption_model.dart';
 import '../../data/models/mes_process_model.dart';
+import '../../data/models/mes_production_record_model.dart';
 import '../../presentation/widgets/cross_platform_image.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -33,6 +34,9 @@ class _TimerScreenState extends State<TimerScreen> {
   MESInterruptionType?
       _selectedAction; // Currently selected action (not necessarily running)
   List<FurnitureItem> _availableItems = []; // Items available for selection
+  Map<String, String> _resumableItemRecordIds =
+      {}; // Track record IDs for resumable items
+  Set<String> _onHoldItemIds = {}; // Track which items are on hold
 
   // Production data fields
   int _expectedQty = 0;
@@ -127,6 +131,14 @@ class _TimerScreenState extends State<TimerScreen> {
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           ),
+          MESInterruptionType(
+            id: 'on_hold',
+            name: 'On Hold',
+            isActive: true,
+            color: '#9C27B0',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
         ];
       }
 
@@ -147,6 +159,8 @@ class _TimerScreenState extends State<TimerScreen> {
         // Filter items for the selected process and convert to FurnitureItem
         final processItems =
             mesItems.where((item) => item.processId == _process!.id).toList();
+
+        // Load regular available items
         _availableItems = processItems
             .map((mesItem) => FurnitureItem(
                   id: mesItem.id,
@@ -156,6 +170,9 @@ class _TimerScreenState extends State<TimerScreen> {
                   estimatedTimeInMinutes: mesItem.estimatedTimeInMinutes,
                 ))
             .toList();
+
+        // Load resumable (on hold) items for this user and process
+        await _loadResumableItems(mesService, processItems);
 
         // Process is already set from arguments, no need to find it
         // If we have a selected item, validate it belongs to this process
@@ -363,6 +380,12 @@ class _TimerScreenState extends State<TimerScreen> {
       return;
     }
 
+    // Business Rule 5: On Hold - pause current production and mark as on hold
+    if (actionName.contains('hold')) {
+      _handleOnHoldAction(type);
+      return;
+    }
+
     // All business rules passed - proceed with action
     _proceedWithAction(type);
   }
@@ -455,6 +478,87 @@ class _TimerScreenState extends State<TimerScreen> {
 
     // Then show the item selection popup for quantity updates
     _showItemSelectionDialog();
+  }
+
+  // Handle On Hold action - pause current production and mark as on hold
+  void _handleOnHoldAction(MESInterruptionType onHoldType) async {
+    // Show confirmation dialog first
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Put Item On Hold'),
+        content: Text(
+          'This will pause production of "${_selectedItem?.name}" and mark it as on hold.\n\n'
+          'You can resume this item later from the item selection screen.\n\n'
+          'Current progress and timing will be preserved.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.purpleAccent,
+            ),
+            child: const Text('Put On Hold'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+
+      // Record the on hold action
+      _proceedWithAction(onHoldType);
+
+      // Wait a moment for the action to be recorded
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Update the production record status to "On Hold"
+      if (_recordId != null) {
+        final record = await mesService.getProductionRecord(_recordId!);
+        await mesService.updateProductionRecord(
+          record.copyWith(status: ProductionStatus.onHold),
+        );
+      }
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${_selectedItem?.name} has been put on hold. You can resume it later.'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: AppColors.purpleAccent,
+          ),
+        );
+
+        // Navigate back to item selection after a brief delay
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context,
+              '/item_selection',
+              arguments: _user,
+            );
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error putting item on hold: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // Handle End Job action - auto-activate counting and show item popup
@@ -706,7 +810,7 @@ class _TimerScreenState extends State<TimerScreen> {
         _isInProductionMode = false;
       }
 
-      // Stop current action if any
+      // Stop current action if any and record the end
       if (_timer.currentAction != null) {
         _recordActionEnd(_timer.currentAction!);
         _timer.stopAction();
@@ -715,6 +819,15 @@ class _TimerScreenState extends State<TimerScreen> {
       // Select and start the new action immediately
       _selectedAction = type;
       _timer.startAction(type);
+
+      // Debug information
+      print('🔄 ACTION SWITCHED: ${type.name}');
+      print('⏱️ TIMER RESET: Action time should start from 0');
+      print('🎯 TIMER MODE: ${_timer.mode}');
+      print('🎯 CURRENT ACTION: ${_timer.currentAction?.name ?? "NONE"}');
+      print('📺 DISPLAY SHOULD SHOW: ${type.name.toUpperCase()}');
+      print('🕐 ACTION TIME: ${_timer.getActionTime()}s');
+      print('🕐 SETUP TIME: ${_timer.getSetupTime()}s');
     });
 
     // Record the start of this action in Firebase
@@ -891,19 +1004,73 @@ class _TimerScreenState extends State<TimerScreen> {
                                                   mainAxisSize:
                                                       MainAxisSize.min,
                                                   children: [
-                                                    Text(
-                                                      item.name,
-                                                      style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          fontSize: 16),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            item.name,
+                                                            style: TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                                fontSize: 16),
+                                                          ),
+                                                        ),
+                                                        if (_onHoldItemIds
+                                                            .contains(item.id))
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        8,
+                                                                    vertical:
+                                                                        2),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: AppColors
+                                                                  .purpleAccent,
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12),
+                                                            ),
+                                                            child: Text(
+                                                              'ON HOLD',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 10,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
                                                     ),
                                                     Text(
-                                                      '${item.estimatedTimeInMinutes} min est.',
+                                                      _onHoldItemIds
+                                                              .contains(item.id)
+                                                          ? 'Resume previous work'
+                                                          : '${item.estimatedTimeInMinutes} min est.',
                                                       style: TextStyle(
                                                         fontSize: 12,
-                                                        color: Colors
-                                                            .grey.shade600,
+                                                        color: _onHoldItemIds
+                                                                .contains(
+                                                                    item.id)
+                                                            ? AppColors
+                                                                .purpleAccent
+                                                            : Colors
+                                                                .grey.shade600,
+                                                        fontWeight:
+                                                            _onHoldItemIds
+                                                                    .contains(
+                                                                        item.id)
+                                                                ? FontWeight
+                                                                    .w600
+                                                                : FontWeight
+                                                                    .normal,
                                                       ),
                                                     ),
                                                   ],
@@ -1027,111 +1194,157 @@ class _TimerScreenState extends State<TimerScreen> {
 
                 // Action buttons - More compact
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                            horizontal:
-                                MediaQuery.of(context).size.width * 0.03,
-                            vertical: MediaQuery.of(context).size.height *
-                                0.015), // Responsive padding
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                            fontSize:
-                                MediaQuery.of(context).size.height * 0.022,
-                            fontWeight: FontWeight.w600), // Responsive text
-                      ),
-                    ),
-                    SizedBox(
-                        width: MediaQuery.of(context).size.width *
-                            0.02), // Responsive spacing
-                    ElevatedButton(
-                      onPressed: selectedItem == null
-                          ? null
-                          : () {
-                              // Check if item has changed or timer is not running
-                              bool itemChanged =
-                                  _selectedItem?.id != selectedItem!.id;
-                              bool timerIsRunning =
-                                  _timer.mode != ProductionTimerMode.notStarted;
+                    // On Hold button (only show if item is currently selected)
+                    if (selectedItem != null &&
+                        _selectedItem != null &&
+                        _selectedItem!.id == selectedItem!.id)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Handle On Hold action
+                          Navigator.of(context).pop(); // Close dialog first
 
-                              if (itemChanged && timerIsRunning) {
-                                // Item changed and timer is running - save with item change
-                                _saveItemProductionData(
-                                  item: selectedItem!,
-                                  expectedQty: int.tryParse(
-                                          expectedQtyController.text) ??
-                                      0,
-                                  qtyPerCycle: int.tryParse(
-                                          qtyPerCycleController.text) ??
-                                      0,
-                                  finishedQty: int.tryParse(
-                                          finishedQtyController.text) ??
-                                      0,
-                                  rejectQty:
-                                      int.tryParse(rejectQtyController.text) ??
-                                          0,
-                                );
-                              } else if (!itemChanged && timerIsRunning) {
-                                // Same item and timer is running - just save data, don't restart
-                                _saveQuantityDataOnly(
-                                  expectedQty: int.tryParse(
-                                          expectedQtyController.text) ??
-                                      0,
-                                  qtyPerCycle: int.tryParse(
-                                          qtyPerCycleController.text) ??
-                                      0,
-                                  finishedQty: int.tryParse(
-                                          finishedQtyController.text) ??
-                                      0,
-                                  rejectQty:
-                                      int.tryParse(rejectQtyController.text) ??
-                                          0,
-                                );
-                              } else {
-                                // Timer not running or initial setup - normal flow
-                                _saveItemProductionData(
-                                  item: selectedItem!,
-                                  expectedQty: int.tryParse(
-                                          expectedQtyController.text) ??
-                                      0,
-                                  qtyPerCycle: int.tryParse(
-                                          qtyPerCycleController.text) ??
-                                      0,
-                                  finishedQty: int.tryParse(
-                                          finishedQtyController.text) ??
-                                      0,
-                                  rejectQty:
-                                      int.tryParse(rejectQtyController.text) ??
-                                          0,
-                                );
-                              }
-                              Navigator.of(context).pop();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
+                          // Find the "On Hold" interruption type
+                          final onHoldType = _interruptionTypes.firstWhere(
+                            (type) => type.name.toLowerCase().contains('hold'),
+                            orElse: () => _interruptionTypes.first,
+                          );
+
+                          // Trigger the on hold action
+                          _handleOnHoldAction(onHoldType);
+                        },
+                        icon: Icon(Icons.pause_circle, size: 18),
+                        label: Text(
+                          'On Hold',
+                          style: TextStyle(
+                            fontSize: MediaQuery.of(context).size.height * 0.02,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.purpleAccent,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
                             horizontal:
-                                MediaQuery.of(context).size.width * 0.04,
-                            vertical: MediaQuery.of(context).size.height *
-                                0.018), // Responsive padding
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(10), // Responsive radius
+                                MediaQuery.of(context).size.width * 0.025,
+                            vertical:
+                                MediaQuery.of(context).size.height * 0.015,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
-                      child: Text(
-                        'OK',
-                        style: TextStyle(
-                            fontSize:
-                                MediaQuery.of(context).size.height * 0.025,
-                            fontWeight: FontWeight.bold), // Responsive text
-                      ),
+
+                    // Right side buttons (Cancel and OK)
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                                horizontal:
+                                    MediaQuery.of(context).size.width * 0.03,
+                                vertical: MediaQuery.of(context).size.height *
+                                    0.015), // Responsive padding
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                                fontSize:
+                                    MediaQuery.of(context).size.height * 0.022,
+                                fontWeight: FontWeight.w600), // Responsive text
+                          ),
+                        ),
+                        SizedBox(
+                            width: MediaQuery.of(context).size.width *
+                                0.02), // Responsive spacing
+                        ElevatedButton(
+                          onPressed: selectedItem == null
+                              ? null
+                              : () {
+                                  // Check if item has changed or timer is not running
+                                  bool itemChanged =
+                                      _selectedItem?.id != selectedItem!.id;
+                                  bool timerIsRunning = _timer.mode !=
+                                      ProductionTimerMode.notStarted;
+
+                                  if (itemChanged && timerIsRunning) {
+                                    // Item changed and timer is running - save with item change
+                                    _saveItemProductionData(
+                                      item: selectedItem!,
+                                      expectedQty: int.tryParse(
+                                              expectedQtyController.text) ??
+                                          0,
+                                      qtyPerCycle: int.tryParse(
+                                              qtyPerCycleController.text) ??
+                                          0,
+                                      finishedQty: int.tryParse(
+                                              finishedQtyController.text) ??
+                                          0,
+                                      rejectQty: int.tryParse(
+                                              rejectQtyController.text) ??
+                                          0,
+                                    );
+                                  } else if (!itemChanged && timerIsRunning) {
+                                    // Same item and timer is running - just save data, don't restart
+                                    _saveQuantityDataOnly(
+                                      expectedQty: int.tryParse(
+                                              expectedQtyController.text) ??
+                                          0,
+                                      qtyPerCycle: int.tryParse(
+                                              qtyPerCycleController.text) ??
+                                          0,
+                                      finishedQty: int.tryParse(
+                                              finishedQtyController.text) ??
+                                          0,
+                                      rejectQty: int.tryParse(
+                                              rejectQtyController.text) ??
+                                          0,
+                                    );
+                                  } else {
+                                    // Timer not running or initial setup - normal flow
+                                    _saveItemProductionData(
+                                      item: selectedItem!,
+                                      expectedQty: int.tryParse(
+                                              expectedQtyController.text) ??
+                                          0,
+                                      qtyPerCycle: int.tryParse(
+                                              qtyPerCycleController.text) ??
+                                          0,
+                                      finishedQty: int.tryParse(
+                                              finishedQtyController.text) ??
+                                          0,
+                                      rejectQty: int.tryParse(
+                                              rejectQtyController.text) ??
+                                          0,
+                                    );
+                                  }
+                                  Navigator.of(context).pop();
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryBlue,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                                horizontal:
+                                    MediaQuery.of(context).size.width * 0.04,
+                                vertical: MediaQuery.of(context).size.height *
+                                    0.018), // Responsive padding
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                  10), // Responsive radius
+                            ),
+                          ),
+                          child: Text(
+                            'OK',
+                            style: TextStyle(
+                                fontSize:
+                                    MediaQuery.of(context).size.height * 0.025,
+                                fontWeight: FontWeight.bold), // Responsive text
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1725,16 +1938,31 @@ class _TimerScreenState extends State<TimerScreen> {
     String? recordId;
 
     try {
-      // Try to create a new production record for the selected item
       final mesService = Provider.of<MESService>(context, listen: false);
-      final record = await mesService.startProductionRecord(
-        item.id,
-        _user.id,
-        _user.name,
-      );
-      recordId = record.id;
+
+      // Check if this is a resumable (on hold) item
+      if (_onHoldItemIds.contains(item.id) &&
+          _resumableItemRecordIds.containsKey(item.id)) {
+        // Resume existing production record
+        recordId = _resumableItemRecordIds[item.id]!;
+
+        // Update the production record status to "in progress"
+        await mesService.resumeProductionRecord(recordId);
+
+        print('✅ RESUMING PRODUCTION RECORD: $recordId for item: ${item.name}');
+      } else {
+        // Create a new production record for the selected item
+        final record = await mesService.startProductionRecord(
+          item.id,
+          _user.id,
+          _user.name,
+        );
+        recordId = record.id;
+
+        print('✅ NEW PRODUCTION RECORD: $recordId for item: ${item.name}');
+      }
     } catch (e) {
-      print('Warning: Could not create production record: $e');
+      print('Warning: Could not create/resume production record: $e');
       // Continue with a temporary ID - the important thing is to start the setup
       recordId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     }
@@ -1776,10 +2004,14 @@ class _TimerScreenState extends State<TimerScreen> {
     }
 
     // Show confirmation
+    final isResuming = _onHoldItemIds.contains(item.id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Selected: ${item.name} - Setup Started!'),
-        backgroundColor: AppColors.primaryBlue,
+        content: Text(isResuming
+            ? 'Resumed: ${item.name} - Previous work continued!'
+            : 'Selected: ${item.name} - Setup Started!'),
+        backgroundColor:
+            isResuming ? AppColors.purpleAccent : AppColors.primaryBlue,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -1787,6 +2019,57 @@ class _TimerScreenState extends State<TimerScreen> {
     print('🎯 ITEM SELECTED: ${item.name}');
     print('🚀 SETUP ACTION: ${_selectedAction?.name ?? "NONE"}');
     print('⏱️ TIMER STATUS: ${_timer.mode}');
+  }
+
+  // Load resumable (on hold) items for the current user and process
+  Future<void> _loadResumableItems(
+      MESService mesService, List<dynamic> processItems) async {
+    try {
+      // Get on hold items for this user
+      final onHoldMESItems = await mesService.getOnHoldItemsForUser(_user.id);
+
+      // Filter by current process
+      final processOnHoldItems = onHoldMESItems.where((mesItem) {
+        return mesItem.processId == _process!.id;
+      }).toList();
+
+      // Clear previous resumable data
+      _resumableItemRecordIds.clear();
+      _onHoldItemIds.clear();
+
+      // Process each on hold item
+      for (final mesItem in processOnHoldItems) {
+        // Add to on hold set
+        _onHoldItemIds.add(mesItem.id);
+
+        // Find the production record ID for this item
+        final records = await mesService.fetchProductionRecords(
+          userId: _user.id,
+          itemId: mesItem.id,
+        );
+        final onHoldRecord = records
+            .where((r) => r.status == ProductionStatus.onHold)
+            .firstOrNull;
+        if (onHoldRecord != null) {
+          _resumableItemRecordIds[mesItem.id] = onHoldRecord.id;
+        }
+
+        // Add to available items if not already present
+        final existingItem =
+            _availableItems.where((item) => item.id == mesItem.id).firstOrNull;
+        if (existingItem == null) {
+          _availableItems.add(FurnitureItem(
+            id: mesItem.id,
+            name: mesItem.name,
+            category: mesItem.category ?? 'Uncategorized',
+            imageUrl: mesItem.imageUrl,
+            estimatedTimeInMinutes: mesItem.estimatedTimeInMinutes,
+          ));
+        }
+      }
+    } catch (e) {
+      print('Error loading resumable items: $e');
+    }
   }
 
   // Save quantity data only (without restarting timer or changing item)
@@ -3155,13 +3438,14 @@ class _TimerScreenState extends State<TimerScreen> {
                                             ),
                                             const SizedBox(width: 10),
                                             Text(
-                                              _timer.mode ==
-                                                      ProductionTimerMode.setup
-                                                  ? 'SETUP TIMER'
-                                                  : (_timer.currentAction?.name
-                                                              .toUpperCase() ??
-                                                          'PRODUCTION') +
-                                                      ' TIMER',
+                                              _timer.currentAction != null
+                                                  ? _timer.currentAction!.name
+                                                      .toUpperCase()
+                                                  : _timer.mode ==
+                                                          ProductionTimerMode
+                                                              .setup
+                                                      ? 'SETUP'
+                                                      : 'PRODUCTION',
                                               style: TextStyle(
                                                 fontSize: isNarrow
                                                     ? 23
@@ -3361,9 +3645,11 @@ class _TimerScreenState extends State<TimerScreen> {
                                               ),
                                               child: FittedBox(
                                                 child: Text(
-                                                  ProductionTimer
-                                                      .formatDuration(_timer
-                                                                  .mode ==
+                                                  ProductionTimer.formatDuration(_timer
+                                                              .currentAction !=
+                                                          null
+                                                      ? _timer.getActionTime()
+                                                      : _timer.mode ==
                                                               ProductionTimerMode
                                                                   .setup
                                                           ? _timer
@@ -3460,15 +3746,32 @@ class _TimerScreenState extends State<TimerScreen> {
                               ),
                               elevation: _isInProductionMode ? 6 : 3,
                             ),
-                            child: Text(
-                              _isInProductionMode
-                                  ? 'NEXT ITEM (+$_qtyPerCycle)'
-                                  : 'PRODUCTION',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            child: _isInProductionMode
+                                ? Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'NEXT ITEM',
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Icon(
+                                        Icons.arrow_forward,
+                                        size: 24,
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    'PRODUCTION',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -3583,6 +3886,14 @@ class _TimerScreenState extends State<TimerScreen> {
                                           .toLowerCase()
                                           .contains('training')) {
                                         icon = Icons.school;
+                                        if (type.color == null ||
+                                            type.color!.isEmpty) {
+                                          buttonColor = AppColors.purpleAccent;
+                                        }
+                                      } else if (type.name
+                                          .toLowerCase()
+                                          .contains('hold')) {
+                                        icon = Icons.pause_circle;
                                         if (type.color == null ||
                                             type.color!.isEmpty) {
                                           buttonColor = AppColors.purpleAccent;

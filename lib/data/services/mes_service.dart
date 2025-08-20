@@ -632,6 +632,7 @@ class MESService extends ChangeNotifier {
         'totalProductionTimeSeconds': 0,
         'totalInterruptionTimeSeconds': 0,
         'isCompleted': false,
+        'status': 'inProgress',
         'interruptions': [],
         'itemCompletionRecords': [],
         'createdAt': Timestamp.fromDate(now),
@@ -675,6 +676,7 @@ class MESService extends ChangeNotifier {
         'totalProductionTimeSeconds': record.totalProductionTimeSeconds,
         'totalInterruptionTimeSeconds': record.totalInterruptionTimeSeconds,
         'isCompleted': record.isCompleted,
+        'status': record.status.name,
         'interruptions': record.interruptions.map((i) => i.toMap()).toList(),
         'itemCompletionRecords':
             record.itemCompletionRecords.map((i) => i.toMap()).toList(),
@@ -890,11 +892,49 @@ class MESService extends ChangeNotifier {
       totalProductionTimeSeconds: data['totalProductionTimeSeconds'] ?? 0,
       totalInterruptionTimeSeconds: data['totalInterruptionTimeSeconds'] ?? 0,
       isCompleted: data['isCompleted'] ?? false,
+      status: MESProductionRecord.parseProductionStatus(data['status']),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       interruptions: interruptions,
       itemCompletionRecords: itemCompletionRecords,
     );
+  }
+
+  // Get items that are currently on hold for a specific user
+  Future<List<MESItem>> getOnHoldItemsForUser(String userId) async {
+    try {
+      // Query production records that are on hold for this user
+      final snapshot = await _productionRecordsCollection
+          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: 'onHold')
+          .get();
+
+      final onHoldRecords = snapshot.docs
+          .map((doc) => MESProductionRecord.fromFirestore(doc))
+          .toList();
+
+      // Get the unique item IDs that are on hold
+      final onHoldItemIds =
+          onHoldRecords.map((record) => record.itemId).toSet();
+
+      // Return the corresponding MESItems
+      return _items.where((item) => onHoldItemIds.contains(item.id)).toList();
+    } catch (e) {
+      print('Error fetching on-hold items: $e');
+      return [];
+    }
+  }
+
+  // Resume a production record that was on hold
+  Future<MESProductionRecord> resumeProductionRecord(String recordId) async {
+    try {
+      final record = await getProductionRecord(recordId);
+      return await updateProductionRecord(
+        record.copyWith(status: ProductionStatus.inProgress),
+      );
+    } catch (e) {
+      rethrow;
+    }
   }
 
   // Get unique categories from items (backward compatibility)
