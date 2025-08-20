@@ -1,6 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../mes_tablet/models/production_timer.dart';
 
+enum ProductionStatus {
+  inProgress, // Currently being worked on
+  onHold, // Paused/suspended - can be resumed later
+  completed // Finished and closed
+}
+
 class MESProductionRecord {
   final String id;
   final String itemId;
@@ -11,6 +17,7 @@ class MESProductionRecord {
   final int totalProductionTimeSeconds;
   final int totalInterruptionTimeSeconds;
   final bool isCompleted;
+  final ProductionStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<MESInterruption> interruptions;
@@ -26,6 +33,7 @@ class MESProductionRecord {
     required this.totalProductionTimeSeconds,
     required this.totalInterruptionTimeSeconds,
     this.isCompleted = false,
+    this.status = ProductionStatus.inProgress,
     required this.createdAt,
     required this.updatedAt,
     required this.interruptions,
@@ -46,7 +54,8 @@ class MESProductionRecord {
     List<ItemCompletionRecord> itemCompletionRecords = [];
     if (data['itemCompletionRecords'] != null) {
       for (var item in data['itemCompletionRecords']) {
-        itemCompletionRecords.add(ItemCompletionRecord.fromMap(item));
+        // For backwards compatibility, create empty action list if not available
+        itemCompletionRecords.add(ItemCompletionRecord.fromMap(item, []));
       }
     }
 
@@ -62,6 +71,7 @@ class MESProductionRecord {
       totalProductionTimeSeconds: data['totalProductionTimeSeconds'] ?? 0,
       totalInterruptionTimeSeconds: data['totalInterruptionTimeSeconds'] ?? 0,
       isCompleted: data['isCompleted'] ?? false,
+      status: parseProductionStatus(data['status']),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       interruptions: interruptions,
@@ -80,6 +90,7 @@ class MESProductionRecord {
       'totalProductionTimeSeconds': totalProductionTimeSeconds,
       'totalInterruptionTimeSeconds': totalInterruptionTimeSeconds,
       'isCompleted': isCompleted,
+      'status': status.name,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'interruptions': interruptions.map((i) => i.toMap()).toList(),
@@ -94,6 +105,7 @@ class MESProductionRecord {
     int? totalProductionTimeSeconds,
     int? totalInterruptionTimeSeconds,
     bool? isCompleted,
+    ProductionStatus? status,
     List<MESInterruption>? interruptions,
     List<ItemCompletionRecord>? itemCompletionRecords,
   }) {
@@ -109,12 +121,30 @@ class MESProductionRecord {
       totalInterruptionTimeSeconds:
           totalInterruptionTimeSeconds ?? this.totalInterruptionTimeSeconds,
       isCompleted: isCompleted ?? this.isCompleted,
+      status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
       interruptions: interruptions ?? this.interruptions,
       itemCompletionRecords:
           itemCompletionRecords ?? this.itemCompletionRecords,
     );
+  }
+
+  // Helper method to parse status from Firestore data
+  static ProductionStatus parseProductionStatus(dynamic statusData) {
+    if (statusData == null) return ProductionStatus.inProgress;
+
+    switch (statusData.toString().toLowerCase()) {
+      case 'onhold':
+      case 'on_hold':
+        return ProductionStatus.onHold;
+      case 'completed':
+        return ProductionStatus.completed;
+      case 'inprogress':
+      case 'in_progress':
+      default:
+        return ProductionStatus.inProgress;
+    }
   }
 }
 
