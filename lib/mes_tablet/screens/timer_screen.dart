@@ -662,7 +662,7 @@ class _TimerScreenState extends State<TimerScreen> {
         _rejectQty = 0;
         _selectedAction = null;
         _isInProductionMode = false;
-        _timer.resetForNewItem(); // Clear timer completely
+        _timer.resetForNewJob(); // Clear timer but keep Total Time running
       });
 
       // Show success message
@@ -797,26 +797,10 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
-  // Handle End Job action - auto-activate counting and show item popup
+  // Handle End Job action - same workflow as Setup completion
   void _handleEndJobAction() {
-    // Find counting action from interruption types
-    final countingAction = _interruptionTypes.firstWhere(
-      (type) => type.name.toLowerCase().contains('counting'),
-      orElse: () => MESInterruptionType(
-        id: 'counting',
-        name: 'Counting',
-        isActive: true,
-        color: '#2196F3',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-    );
-
-    // Auto-activate counting action
-    _proceedWithAction(countingAction);
-
-    // Show item popup for quantity updates
-    _showItemSelectionDialog();
+    // Use the same job completion workflow as Setup
+    _showJobCompletionDialog();
   }
 
   // Handle Shutdown action - check total qty and confirm end of day
@@ -2910,6 +2894,8 @@ class _TimerScreenState extends State<TimerScreen> {
 
     setState(() {
       _timer.completeCurrentItem();
+      // Reset cycle timer for next item
+      _timer.resetCycleTimer();
       // Increment qty per cycle by 1 each time Next is pressed
       _qtyPerCycle += 1;
       // Increment item completed count by 1
@@ -3964,6 +3950,30 @@ class _TimerScreenState extends State<TimerScreen> {
                                             textAlign: TextAlign.center,
                                           ),
 
+                                          // Cycle time display (only show when in production)
+                                          if (_selectedItem != null) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Cycle Time: ${ProductionTimer.formatDuration(_timer.getCycleTime())}',
+                                              style: TextStyle(
+                                                fontSize: isNarrow ? 11 : 13,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.grey[600],
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            // Debug info to see what's happening
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Debug: Action=${_timer.currentAction?.name ?? "NULL"}, CycleTime=${_timer.getCycleTime()}',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.red,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+
                                           // Average time display
                                           if (_timer.completedCount > 0) ...[
                                             const SizedBox(height: 8),
@@ -4093,120 +4103,33 @@ class _TimerScreenState extends State<TimerScreen> {
                                     )
                                   ]
                                 : [
-                                    // Generate buttons dynamically based on interruption types
-                                    ..._interruptionTypes.map((type) {
-                                      // Determine icon based on type name or use default
-                                      IconData icon = Icons.pause_circle;
-                                      Color buttonColor = AppColors.textDark;
+                                    // Standard Actions Section
+                                    _buildSectionHeader('Standard', isNarrow),
+                                    SizedBox(height: isNarrow ? 4 : 6),
 
-                                      // Use the color from MES setup if available
-                                      if (type.color != null &&
-                                          type.color!.isNotEmpty) {
-                                        try {
-                                          String colorHex =
-                                              type.color!.replaceAll('#', '');
-                                          if (colorHex.length == 6) {
-                                            colorHex =
-                                                'FF$colorHex'; // Add alpha channel
-                                          }
-                                          buttonColor = Color(
-                                              int.parse(colorHex, radix: 16));
-                                        } catch (e) {
-                                          // Fall back to name-based colors if parsing fails
-                                          buttonColor = AppColors.textDark;
-                                        }
+                                    // Standard actions: Setup, Counting, End Job, Shutdown
+                                    ..._getStandardActions().map((action) {
+                                      if (action['isInterruptionType']) {
+                                        return _buildActionButton(
+                                            action['type']
+                                                as MESInterruptionType,
+                                            isNarrow);
+                                      } else {
+                                        return action['widget'] as Widget;
                                       }
-
-                                      // Determine icon based on type name
-                                      if (type.name
-                                          .toLowerCase()
-                                          .contains('break')) {
-                                        icon = Icons.coffee;
-                                        // Use MES color or fallback
-                                        if (type.color == null ||
-                                            type.color!.isEmpty) {
-                                          buttonColor = AppColors.orangeAccent;
-                                        }
-                                      } else if (type.name
-                                          .toLowerCase()
-                                          .contains('maintenance')) {
-                                        icon = Icons.build;
-                                        if (type.color == null ||
-                                            type.color!.isEmpty) {
-                                          buttonColor = AppColors.orangeAccent;
-                                        }
-                                      } else if (type.name
-                                          .toLowerCase()
-                                          .contains('prep')) {
-                                        icon = Icons.assignment;
-                                        if (type.color == null ||
-                                            type.color!.isEmpty) {
-                                          buttonColor = AppColors.blueAccent;
-                                        }
-                                      } else if (type.name
-                                          .toLowerCase()
-                                          .contains('material')) {
-                                        icon = Icons.inventory;
-                                        if (type.color == null ||
-                                            type.color!.isEmpty) {
-                                          buttonColor = AppColors.greenAccent;
-                                        }
-                                      } else if (type.name
-                                          .toLowerCase()
-                                          .contains('training')) {
-                                        icon = Icons.school;
-                                        if (type.color == null ||
-                                            type.color!.isEmpty) {
-                                          buttonColor = AppColors.purpleAccent;
-                                        }
-                                      } else if (type.name
-                                          .toLowerCase()
-                                          .contains('hold')) {
-                                        icon = Icons.pause_circle;
-                                        if (type.color == null ||
-                                            type.color!.isEmpty) {
-                                          buttonColor = AppColors.purpleAccent;
-                                        }
-                                      }
-
-                                      return Column(
-                                        children: [
-                                          _buildFullWidthButton(
-                                            icon: icon,
-                                            label: type.name,
-                                            color: buttonColor,
-                                            onPressed: _selectedItem != null
-                                                ? () {
-                                                    _startAction(type);
-                                                  }
-                                                : null, // Disable when no item selected
-                                            description: _selectedItem != null
-                                                ? (type.description ??
-                                                    'Track time for ${type.name}')
-                                                : 'Please select an item first',
-                                            isNarrow: isNarrow,
-                                            interruptionType: type,
-                                          ),
-                                          SizedBox(height: isNarrow ? 6 : 8),
-                                        ],
-                                      );
                                     }).toList(),
 
-                                    // End Job button - permanent action
-                                    _buildFullWidthButton(
-                                      icon: Icons.stop_circle,
-                                      label: 'End Job',
-                                      color: Colors.red.shade600,
-                                      onPressed: _selectedItem != null
-                                          ? _handleEndJobAction
-                                          : null,
-                                      description: _selectedItem != null
-                                          ? 'Complete current job and count items'
-                                          : 'Please select an item first',
-                                      isNarrow: isNarrow,
-                                      interruptionType: null,
-                                    ),
-                                    SizedBox(height: isNarrow ? 6 : 8),
+                                    // Add spacing between sections
+                                    SizedBox(height: isNarrow ? 12 : 16),
+
+                                    // Other Actions Section
+                                    _buildSectionHeader('Other', isNarrow),
+                                    SizedBox(height: isNarrow ? 4 : 6),
+
+                                    // Other actions: All remaining interruption types
+                                    ..._getOtherActions().map((type) {
+                                      return _buildActionButton(type, isNarrow);
+                                    }).toList(),
 
                                     // Help button always available
                                     _buildFullWidthButton(
@@ -4562,56 +4485,14 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Get time spent only on production actions (Value Added)
   int _getProductionActionTime() {
-    int productionTime = 0;
-
-    // Get completed items action records
-    for (var item in _timer.completedItems) {
-      for (var actionRecord in item.actionRecords) {
-        if (actionRecord.action.name.toLowerCase().contains('production')) {
-          productionTime += actionRecord.durationSeconds;
-        }
-      }
-    }
-
-    // Add current action time if it's a production action
-    if (_timer.currentAction != null &&
-        _timer.currentAction!.name.toLowerCase().contains('production')) {
-      // For current action, we need to calculate the time differently
-      int currentActionTime =
-          _timer.getActionTime() - _timer.getProductionTime();
-      if (currentActionTime > 0) {
-        productionTime += currentActionTime;
-      }
-    }
-
-    return productionTime;
+    // Use the production time directly from timer - this tracks time in production mode
+    return _timer.getProductionTime();
   }
 
   // Get time spent on all non-production actions (No Value)
   int _getNonProductionActionTime() {
-    int nonProductionTime = 0;
-
-    // Get completed items action records
-    for (var item in _timer.completedItems) {
-      for (var actionRecord in item.actionRecords) {
-        if (!actionRecord.action.name.toLowerCase().contains('production')) {
-          nonProductionTime += actionRecord.durationSeconds;
-        }
-      }
-    }
-
-    // Add current action time if it's not a production action
-    if (_timer.currentAction != null &&
-        !_timer.currentAction!.name.toLowerCase().contains('production')) {
-      // For current action, we need to calculate the time differently
-      int currentActionTime =
-          _timer.getActionTime() - _timer.getProductionTime();
-      if (currentActionTime > 0) {
-        nonProductionTime += currentActionTime;
-      }
-    }
-
-    return nonProductionTime;
+    // Non-production time = Total Time - Production Time
+    return _timer.getTotalTime() - _timer.getProductionTime();
   }
 
   Color _getStatusColor() {
@@ -4925,6 +4806,191 @@ class _TimerScreenState extends State<TimerScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  // Helper method to build section headers
+  Widget _buildSectionHeader(String title, bool isNarrow) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: isNarrow ? 4 : 6),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: isNarrow ? 14 : 16,
+          fontWeight: FontWeight.bold,
+          color: AppColors.primaryBlue,
+        ),
+      ),
+    );
+  }
+
+  // Helper method to get standard actions (Setup, Counting, End Job, Shutdown)
+  List<Map<String, dynamic>> _getStandardActions() {
+    List<Map<String, dynamic>> standardActions = [];
+
+    // Setup
+    final setupTypes = _interruptionTypes
+        .where(
+          (type) => type.name.toLowerCase().contains('setup'),
+        )
+        .toList();
+    if (setupTypes.isNotEmpty) {
+      standardActions.add({
+        'isInterruptionType': true,
+        'type': setupTypes.first,
+      });
+    }
+
+    // Counting
+    final countingTypes = _interruptionTypes
+        .where(
+          (type) => type.name.toLowerCase().contains('counting'),
+        )
+        .toList();
+    if (countingTypes.isNotEmpty) {
+      standardActions.add({
+        'isInterruptionType': true,
+        'type': countingTypes.first,
+      });
+    }
+
+    // End Job (hardcoded button)
+    standardActions.add({
+      'isInterruptionType': false,
+      'widget': Column(
+        children: [
+          _buildFullWidthButton(
+            icon: Icons.stop_circle,
+            label: 'End Job',
+            color: Colors.red.shade600,
+            onPressed: _selectedItem != null ? _handleEndJobAction : null,
+            description: _selectedItem != null
+                ? 'Complete current job and count items'
+                : 'Please select an item first',
+            isNarrow: MediaQuery.of(context).size.width < 1200,
+            interruptionType: null,
+          ),
+          SizedBox(height: MediaQuery.of(context).size.width < 1200 ? 6 : 8),
+        ],
+      ),
+    });
+
+    // Shutdown
+    final shutdownTypes = _interruptionTypes
+        .where(
+          (type) => type.name.toLowerCase().contains('shutdown'),
+        )
+        .toList();
+    if (shutdownTypes.isNotEmpty) {
+      standardActions.add({
+        'isInterruptionType': true,
+        'type': shutdownTypes.first,
+      });
+    }
+
+    return standardActions;
+  }
+
+  // Helper method to get other actions (all remaining interruption types)
+  List<MESInterruptionType> _getOtherActions() {
+    // Get list of standard action names
+    final standardNames = ['setup', 'counting', 'shutdown'];
+
+    // Return interruption types that are not in the standard list
+    return _interruptionTypes.where((type) {
+      final typeName = type.name.toLowerCase();
+      return !standardNames
+          .any((standardName) => typeName.contains(standardName));
+    }).toList();
+  }
+
+  // Helper method to build action buttons with consistent styling
+  Widget _buildActionButton(MESInterruptionType type, bool isNarrow) {
+    // Determine icon based on type name or use default
+    IconData icon = Icons.pause_circle;
+    Color buttonColor = AppColors.textDark;
+
+    // Use the color from MES setup if available
+    if (type.color != null && type.color!.isNotEmpty) {
+      try {
+        String colorHex = type.color!.replaceAll('#', '');
+        if (colorHex.length == 6) {
+          colorHex = 'FF$colorHex'; // Add alpha channel
+        }
+        buttonColor = Color(int.parse(colorHex, radix: 16));
+      } catch (e) {
+        // Fall back to name-based colors if parsing fails
+        buttonColor = AppColors.textDark;
+      }
+    }
+
+    // Determine icon based on type name
+    if (type.name.toLowerCase().contains('break')) {
+      icon = Icons.coffee;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.orangeAccent;
+      }
+    } else if (type.name.toLowerCase().contains('maintenance')) {
+      icon = Icons.build;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.orangeAccent;
+      }
+    } else if (type.name.toLowerCase().contains('prep')) {
+      icon = Icons.assignment;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.blueAccent;
+      }
+    } else if (type.name.toLowerCase().contains('material')) {
+      icon = Icons.inventory;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.greenAccent;
+      }
+    } else if (type.name.toLowerCase().contains('training')) {
+      icon = Icons.school;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.purpleAccent;
+      }
+    } else if (type.name.toLowerCase().contains('hold')) {
+      icon = Icons.pause_circle;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.purpleAccent;
+      }
+    } else if (type.name.toLowerCase().contains('setup')) {
+      icon = Icons.build_circle;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.orangeAccent;
+      }
+    } else if (type.name.toLowerCase().contains('counting')) {
+      icon = Icons.inventory_2;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = AppColors.blueAccent;
+      }
+    } else if (type.name.toLowerCase().contains('shutdown')) {
+      icon = Icons.power_settings_new;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = Colors.red.shade600;
+      }
+    }
+
+    return Column(
+      children: [
+        _buildFullWidthButton(
+          icon: icon,
+          label: type.name,
+          color: buttonColor,
+          onPressed: _selectedItem != null
+              ? () {
+                  _startAction(type);
+                }
+              : null, // Disable when no item selected
+          description: _selectedItem != null
+              ? (type.description ?? 'Track time for ${type.name}')
+              : 'Please select an item first',
+          isNarrow: isNarrow,
+          interruptionType: type,
+        ),
+        SizedBox(height: isNarrow ? 6 : 8),
+      ],
     );
   }
 }

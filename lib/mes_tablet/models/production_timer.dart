@@ -143,6 +143,11 @@ class ProductionTimer {
   DateTime? _productionStartTime;
   DateTime? _interruptionStartTime;
   DateTime? _setupStartTime;
+  DateTime? _sessionStartTime; // When the very first action started
+
+  // Cycle timer support (tracks time per item during production)
+  DateTime? _cycleStartTime; // When current production cycle started
+  int _cycleTime = 0; // Accumulated cycle time (resets on each "Next Item")
 
   // Action timer support
   MESInterruptionType? _currentAction;
@@ -291,6 +296,15 @@ class ProductionTimer {
       final actionDuration = now.difference(_actionStartTime!).inSeconds;
       _actionTime += actionDuration;
 
+      // NEW: Add action time to appropriate bucket based on action type
+      if (_currentAction!.name.toLowerCase().contains('production')) {
+        // This was a Production action - add to production time (Value Added)
+        _productionTime += actionDuration;
+      } else {
+        // This was a non-Production action - add to interruption time (Non-Value Added)
+        _interruptionTime += actionDuration;
+      }
+
       // NEW: Record the completed action for current item
       _currentItemActionRecords.add(ActionRecord(
         action: _currentAction!,
@@ -307,9 +321,18 @@ class ProductionTimer {
     _actionStartTime = now;
     _actionTime = 0; // Reset for new action
 
-    // NEW: If this is Production action, start item timer
+    // Initialize session start time if this is the first action
+    if (_sessionStartTime == null) {
+      _sessionStartTime = now;
+    }
+
+    // NEW: If this is Production action, start item timer and cycle timer
     if (action.name.toLowerCase().contains('production')) {
       _currentItemTimerStartTime = now;
+      startCycleTimer(); // Start cycle timer for production
+    } else {
+      // If switching to non-production action, stop cycle timer
+      stopCycleTimer();
     }
   }
 
@@ -320,6 +343,15 @@ class ProductionTimer {
     if (_currentAction != null && _actionStartTime != null) {
       final actionDuration = now.difference(_actionStartTime!).inSeconds;
       _actionTime += actionDuration;
+
+      // NEW: Add action time to appropriate bucket based on action type
+      if (_currentAction!.name.toLowerCase().contains('production')) {
+        // This was a Production action - add to production time (Value Added)
+        _productionTime += actionDuration;
+      } else {
+        // This was a non-Production action - add to interruption time (Non-Value Added)
+        _interruptionTime += actionDuration;
+      }
 
       // NEW: Record the completed action for current item
       _currentItemActionRecords.add(ActionRecord(
@@ -561,36 +593,70 @@ class ProductionTimer {
     _currentItemActionRecords.clear(); // Clear action records
     _completedCount = 0; // Reset completed items counter
     _completedItems.clear(); // Clear completed items list
+    _sessionStartTime = null; // Reset session timer
+    _cycleStartTime = null; // Reset cycle timer
+    _cycleTime = 0; // Reset cycle time
   }
 
-  // Get total production time in seconds
+  // Reset the timer for a new job (preserves session timer for Total Time)
+  void resetForNewJob() {
+    _mode = ProductionTimerMode.notStarted;
+    _productionStartTime = null;
+    _interruptionStartTime = null;
+    _setupStartTime = null;
+    _productionTime = 0;
+    _interruptionTime = 0;
+    _setupTime = 0;
+    _productionStartCount = 0;
+    _currentAction = null; // Clear current action
+    _actionStartTime = null; // Clear action start time
+    _actionTime = 0; // Reset action time
+    _currentItemStartTime = null; // Clear item start time
+    _currentItemProductionTime = 0; // Reset item production time
+    _currentItemTimerStartTime = null; // Clear item timer start time
+    _currentItemTimerSeconds = 0; // Reset item timer seconds
+    _currentItemActionRecords.clear(); // Clear action records
+    _completedCount = 0; // Reset completed items counter
+    _completedItems.clear(); // Clear completed items list
+    // DON'T reset _sessionStartTime - keep Total Time running!
+    _cycleStartTime = null; // Reset cycle timer
+    _cycleTime = 0; // Reset cycle time
+  }
+
+  // Get total production time in seconds (Value Added time)
   int getProductionTime() {
     int total = _productionTime;
-    if (_mode == ProductionTimerMode.running && _productionStartTime != null) {
-      // Add current running time
-      final duration =
-          DateTime.now().difference(_productionStartTime!).inSeconds;
+
+    // If currently running a Production action, add the current action time
+    if (_currentAction != null &&
+        _currentAction!.name.toLowerCase().contains('production') &&
+        _actionStartTime != null) {
+      final duration = DateTime.now().difference(_actionStartTime!).inSeconds;
       total += duration;
     }
+
     return total;
   }
 
-  // Get total interruption time in seconds
+  // Get total interruption time in seconds (Non-Value Added time)
   int getTotalInterruptionTime() {
     int total = _interruptionTime;
-    if (_mode == ProductionTimerMode.interrupted &&
-        _interruptionStartTime != null) {
-      // Add current interruption time
-      final duration =
-          DateTime.now().difference(_interruptionStartTime!).inSeconds;
+
+    // If currently running a non-Production action, add the current action time
+    if (_currentAction != null &&
+        !_currentAction!.name.toLowerCase().contains('production') &&
+        _actionStartTime != null) {
+      final duration = DateTime.now().difference(_actionStartTime!).inSeconds;
       total += duration;
     }
+
     return total;
   }
 
-  // Get total time (production + interruption)
+  // Get total time (from first action start to now)
   int getTotalTime() {
-    return getProductionTime() + getTotalInterruptionTime();
+    if (_sessionStartTime == null) return 0;
+    return DateTime.now().difference(_sessionStartTime!).inSeconds;
   }
 
   // Get current item production time in seconds (excludes action time)
@@ -663,6 +729,45 @@ class ProductionTimer {
       return DateTime.now().difference(_interruptionStartTime!).inSeconds;
     }
     return 0;
+  }
+
+  // Get current cycle time (time since production started or last "Next Item")
+  int getCycleTime() {
+    int total = _cycleTime;
+
+    // Add current cycle time if Production action is running
+    if (_currentAction != null &&
+        _currentAction!.name.toLowerCase().contains('production') &&
+        _cycleStartTime != null) {
+      final duration = DateTime.now().difference(_cycleStartTime!).inSeconds;
+      total += duration;
+    }
+
+    return total;
+  }
+
+  // Start cycle timer (called when Production action starts)
+  void startCycleTimer() {
+    if (_currentAction != null &&
+        _currentAction!.name.toLowerCase().contains('production')) {
+      _cycleStartTime = DateTime.now();
+      _cycleTime = 0; // Reset accumulated time for new cycle
+    }
+  }
+
+  // Reset cycle timer (called when "Next Item" is pressed)
+  void resetCycleTimer() {
+    _cycleStartTime = DateTime.now();
+    _cycleTime = 0;
+  }
+
+  // Stop cycle timer (called when switching away from Production)
+  void stopCycleTimer() {
+    if (_cycleStartTime != null) {
+      final duration = DateTime.now().difference(_cycleStartTime!).inSeconds;
+      _cycleTime += duration;
+      _cycleStartTime = null;
+    }
   }
 
   // Format seconds as HH:MM:SS
