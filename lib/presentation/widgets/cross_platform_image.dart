@@ -9,8 +9,8 @@ import 'dart:typed_data';
 /// using ImageNetwork for web to handle CORS issues and regular Image widgets for other platforms.
 class CrossPlatformImage extends StatelessWidget {
   final String? imageUrl;
-  final double width;
-  final double height;
+  final double? width;
+  final double? height;
   final BoxFit fit;
   final Widget? placeholder;
   final Widget? errorWidget;
@@ -23,8 +23,8 @@ class CrossPlatformImage extends StatelessWidget {
   const CrossPlatformImage({
     super.key,
     required this.imageUrl,
-    this.width = 200.0,
-    this.height = 140.0,
+    this.width,
+    this.height,
     this.fit = BoxFit.contain,
     this.placeholder,
     this.errorWidget,
@@ -35,8 +35,8 @@ class CrossPlatformImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Only apply default dimensions if no width/height provided
-    final double actualWidth = width;
-    final double actualHeight = height;
+    final double actualWidth = width ?? 200.0;
+    final double actualHeight = height ?? 140.0;
 
     // Use cacheWidth and cacheHeight if provided, otherwise calculate based on device pixel ratio
     // Handle infinity values gracefully

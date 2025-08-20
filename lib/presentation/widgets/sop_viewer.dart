@@ -816,11 +816,13 @@ class _SOPViewerState extends State<SOPViewer> {
               key: ValueKey('step-image-stack-$index'),
               children: [
                 Container(
-                  height: 500,
+                  height: 550,
                   width: double.infinity,
                   child: CrossPlatformImage(
                     key: ValueKey('step-image-${step.imageUrl}'),
                     imageUrl: step.imageUrl!,
+                    height: 550,
+                    width: 535,
                     fit: BoxFit.cover,
                     errorWidget: _buildImageError(),
                   ),
@@ -876,6 +878,7 @@ class _SOPViewerState extends State<SOPViewer> {
                                     minScale: 0.5,
                                     maxScale: 3.0,
                                     child: ImageNetwork(
+                                      fitWeb: BoxFitWeb.contain,
                                       image: step.imageUrl!,
                                       height:
                                           MediaQuery.of(context).size.height,
@@ -1304,6 +1307,8 @@ class _SOPViewerState extends State<SOPViewer> {
           child: CrossPlatformImage(
             key: ValueKey('step-image-$imageUrl'),
             imageUrl: imageUrl,
+            width: double.infinity,
+            height: 350,
             fit: BoxFit.contain, // or BoxFit.cover if you want to crop
             errorWidget: _buildImageError(),
           ),
@@ -1323,6 +1328,8 @@ class _SOPViewerState extends State<SOPViewer> {
       child: CrossPlatformImage(
         key: ValueKey('fullscreen-image-$imageUrl'),
         imageUrl: imageUrl,
+        width: screenSize.width,
+        height: screenSize.height * 0.9,
         fit: BoxFit.contain,
         errorWidget: _buildImageError(),
       ),

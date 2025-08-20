@@ -450,7 +450,7 @@ class _MobileSOPViewerScreenState extends State<MobileSOPViewerScreen>
                             return CrossPlatformImage(
                               imageUrl: step.imageUrl!,
                               fit: BoxFit
-                                  .cover, // Fill the entire available space
+                                  .contain, // Fill the entire available space
                               width: constraints.maxWidth,
                               height: constraints.maxHeight,
                               errorWidget: Container(
