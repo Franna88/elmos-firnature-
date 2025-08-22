@@ -623,6 +623,29 @@ class ProductionTimer {
     _cycleTime = 0; // Reset cycle time
   }
 
+  // Reset for new item within same day/shift (preserves session timer AND accumulated day times)
+  void resetForNewItemInDay() {
+    _mode = ProductionTimerMode.notStarted;
+    _productionStartTime = null;
+    _interruptionStartTime = null;
+    _setupStartTime = null;
+    // DON'T reset _productionTime, _interruptionTime, _setupTime - preserve day totals!
+    _productionStartCount = 0;
+    _currentAction = null; // Clear current action
+    _actionStartTime = null; // Clear action start time
+    _actionTime = 0; // Reset action time
+    _currentItemStartTime = null; // Clear item start time
+    _currentItemProductionTime = 0; // Reset item production time
+    _currentItemTimerStartTime = null; // Clear item timer start time
+    _currentItemTimerSeconds = 0; // Reset item timer seconds
+    _currentItemActionRecords.clear(); // Clear action records
+    _completedCount = 0; // Reset completed items counter for this item
+    _completedItems.clear(); // Clear completed items list for this item
+    // DON'T reset _sessionStartTime - keep Total Time running!
+    _cycleStartTime = null; // Reset cycle timer
+    _cycleTime = 0; // Reset cycle time
+  }
+
   // Get total production time in seconds (Value Added time)
   int getProductionTime() {
     int total = _productionTime;

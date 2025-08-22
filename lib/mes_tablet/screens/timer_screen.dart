@@ -2320,7 +2320,8 @@ class _TimerScreenState extends State<TimerScreen> {
       _selectedItem = item;
       _recordId = recordId;
       _secondsRemaining = item.estimatedTimeInMinutes * 60;
-      _timer.resetForNewItem(); // Reset timer when selecting new item
+      _timer
+          .resetForNewItemInDay(); // Reset timer for new item but preserve day totals
       _setupCompleted = false; // Reset setup status
       _qtyPerCycle = 0; // Reset qty per cycle for new item
 
