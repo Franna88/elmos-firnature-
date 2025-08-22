@@ -1988,7 +1988,12 @@ class _MESReportsScreenState extends State<MESReportsScreen>
   }
 
   void _showProcessDetails(dynamic process, MESService mesService) {
-    final processRecords = mesService.productionRecords.where((record) {
+    // Initialize date range - default to last 30 days
+    DateTime fromDate = DateTime.now().subtract(const Duration(days: 30));
+    DateTime toDate = DateTime.now();
+
+    // Get all records for this process
+    final allProcessRecords = mesService.productionRecords.where((record) {
       final item = mesService.items.firstWhere(
         (item) => item.id == record.itemId,
         orElse: () => MESItem(
@@ -2003,147 +2008,16 @@ class _MESReportsScreenState extends State<MESReportsScreen>
       return item.processId == process.id;
     }).toList();
 
+    // Records will be filtered in the dialog widget
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: 900,
-          constraints: const BoxConstraints(maxHeight: 700),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryBlue,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.settings, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Process Details - ${process.name}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Production Records',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Headers
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          children: [
-                            Expanded(
-                                flex: 2,
-                                child: Text('Date',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold))),
-                            Expanded(
-                                flex: 3,
-                                child: Text('Item',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold))),
-                            Expanded(
-                                flex: 2,
-                                child: Text('Finished QTY',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold))),
-                            Expanded(
-                                flex: 2,
-                                child: Text('Prod Time',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold))),
-                          ],
-                        ),
-                      ),
-
-                      // Records
-                      ...processRecords.map((record) {
-                        final item = mesService.items.firstWhere(
-                          (item) => item.id == record.itemId,
-                          orElse: () => MESItem(
-                            id: 'unknown',
-                            name: 'Unknown',
-                            processId: '',
-                            estimatedTimeInMinutes: 0,
-                            createdAt: DateTime.now(),
-                            updatedAt: DateTime.now(),
-                          ),
-                        );
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border(
-                                bottom: BorderSide(color: Colors.grey[200]!)),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text(DateFormat('MM/dd/yyyy')
-                                    .format(record.startTime)),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Text(item.name),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                    '${record.itemCompletionRecords.length}'),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(_formatSeconds(
-                                    record.totalProductionTimeSeconds)),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (context) => _ProcessDetailsDialog(
+        process: process,
+        mesService: mesService,
+        allProcessRecords: allProcessRecords,
+        initialFromDate: fromDate,
+        initialToDate: toDate,
       ),
     );
   }
@@ -3074,6 +2948,654 @@ class _MESReportsScreenState extends State<MESReportsScreen>
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Process Details Dialog Widget
+class _ProcessDetailsDialog extends StatefulWidget {
+  final dynamic process;
+  final MESService mesService;
+  final List<dynamic> allProcessRecords;
+  final DateTime initialFromDate;
+  final DateTime initialToDate;
+
+  const _ProcessDetailsDialog({
+    required this.process,
+    required this.mesService,
+    required this.allProcessRecords,
+    required this.initialFromDate,
+    required this.initialToDate,
+  });
+
+  @override
+  State<_ProcessDetailsDialog> createState() => _ProcessDetailsDialogState();
+}
+
+class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
+  late DateTime _fromDate;
+  late DateTime _toDate;
+  late List<dynamic> _filteredRecords;
+  int _totalValueAddedSeconds = 0;
+  int _totalNonValueAddedSeconds = 0;
+  List<MESInterruption> _nonValueActivities = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fromDate = widget.initialFromDate;
+    _toDate = widget.initialToDate;
+    _filterRecordsByDate();
+  }
+
+  void _filterRecordsByDate() {
+    // Filter records by date range
+    _filteredRecords = widget.allProcessRecords.where((record) {
+      final recordDate = DateTime(
+        record.startTime.year,
+        record.startTime.month,
+        record.startTime.day,
+      );
+      final fromDateOnly =
+          DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
+      final toDateOnly = DateTime(_toDate.year, _toDate.month, _toDate.day);
+
+      return recordDate
+              .isAfter(fromDateOnly.subtract(const Duration(days: 1))) &&
+          recordDate.isBefore(toDateOnly.add(const Duration(days: 1)));
+    }).toList();
+
+    // Calculate totals for selected date range
+    _totalValueAddedSeconds = 0;
+    _totalNonValueAddedSeconds = 0;
+    _nonValueActivities = [];
+
+    final fromDateOnly =
+        DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
+    final toDateOnly = DateTime(_toDate.year, _toDate.month, _toDate.day);
+
+    for (var record in _filteredRecords) {
+      // Only count production time if the record falls within the date range
+      final recordDate = DateTime(
+        record.startTime.year,
+        record.startTime.month,
+        record.startTime.day,
+      );
+
+      if (recordDate.isAfter(fromDateOnly.subtract(const Duration(days: 1))) &&
+          recordDate.isBefore(toDateOnly.add(const Duration(days: 1)))) {
+        _totalValueAddedSeconds += record.totalProductionTimeSeconds as int;
+      }
+
+      // Filter and collect interruptions that fall within the date range
+      if (record.interruptions != null) {
+        for (var interruption in record.interruptions) {
+          final interruptionDate = DateTime(
+            interruption.startTime.year,
+            interruption.startTime.month,
+            interruption.startTime.day,
+          );
+
+          // Only include interruptions that fall within the selected date range
+          if (interruptionDate
+                  .isAfter(fromDateOnly.subtract(const Duration(days: 1))) &&
+              interruptionDate
+                  .isBefore(toDateOnly.add(const Duration(days: 1)))) {
+            // Calculate duration if not set or is zero
+            int durationSeconds = interruption.durationSeconds;
+            if (durationSeconds == 0 && interruption.endTime != null) {
+              durationSeconds = interruption.endTime!
+                  .difference(interruption.startTime)
+                  .inSeconds;
+            }
+
+            // Create a copy of the interruption with the correct duration
+            final correctedInterruption = MESInterruption(
+              typeId: interruption.typeId,
+              typeName: interruption.typeName,
+              startTime: interruption.startTime,
+              endTime: interruption.endTime,
+              durationSeconds: durationSeconds,
+              notes: interruption.notes,
+            );
+
+            _nonValueActivities.add(correctedInterruption);
+            _totalNonValueAddedSeconds += durationSeconds;
+          }
+        }
+      }
+    }
+
+    // Sort non-value activities by start time (most recent first)
+    _nonValueActivities.sort((a, b) => b.startTime.compareTo(a.startTime));
+  }
+
+  Future<void> _selectFromDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _fromDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _fromDate) {
+      setState(() {
+        _fromDate = picked;
+        if (_fromDate.isAfter(_toDate)) {
+          _toDate = _fromDate;
+        }
+        _filterRecordsByDate();
+      });
+    }
+  }
+
+  Future<void> _selectToDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _toDate,
+      firstDate: _fromDate,
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _toDate) {
+      setState(() {
+        _toDate = picked;
+        _filterRecordsByDate();
+      });
+    }
+  }
+
+  String _formatDuration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 900,
+        constraints: const BoxConstraints(maxHeight: 800),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppColors.primaryBlue,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.settings, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Process Details - ${widget.process.name}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Date Filters Section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.date_range,
+                                  color: AppColors.primaryBlue),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Date Filter',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _selectFromDate,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                          color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: Colors.white,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.calendar_today,
+                                            size: 16,
+                                            color: Colors.grey.shade600),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'From',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                            Text(
+                                              DateFormat('MMM dd, yyyy')
+                                                  .format(_fromDate),
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _selectToDate,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                          color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: Colors.white,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.calendar_today,
+                                            size: 16,
+                                            color: Colors.grey.shade600),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'To',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                            Text(
+                                              DateFormat('MMM dd, yyyy')
+                                                  .format(_toDate),
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Summary Blocks Section
+                    Row(
+                      children: [
+                        // Value Added Block
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.green.shade200, width: 2),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.trending_up,
+                                        color: Colors.green.shade600),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Value Added',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _formatDuration(_totalValueAddedSeconds),
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade800,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                                Text(
+                                  'Total production time',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 16),
+
+                        // Non-Value Added Block
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.red.shade200, width: 2),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.pause_circle_outline,
+                                        color: Colors.red.shade600),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Non-Value Added',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _formatDuration(_totalNonValueAddedSeconds),
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red.shade800,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                                Text(
+                                  'Total interruption time',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Non-Value Activities List
+                    Text(
+                      'Non-Value Activities',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (_nonValueActivities.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.check_circle,
+                                color: Colors.green.shade400, size: 48),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No non-value activities found',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              'for the selected date range',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            // Header
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(8),
+                                  topRight: Radius.circular(8),
+                                ),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Date & Time',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Activity',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 1,
+                                    child: Text(
+                                      'Duration',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Activities List
+                            ..._nonValueActivities.take(20).map((activity) {
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom:
+                                        BorderSide(color: Colors.grey.shade200),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            DateFormat('MMM dd, yyyy')
+                                                .format(activity.startTime),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            DateFormat('HH:mm:ss')
+                                                .format(activity.startTime),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade400,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              activity.typeName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Text(
+                                        _formatDuration(
+                                            activity.durationSeconds),
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.red.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+
+                            // Show more indicator if there are more than 20 activities
+                            if (_nonValueActivities.length > 20)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: const BorderRadius.only(
+                                    bottomLeft: Radius.circular(8),
+                                    bottomRight: Radius.circular(8),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.more_horiz,
+                                        color: Colors.grey.shade600),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${_nonValueActivities.length - 20} more activities not shown',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
