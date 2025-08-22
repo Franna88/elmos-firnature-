@@ -3016,17 +3016,10 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
     final toDateOnly = DateTime(_toDate.year, _toDate.month, _toDate.day);
 
     for (var record in _filteredRecords) {
-      // Only count production time if the record falls within the date range
-      final recordDate = DateTime(
-        record.startTime.year,
-        record.startTime.month,
-        record.startTime.day,
-      );
-
-      if (recordDate.isAfter(fromDateOnly.subtract(const Duration(days: 1))) &&
-          recordDate.isBefore(toDateOnly.add(const Duration(days: 1)))) {
-        _totalValueAddedSeconds += record.totalProductionTimeSeconds as int;
-      }
+      // Note: We calculate both value added and non-value added time from individual interruptions
+      // This gives us better control over date filtering and proper activity classification:
+      // - Production activities = Value Added time
+      // - All other activities (Counting, Breaks, etc.) = Non-Value Added time
 
       // Filter and collect interruptions that fall within the date range
       if (record.interruptions != null) {
@@ -3105,8 +3098,18 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
               notes: interruption.notes,
             );
 
-            _nonValueActivities.add(correctedInterruption);
-            _totalNonValueAddedSeconds += durationSeconds;
+            // Check if this is a Production activity (Value Added) or other activity (Non-Value Added)
+            final isProductionActivity =
+                interruption.typeName.toLowerCase().contains('production');
+
+            if (isProductionActivity) {
+              // Production activities count towards Value Added time
+              _totalValueAddedSeconds += durationSeconds;
+            } else {
+              // Other activities (Counting, Breaks, Maintenance, etc.) count towards Non-Value Added time
+              _nonValueActivities.add(correctedInterruption);
+              _totalNonValueAddedSeconds += durationSeconds;
+            }
           }
         }
       }
