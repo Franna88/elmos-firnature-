@@ -3042,12 +3042,57 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
                   .isAfter(fromDateOnly.subtract(const Duration(days: 1))) &&
               interruptionDate
                   .isBefore(toDateOnly.add(const Duration(days: 1)))) {
-            // Calculate duration if not set or is zero
+            // Calculate duration - handle all possible cases
             int durationSeconds = interruption.durationSeconds;
-            if (durationSeconds == 0 && interruption.endTime != null) {
-              durationSeconds = interruption.endTime!
-                  .difference(interruption.startTime)
-                  .inSeconds;
+
+            // If durationSeconds is 0 or null, try to calculate from timestamps
+            if (durationSeconds <= 0) {
+              if (interruption.endTime != null) {
+                // Calculate from startTime to endTime
+                durationSeconds = interruption.endTime!
+                    .difference(interruption.startTime)
+                    .inSeconds;
+              } else {
+                // No endTime - this is likely an incomplete/corrupted record
+                // Skip interruptions without endTime to avoid inflated durations
+                continue;
+              }
+            }
+
+            // Apply date range filtering to the actual duration
+            // Only do this if we have both start and end times
+            if (interruption.endTime != null) {
+              final startOfRange = fromDateOnly;
+              final endOfRange = toDateOnly.add(const Duration(days: 1));
+
+              DateTime effectiveStart = interruption.startTime;
+              DateTime effectiveEnd = interruption.endTime!;
+
+              // Trim to date range boundaries
+              if (effectiveStart.isBefore(startOfRange)) {
+                effectiveStart = startOfRange;
+              }
+              if (effectiveEnd.isAfter(endOfRange)) {
+                effectiveEnd = endOfRange;
+              }
+
+              // Only count duration that falls within the date range
+              if (effectiveStart.isBefore(effectiveEnd)) {
+                durationSeconds =
+                    effectiveEnd.difference(effectiveStart).inSeconds;
+              } else {
+                // No overlap with date range, skip this interruption
+                continue;
+              }
+            }
+
+            // Ensure duration is reasonable (not negative, not absurdly large)
+            if (durationSeconds < 0) {
+              durationSeconds = 0;
+            } else if (durationSeconds > 86400 * 3) {
+              // More than 3 days
+              // Cap at 3 days - no single interruption should be longer than this
+              durationSeconds = 86400 * 3;
             }
 
             // Create a copy of the interruption with the correct duration
