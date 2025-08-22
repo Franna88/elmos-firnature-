@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import '../models/furniture_item.dart';
 import '../../data/services/mes_service.dart';
 import '../../data/models/mes_process_model.dart';
+import '../../data/models/mes_production_record_model.dart';
 import '../models/user.dart';
 import '../../presentation/widgets/cross_platform_image.dart';
 import '../../core/theme/app_theme.dart';
@@ -24,6 +25,9 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
   bool _isLoading = false;
   User? _user;
   MESProcess? _selectedProcess;
+  List<FurnitureItem> _resumableItems = [];
+  Map<String, String> _resumableItemRecordIds =
+      {}; // Track record IDs for resumable items
 
   @override
   void initState() {
@@ -46,6 +50,10 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
       } else if (args is User) {
         // Fallback for direct User argument (backward compatibility)
         _user = args;
+        // Reload resumable items when user becomes available
+        if (_user != null && !_isLoading) {
+          _loadResumableItems();
+        }
       }
     }
   }
@@ -58,6 +66,11 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
     try {
       final mesService = Provider.of<MESService>(context, listen: false);
       await mesService.fetchItems(onlyActive: true);
+
+      // Load resumable items if user is available
+      if (_user != null) {
+        await _loadResumableItems();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -70,6 +83,46 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadResumableItems() async {
+    if (_user == null) return;
+
+    try {
+      final mesService = Provider.of<MESService>(context, listen: false);
+      final onHoldMESItems = await mesService.getOnHoldItemsForUser(_user!.id);
+
+      // Filter by current process if selected
+      final filteredOnHoldItems = onHoldMESItems.where((mesItem) {
+        return _selectedProcess == null ||
+            mesItem.processId == _selectedProcess!.id;
+      }).toList();
+
+      // Convert to FurnitureItems and get their record IDs
+      _resumableItems = [];
+      _resumableItemRecordIds = {};
+
+      for (final mesItem in filteredOnHoldItems) {
+        final furnitureItem = FurnitureItem.fromMESItem(mesItem);
+        _resumableItems.add(furnitureItem);
+
+        // Find the production record ID for this item
+        final records = await mesService.fetchProductionRecords(
+          userId: _user!.id,
+          itemId: mesItem.id,
+        );
+        final onHoldRecord = records
+            .where((r) => r.status == ProductionStatus.onHold)
+            .firstOrNull;
+        if (onHoldRecord != null) {
+          _resumableItemRecordIds[mesItem.id] = onHoldRecord.id;
+        }
+      }
+    } catch (e) {
+      print('Error loading resumable items: $e');
+      _resumableItems = [];
+      _resumableItemRecordIds = {};
     }
   }
 
@@ -368,6 +421,49 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
 
           const SizedBox(height: 16),
 
+          // Resumable items section
+          if (_resumableItems.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(Icons.pause_circle,
+                    color: AppColors.purpleAccent, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  'Resume Previous Work',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.purpleAccent,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 180,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _resumableItems.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final item = _resumableItems[index];
+                  return _buildResumableItemCard(context, item, user);
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
+            Text(
+              'Start New Item',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // Item grid
           Expanded(
             child: GridView.builder(
@@ -472,6 +568,124 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
     );
   }
 
+  Widget _buildResumableItemCard(
+      BuildContext context, FurnitureItem item, User user) {
+    return SizedBox(
+      width: 200,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.purpleAccent, width: 2),
+        ),
+        elevation: 6,
+        child: InkWell(
+          onTap: () {
+            _resumeProduction(item, user);
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Status indicator
+              Container(
+                color: AppColors.purpleAccent,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.pause_circle, color: Colors.white, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ON HOLD',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Image or placeholder
+              Expanded(
+                child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                    ? CrossPlatformImage(
+                        imageUrl: item.imageUrl!,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                          ),
+                          child: Icon(
+                            _getIconForCategory(item.category),
+                            size: 40,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                        ),
+                        child: Icon(
+                          _getIconForCategory(item.category),
+                          size: 40,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+              ),
+              // Item details
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Est. Time: ${item.estimatedTimeInMinutes} min',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.purpleAccent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Tap to Resume',
+                        style: TextStyle(
+                          color: AppColors.purpleAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   IconData _getIconForCategory(String category) {
     switch (category.toLowerCase()) {
       case 'chairs':
@@ -516,6 +730,34 @@ class _ItemSelectionScreenState extends State<ItemSelectionScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error starting production: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Resume production and navigate to timer screen
+  Future<void> _resumeProduction(FurnitureItem item, User user) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Navigate to timer screen - the timer screen will handle finding and resuming the correct record
+      Navigator.pushNamed(
+        context,
+        '/timer',
+        arguments: {
+          'item': item,
+          'user': user,
+          'resumeMode': true, // Indicate this is a resume operation
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error resuming production: $e')),
       );
     } finally {
       setState(() {
