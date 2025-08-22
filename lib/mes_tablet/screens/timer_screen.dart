@@ -50,6 +50,9 @@ class _TimerScreenState extends State<TimerScreen> {
   // Production button state
   bool _isInProductionMode = false;
 
+  // Shutdown state flag
+  bool _isShuttingDown = false;
+
   @override
   void initState() {
     super.initState();
@@ -118,6 +121,14 @@ class _TimerScreenState extends State<TimerScreen> {
         print('Warning: Could not fetch interruption types: $e');
         // Set default interruption types if Firebase fails
         _interruptionTypes = [
+          MESInterruptionType(
+            id: 'idle',
+            name: 'Idle',
+            isActive: true,
+            color: '#6C757D',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
           MESInterruptionType(
             id: 'setup',
             name: 'Setup',
@@ -237,6 +248,11 @@ class _TimerScreenState extends State<TimerScreen> {
         setState(() {
           _isLoading = false;
         });
+
+        // Auto-activate Idle action when entering timer screen (if no item is selected)
+        if (_selectedItem == null && _selectedAction == null) {
+          _autoActivateIdleAction();
+        }
       }
     }
   }
@@ -336,13 +352,43 @@ class _TimerScreenState extends State<TimerScreen> {
     });
   }
 
+  // Auto-activate Idle action when entering timer screen or when no action is selected
+  void _autoActivateIdleAction() {
+    try {
+      final idleType = _interruptionTypes.firstWhere(
+        (type) => type.name.toLowerCase().contains('idle'),
+      );
+
+      setState(() {
+        _selectedAction = idleType;
+        _timer.startAction(idleType);
+      });
+
+      // Record the start of Idle action in Firebase
+      _recordActionStart(idleType);
+
+      print('✅ AUTO-ACTIVATED IDLE: Timer is now running on Idle action');
+    } catch (e) {
+      print('❌ NO IDLE ACTION AVAILABLE: Cannot auto-activate');
+    }
+  }
+
+  // Ensure timer always has an action running (fallback to Idle)
+  void _ensureActionRunning() {
+    // If no action is currently selected, activate Idle
+    // (unless we're in the middle of a shutdown process)
+    if (_selectedAction == null && !_isShuttingDown) {
+      _autoActivateIdleAction();
+    }
+  }
+
   // Select an action directly (simplified - no popups)
   void _startAction(MESInterruptionType type) {
     // Business Rules: Check if action is allowed
     final actionName = type.name.toLowerCase();
 
-    // Business Rule: No action can be triggered if no item selected
-    if (_selectedItem == null) {
+    // Business Rule: No action can be triggered if no item selected (except Idle - non-value action)
+    if (_selectedItem == null && !actionName.contains('idle')) {
       _showActionBlockedDialog(
         'No Item Selected',
         'Please select an item first before starting any actions.\n\nAll action timers must run against a selected item for proper recording.',
@@ -668,6 +714,9 @@ class _TimerScreenState extends State<TimerScreen> {
         _timer.resetForNewJob(); // Clear timer but keep Total Time running
       });
 
+      // Ensure timer always has an action running - fallback to Idle
+      _ensureActionRunning();
+
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -852,15 +901,61 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Proceed with shutdown after confirmation
   void _proceedWithShutdown(MESInterruptionType shutdownType) async {
+    // Set shutdown flag to prevent Idle fallback
+    setState(() {
+      _isShuttingDown = true;
+    });
+
     // First execute the shutdown action
     _proceedWithAction(shutdownType);
 
     // Wait a moment for the action to be recorded
     await Future.delayed(Duration(seconds: 1));
 
-    // Navigate back to process selection screen
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/mes');
+    // Complete shutdown: stop timer completely and navigate back
+    await _completeShutdown();
+  }
+
+  // Complete shutdown process - stop timer and navigate back
+  Future<void> _completeShutdown() async {
+    try {
+      // Stop all timer activities completely
+      if (_timer.currentAction != null) {
+        _recordActionEnd(_timer.currentAction!);
+      }
+
+      // Stop the timer completely (no fallback to Idle)
+      _timer.stopAction();
+      _timer.endShift(); // Stop the entire timer system
+
+      // Cancel any periodic saving
+      _saveProgressTimer?.cancel();
+      _saveProgressTimer = null;
+
+      // Clear all state
+      setState(() {
+        _selectedItem = null;
+        _recordId = null;
+        _selectedAction = null;
+        _isInProductionMode = false;
+        _expectedQty = 0;
+        _qtyPerCycle = 0;
+        _finishedQty = 0;
+        _rejectQty = 0;
+      });
+
+      print('✅ SHUTDOWN COMPLETE: Timer stopped completely');
+
+      // Navigate back to process selection screen
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/mes');
+      }
+    } catch (e) {
+      print('❌ Error during shutdown: $e');
+      // Still navigate back even if there was an error
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/mes');
+      }
     }
   }
 
@@ -4053,14 +4148,14 @@ class _TimerScreenState extends State<TimerScreen> {
                                             ),
                                           ],
 
-                                          // Action text below timer (increased by 50%)
+                                          // Cycle time display below timer (same size and color as previous status text)
                                           const SizedBox(height: 12),
                                           Text(
-                                            _getStatusText(),
+                                            'Cycle Time: ${ProductionTimer.formatDuration(_timer.getCycleTime())}',
                                             style: TextStyle(
                                               fontSize: isNarrow
                                                   ? 27
-                                                  : 36, // Increased by 50%
+                                                  : 36, // Same size as previous status text
                                               fontWeight: FontWeight.bold,
                                               color: _getContrastingTextColor(
                                                   _getStatusColor()),
@@ -4080,23 +4175,6 @@ class _TimerScreenState extends State<TimerScreen> {
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-
-                                          // Cycle time display (only show when in production)
-                                          if (_timer.currentAction != null &&
-                                              _timer.currentAction!.name
-                                                  .toLowerCase()
-                                                  .contains('production')) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Cycle Time: ${ProductionTimer.formatDuration(_timer.getCycleTime())}',
-                                              style: TextStyle(
-                                                fontSize: isNarrow ? 11 : 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: Colors.grey[600],
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
 
                                           // Average time display
                                           if (_timer.completedCount > 0) ...[
@@ -4428,21 +4506,6 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  String _getStatusText() {
-    switch (_timer.mode) {
-      case ProductionTimerMode.notStarted:
-        return 'Ready to Start';
-      case ProductionTimerMode.setup:
-        return 'Setup in Progress';
-      case ProductionTimerMode.running:
-        return '${_timer.currentAction?.name ?? 'Production'} in Progress';
-      case ProductionTimerMode.paused:
-        return '${_timer.currentAction?.name ?? 'Production'} Paused';
-      case ProductionTimerMode.interrupted:
-        return '${_timer.currentAction?.name ?? 'Production'} Interrupted';
-    }
-  }
-
   IconData _getIconForCategory(String category) {
     switch (category.toLowerCase()) {
       case 'chairs':
@@ -4621,13 +4684,28 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   Color _getStatusColor() {
+    // Check if current action is production (value time = green) or other (non-value time = red)
+    if (_timer.currentAction != null) {
+      final actionName = _timer.currentAction!.name.toLowerCase();
+
+      // Production actions = green (value time)
+      if (actionName.contains('production')) {
+        return Colors.green;
+      }
+      // All other actions = red (non-value time)
+      else {
+        return Colors.red;
+      }
+    }
+
+    // Fallback to original timer mode logic for special cases
     switch (_timer.mode) {
       case ProductionTimerMode.setup:
-        return AppColors.primaryBlue;
+        return Colors.red; // Setup is non-value time
       case ProductionTimerMode.running:
-        return AppColors.greenAccent;
+        return Colors.green; // Default running is value time
       case ProductionTimerMode.interrupted:
-        return AppColors.orangeAccent;
+        return Colors.red; // Interrupted is non-value time
       default:
         return AppColors.textMedium;
     }
@@ -4949,9 +5027,22 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // Helper method to get standard actions (Setup, Counting, End Job, Shutdown)
+  // Helper method to get standard actions (Idle, Setup, Counting, End Job, Shutdown)
   List<Map<String, dynamic>> _getStandardActions() {
     List<Map<String, dynamic>> standardActions = [];
+
+    // Idle (always first in standard actions)
+    final idleTypes = _interruptionTypes
+        .where(
+          (type) => type.name.toLowerCase().contains('idle'),
+        )
+        .toList();
+    if (idleTypes.isNotEmpty) {
+      standardActions.add({
+        'isInterruptionType': true,
+        'type': idleTypes.first,
+      });
+    }
 
     // Setup
     final setupTypes = _interruptionTypes
@@ -5019,7 +5110,7 @@ class _TimerScreenState extends State<TimerScreen> {
   // Helper method to get other actions (all remaining interruption types)
   List<MESInterruptionType> _getOtherActions() {
     // Get list of standard action names
-    final standardNames = ['setup', 'counting', 'shutdown'];
+    final standardNames = ['idle', 'setup', 'counting', 'shutdown'];
 
     // Return interruption types that are not in the standard list
     return _interruptionTypes.where((type) {
@@ -5050,7 +5141,12 @@ class _TimerScreenState extends State<TimerScreen> {
     }
 
     // Determine icon based on type name
-    if (type.name.toLowerCase().contains('break')) {
+    if (type.name.toLowerCase().contains('idle')) {
+      icon = Icons.hourglass_empty;
+      if (type.color == null || type.color!.isEmpty) {
+        buttonColor = Colors.grey.shade600;
+      }
+    } else if (type.name.toLowerCase().contains('break')) {
       icon = Icons.coffee;
       if (type.color == null || type.color!.isEmpty) {
         buttonColor = AppColors.orangeAccent;

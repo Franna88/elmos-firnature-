@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import '../models/mes_item_model.dart';
 import '../models/mes_process_model.dart';
 import '../models/mes_station_model.dart';
@@ -450,6 +451,9 @@ class MESService extends ChangeNotifier {
           .map((doc) => MESInterruptionType.fromFirestore(doc))
           .toList();
 
+      // Ensure Idle interruption type exists (stock standard requirement)
+      await _ensureIdleInterruptionTypeExists();
+
       _isLoadingInterruptionTypes = false;
       notifyListeners();
 
@@ -563,6 +567,54 @@ class MESService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       rethrow;
+    }
+  }
+
+  // Ensure Idle interruption type exists as a stock standard
+  Future<void> _ensureIdleInterruptionTypeExists() async {
+    try {
+      // Check if Idle interruption type already exists
+      final idleExists = _interruptionTypes.any(
+        (type) => type.name.toLowerCase().contains('idle'),
+      );
+
+      if (!idleExists) {
+        // Create Idle interruption type
+        final now = DateTime.now();
+        final docRef = await _interruptionTypesCollection.add({
+          'name': 'Idle',
+          'description':
+              'Default non-value action when no other action is selected',
+          'icon': 'hourglass_empty',
+          'color': '#6C757D',
+          'isActive': true,
+          'createdAt': Timestamp.fromDate(now),
+          'updatedAt': Timestamp.fromDate(now),
+        });
+
+        final idleType = MESInterruptionType(
+          id: docRef.id,
+          name: 'Idle',
+          description:
+              'Default non-value action when no other action is selected',
+          icon: 'hourglass_empty',
+          color: '#6C757D',
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        _interruptionTypes.add(idleType);
+
+        if (kDebugMode) {
+          print('✅ Created stock standard Idle interruption type');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error ensuring Idle interruption type exists: $e');
+      }
+      // Don't rethrow - this is not critical enough to break the app
     }
   }
 
