@@ -174,6 +174,10 @@ class ProductionTimer {
   List<ItemCompletionRecord> get completedItems =>
       List.unmodifiable(_completedItems);
 
+  // Cycle time tracking
+  List<int> _completedCycleTimes = []; // Store each completed cycle time in seconds
+  List<int> get completedCycleTimes => List.unmodifiable(_completedCycleTimes);
+
   // Track number of times production was started
   int _productionStartCount = 0;
   int get productionStartCount => _productionStartCount;
@@ -593,6 +597,7 @@ class ProductionTimer {
     _currentItemActionRecords.clear(); // Clear action records
     _completedCount = 0; // Reset completed items counter
     _completedItems.clear(); // Clear completed items list
+    _completedCycleTimes.clear(); // Clear cycle time history
     _sessionStartTime = null; // Reset session timer
     _cycleStartTime = null; // Reset cycle timer
     _cycleTime = 0; // Reset cycle time
@@ -618,6 +623,7 @@ class ProductionTimer {
     _currentItemActionRecords.clear(); // Clear action records
     _completedCount = 0; // Reset completed items counter
     _completedItems.clear(); // Clear completed items list
+    _completedCycleTimes.clear(); // Clear cycle time history
     // DON'T reset _sessionStartTime - keep Total Time running!
     _cycleStartTime = null; // Reset cycle timer
     _cycleTime = 0; // Reset cycle time
@@ -641,6 +647,7 @@ class ProductionTimer {
     _currentItemActionRecords.clear(); // Clear action records
     _completedCount = 0; // Reset completed items counter for this item
     _completedItems.clear(); // Clear completed items list for this item
+    _completedCycleTimes.clear(); // Clear cycle time history for this item
     // DON'T reset _sessionStartTime - keep Total Time running!
     _cycleStartTime = null; // Reset cycle timer
     _cycleTime = 0; // Reset cycle time
@@ -745,6 +752,27 @@ class ProductionTimer {
         .reduce((a, b) => a > b ? a : b);
   }
 
+  // Get average cycle time in seconds
+  double getAverageCycleTime() {
+    if (_completedCycleTimes.isEmpty) return 0.0;
+    
+    final total = _completedCycleTimes.fold(0, (sum, time) => sum + time);
+    final average = total / _completedCycleTimes.length;
+    return average.isFinite ? average : 0.0;
+  }
+
+  // Get fastest (minimum) cycle time in seconds
+  int getMinCycleTime() {
+    if (_completedCycleTimes.isEmpty) return 0;
+    return _completedCycleTimes.reduce((a, b) => a < b ? a : b);
+  }
+
+  // Get slowest (maximum) cycle time in seconds
+  int getMaxCycleTime() {
+    if (_completedCycleTimes.isEmpty) return 0;
+    return _completedCycleTimes.reduce((a, b) => a > b ? a : b);
+  }
+
   // Get the duration of the current interruption in seconds
   int getCurrentInterruptionDuration() {
     if (_mode == ProductionTimerMode.interrupted &&
@@ -780,6 +808,12 @@ class ProductionTimer {
 
   // Reset cycle timer (called when "Next Item" is pressed)
   void resetCycleTimer() {
+    // Record the completed cycle time before resetting
+    final completedCycleTime = getCycleTime();
+    if (completedCycleTime > 0) {
+      _completedCycleTimes.add(completedCycleTime);
+    }
+    
     _cycleStartTime = DateTime.now();
     _cycleTime = 0;
   }
