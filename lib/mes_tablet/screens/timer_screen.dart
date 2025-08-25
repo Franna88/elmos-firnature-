@@ -1272,21 +1272,64 @@ class _TimerScreenState extends State<TimerScreen> {
                             ),
                           ),
 
-                        // 1. Selected Item Dropdown
-                        _buildFormField(
-                          label: 'Selected Item',
-                          child: Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    MediaQuery.of(context).size.width * 0.02,
-                                vertical: MediaQuery.of(context).size.height *
-                                    0.015), // Responsive padding
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                  color: Colors.grey.shade300, width: 1.5),
-                              borderRadius: BorderRadius.circular(10),
+                        // 1. Selected Item Dropdown - Made More Prominent
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryBlue.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.primaryBlue.withOpacity(0.3),
+                              width: 2,
                             ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.star, color: AppColors.primaryBlue, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Selected Item',
+                                    style: TextStyle(
+                                      fontSize: MediaQuery.of(context).size.height * 0.030,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryBlue,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryBlue,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'STEP 1',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+                              Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                  horizontal:
+                                      MediaQuery.of(context).size.width * 0.02,
+                                  vertical: MediaQuery.of(context).size.height *
+                                      0.015), // Responsive padding
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: AppColors.primaryBlue, width: 2),
+                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.white,
+                              ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<FurnitureItem>(
                                 value: selectedItem,
@@ -1407,134 +1450,76 @@ class _TimerScreenState extends State<TimerScreen> {
                               ),
                             ),
                           ),
-                        ),
+                            ],
+                          ),
+                        ), // Close the prominent container
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
 
-                        // 2. Select Part Dropdown (Coming Soon) - More compact
-                        _buildCompactFormField(
-                          label: 'Select Part',
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                  color: Colors.grey.shade300, width: 1.5),
-                              borderRadius: BorderRadius.circular(8),
-                              color: Colors.grey.shade50,
-                            ),
-                            child: Row(
+                        // Quantity fields in a 2x2 grid - Uniform sizing
+                        Column(
+                          children: [
+                            // Top row: Expected QTY and QTY per Cycle
+                            Row(
                               children: [
-                                Icon(Icons.construction,
-                                    size: 20, color: Colors.grey.shade400),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Coming Soon',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontStyle: FontStyle.italic,
-                                    fontSize: 16,
+                                Expanded(
+                                  child: _buildUniformFramedSection(
+                                    title: 'Expected QTY',
+                                    icon: Icons.trending_up,
+                                    color: AppColors.primaryBlue,
+                                    badge: 'STEP 2',
+                                    child: _buildUniformNumberField(
+                                        expectedQtyController,
+                                        'Expected QTY',
+                                        AppColors.primaryBlue),
+                                  ),
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildUniformFramedSection(
+                                    title: 'QTY per Cycle',
+                                    icon: Icons.add_circle,
+                                    color: AppColors.greenAccent,
+                                    badge: 'AUTO',
+                                    child: _buildUniformDisplayField(
+                                      value: '$_qtyPerCycle',
+                                      subtitle: 'Incremented with "Next"',
+                                      color: AppColors.greenAccent,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ),
-
-                        SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.02),
-
-                        // Quantity fields in a 2x2 grid - Responsive
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildCompactFormField(
-                                label: 'Expected QTY',
-                                child: _buildCompactNumberField(
-                                    expectedQtyController,
-                                    'Expected QTY',
-                                    AppColors.primaryBlue),
-                              ),
-                            ),
-                            SizedBox(
-                                width:
-                                    MediaQuery.of(context).size.width * 0.02),
-                            Expanded(
-                              child: _buildCompactFormField(
-                                label: 'QTY per Cycle',
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppColors.greenAccent.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: AppColors.greenAccent, width: 2),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '$_qtyPerCycle',
-                                            style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.greenAccent,
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.add_circle,
-                                            color: AppColors.greenAccent,
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        'Incremented with "Next"',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
+                            SizedBox(height: 16),
+                            // Bottom row: Finished QTY and Reject QTY
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildUniformFramedSection(
+                                    title: 'Finished QTY',
+                                    icon: Icons.check_circle,
+                                    color: AppColors.greenAccent,
+                                    badge: 'DONE',
+                                    child: _buildUniformNumberField(
+                                        finishedQtyController,
+                                        'Finished QTY',
+                                        AppColors.greenAccent),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.015),
-                        // Bottom row: Finished QTY and Reject QTY
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildCompactFormField(
-                                label: 'Finished QTY',
-                                child: _buildCompactNumberField(
-                                    finishedQtyController,
-                                    'Finished QTY',
-                                    AppColors.greenAccent),
-                              ),
-                            ),
-                            SizedBox(
-                                width:
-                                    MediaQuery.of(context).size.width * 0.02),
-                            Expanded(
-                              child: _buildCompactFormField(
-                                label: 'Reject QTY',
-                                child: _buildCompactNumberField(
-                                    rejectQtyController,
-                                    'Reject QTY',
-                                    AppColors.orangeAccent),
-                              ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildUniformFramedSection(
+                                    title: 'Reject QTY',
+                                    icon: Icons.cancel,
+                                    color: AppColors.orangeAccent,
+                                    badge: 'REJECT',
+                                    child: _buildUniformNumberField(
+                                        rejectQtyController,
+                                        'Reject QTY',
+                                        AppColors.orangeAccent),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -2094,6 +2079,194 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Helper method to build uniform framed sections
+  Widget _buildUniformFramedSection({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required String badge,
+    required Widget child,
+  }) {
+    return Container(
+      height: 140, // Fixed height for uniformity
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          Expanded(child: child), // Make child fill remaining space
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build uniform number input fields
+  Widget _buildUniformNumberField(
+    TextEditingController controller,
+    String title,
+    Color iconColor,
+  ) {
+    return Center(
+      child: SizedBox(
+        width: double.infinity,
+        child: TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(width: 2),
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            suffixIcon: Icon(Icons.edit, color: iconColor, size: 18),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) return 'Required';
+            final qty = int.tryParse(value);
+            if (qty == null || qty < 0) return 'Must be ≥ 0';
+            return null;
+          },
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build uniform display field (for auto-increment values)
+  Widget _buildUniformDisplayField({
+    required String value,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build framed sections with consistent styling (legacy)
+  Widget _buildFramedSection({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required String badge,
+    required Widget child,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+
   // Build mobile web optimized number pad button
   Widget _buildMobileNumberButton(String text, VoidCallback onPressed,
       {Color? color}) {
@@ -2163,7 +2336,44 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // Helper method to build compact number input fields
+  // Helper method to build narrow number input fields (tablet-friendly)
+  Widget _buildNarrowNumberField(
+    TextEditingController controller,
+    String title,
+    Color iconColor, {
+    String? helperText,
+  }) {
+    return Container(
+      width: 120, // Fixed narrow width for numbers
+      child: TextFormField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.black,
+        ),
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(width: 1.5),
+          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          suffixIcon: Icon(Icons.edit, color: iconColor, size: 18),
+          helperText: helperText,
+          helperStyle: TextStyle(fontSize: 10),
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) return 'Required';
+          final qty = int.tryParse(value);
+          if (qty == null || qty < 0) return 'Must be ≥ 0';
+          return null;
+        },
+      ),
+    );
+  }
+
+  // Helper method to build compact number input fields (deprecated - keeping for compatibility)
   Widget _buildCompactNumberField(
     TextEditingController controller,
     String title,
