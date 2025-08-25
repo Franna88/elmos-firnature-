@@ -387,8 +387,8 @@ class _TimerScreenState extends State<TimerScreen> {
     // Business Rules: Check if action is allowed
     final actionName = type.name.toLowerCase();
 
-    // Business Rule: No action can be triggered if no item selected (except Idle - non-value action)
-    if (_selectedItem == null && !actionName.contains('idle')) {
+    // Business Rule: No action can be triggered if no item selected (except Idle and Shutdown)
+    if (_selectedItem == null && !actionName.contains('idle') && !actionName.contains('shutdown')) {
       _showActionBlockedDialog(
         'No Item Selected',
         'Please select an item first before starting any actions.\n\nAll action timers must run against a selected item for proper recording.',
@@ -616,8 +616,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                 ),
                               ),
                             ],
-                          ),
-                          SizedBox(height: 16),
+              ),
+              SizedBox(height: 16),
                           // Bottom row: Finished QTY and Reject QTY
                           Row(
                             children: [
@@ -625,7 +625,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                 child: Container(
                                   height: 140,
                                   padding: EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
+                decoration: BoxDecoration(
                                     color: Colors.red.withOpacity(0.05),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
@@ -634,8 +634,8 @@ class _TimerScreenState extends State<TimerScreen> {
                                     ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                                       Row(
                                         children: [
                                           Icon(Icons.check_circle, color: Colors.red, size: 20),
@@ -643,9 +643,9 @@ class _TimerScreenState extends State<TimerScreen> {
                                           Expanded(
                                             child: Text(
                                               'Finished QTY',
-                                              style: TextStyle(
+                            style: TextStyle(
                                                 fontSize: 16,
-                                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.bold,
                                                 color: Colors.red,
                                               ),
                                             ),
@@ -673,16 +673,16 @@ class _TimerScreenState extends State<TimerScreen> {
                                           child: SizedBox(
                                             width: double.infinity,
                                             child: TextFormField(
-                                              controller: finishedQtyController,
-                                              keyboardType: TextInputType.number,
+                controller: finishedQtyController,
+                keyboardType: TextInputType.number,
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 fontSize: 24,
                                                 fontWeight: FontWeight.bold,
                                                 color: Colors.black,
                                               ),
-                                              decoration: InputDecoration(
-                                                border: OutlineInputBorder(
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
                                                   borderRadius: BorderRadius.circular(8),
                                                   borderSide: BorderSide(width: 2, color: Colors.red),
                                                 ),
@@ -693,11 +693,11 @@ class _TimerScreenState extends State<TimerScreen> {
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                ),
+              ),
+            ],
+          ),
+        ),
                               ),
                               SizedBox(width: 16),
                               Expanded(
@@ -727,9 +727,9 @@ class _TimerScreenState extends State<TimerScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
                     },
                     child: Text(
                       'Cancel',
@@ -738,34 +738,34 @@ class _TimerScreenState extends State<TimerScreen> {
                         color: Colors.grey.shade600,
                       ),
                     ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Validate that Finished QTY has been entered
+              final finishedQty = int.tryParse(finishedQtyController.text) ?? 0;
+              if (finishedQty <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Please enter a valid Finished QTY greater than 0'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 3),
                   ),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Validate that Finished QTY has been entered
-                      final finishedQty = int.tryParse(finishedQtyController.text) ?? 0;
-                      if (finishedQty <= 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                'Please enter a valid Finished QTY greater than 0'),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                        return;
-                      }
+                );
+                return;
+              }
 
-                      // Save the final quantities
-                      _completeJobAndReset(
-                        expectedQty: int.tryParse(expectedQtyController.text) ?? 0,
-                        finishedQty: finishedQty,
-                        rejectQty: int.tryParse(rejectQtyController.text) ?? 0,
-                      );
+              // Save the final quantities
+              _completeJobAndReset(
+                expectedQty: int.tryParse(expectedQtyController.text) ?? 0,
+                finishedQty: finishedQty,
+                rejectQty: int.tryParse(rejectQtyController.text) ?? 0,
+              );
 
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -1010,7 +1010,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 _proceedWithShutdown(shutdownType);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: Colors.deepPurple.shade600,
                 foregroundColor: Colors.white,
               ),
               child: Text('End Day'),
@@ -1070,13 +1070,13 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Navigate back to process selection screen
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/mes');
+        Navigator.of(context).pushReplacementNamed('/process_selection', arguments: _user);
       }
     } catch (e) {
       print('❌ Error during shutdown: $e');
       // Still navigate back even if there was an error
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/mes');
+        Navigator.of(context).pushReplacementNamed('/process_selection', arguments: _user);
       }
     }
   }
@@ -1440,18 +1440,18 @@ class _TimerScreenState extends State<TimerScreen> {
                               ),
                               SizedBox(height: MediaQuery.of(context).size.height * 0.01),
                               Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.symmetric(
-                                  horizontal:
-                                      MediaQuery.of(context).size.width * 0.02,
-                                  vertical: MediaQuery.of(context).size.height *
-                                      0.015), // Responsive padding
-                              decoration: BoxDecoration(
-                                border: Border.all(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(
+                                horizontal:
+                                    MediaQuery.of(context).size.width * 0.02,
+                                vertical: MediaQuery.of(context).size.height *
+                                    0.015), // Responsive padding
+                            decoration: BoxDecoration(
+                              border: Border.all(
                                     color: AppColors.primaryBlue, width: 2),
-                                borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(10),
                                 color: Colors.white,
-                              ),
+                            ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<FurnitureItem>(
                                 value: selectedItem,
@@ -1570,10 +1570,10 @@ class _TimerScreenState extends State<TimerScreen> {
                                       }
                                     : null, // Disable dropdown when cannot select new item
                               ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                            ],
-                          ),
                         ), // Close the prominent container
 
                         const SizedBox(height: 24),
@@ -1582,64 +1582,64 @@ class _TimerScreenState extends State<TimerScreen> {
                         Column(
                           children: [
                             // Top row: Expected QTY and QTY per Cycle
-                            Row(
-                              children: [
-                                Expanded(
+                        Row(
+                          children: [
+                            Expanded(
                                   child: _buildUniformFramedSection(
                                     title: 'Expected QTY',
                                     icon: Icons.trending_up,
                                     color: AppColors.primaryBlue,
                                     badge: 'STEP 2',
                                     child: _buildUniformNumberField(
-                                        expectedQtyController,
-                                        'Expected QTY',
-                                        AppColors.primaryBlue),
-                                  ),
-                                ),
+                                    expectedQtyController,
+                                    'Expected QTY',
+                                    AppColors.primaryBlue),
+                              ),
+                            ),
                                 SizedBox(width: 16),
-                                Expanded(
+                            Expanded(
                                   child: _buildUniformFramedSection(
                                     title: 'QTY per Cycle',
                                     icon: Icons.add_circle,
-                                    color: AppColors.greenAccent,
+                                              color: AppColors.greenAccent,
                                     badge: 'AUTO',
                                     child: _buildUniformDisplayField(
                                       value: '$_qtyPerCycle',
                                       subtitle: 'Incremented with "Next"',
-                                      color: AppColors.greenAccent,
+                                            color: AppColors.greenAccent,
                                     ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                             SizedBox(height: 16),
-                            // Bottom row: Finished QTY and Reject QTY
-                            Row(
-                              children: [
-                                Expanded(
+                        // Bottom row: Finished QTY and Reject QTY
+                        Row(
+                          children: [
+                            Expanded(
                                   child: _buildUniformFramedSection(
                                     title: 'Finished QTY',
                                     icon: Icons.check_circle,
                                     color: AppColors.greenAccent,
                                     badge: 'DONE',
                                     child: _buildUniformNumberField(
-                                        finishedQtyController,
-                                        'Finished QTY',
-                                        AppColors.greenAccent),
-                                  ),
-                                ),
+                                    finishedQtyController,
+                                    'Finished QTY',
+                                    AppColors.greenAccent),
+                              ),
+                            ),
                                 SizedBox(width: 16),
-                                Expanded(
+                            Expanded(
                                   child: _buildUniformFramedSection(
                                     title: 'Reject QTY',
                                     icon: Icons.cancel,
                                     color: AppColors.orangeAccent,
                                     badge: 'REJECT',
                                     child: _buildUniformNumberField(
-                                        rejectQtyController,
-                                        'Reject QTY',
-                                        AppColors.orangeAccent),
-                                  ),
+                                    rejectQtyController,
+                                    'Reject QTY',
+                                    AppColors.orangeAccent),
+                              ),
                                 ),
                               ],
                             ),
@@ -1658,7 +1658,24 @@ class _TimerScreenState extends State<TimerScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // On Hold button (only show if item is currently selected)
+                    // Left side: Cancel button
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: MediaQuery.of(context).size.width * 0.03,
+                            vertical: MediaQuery.of(context).size.height * 0.015),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                            fontSize: MediaQuery.of(context).size.height * 0.022,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600),
+                      ),
+                    ),
+
+                    // Center: On Hold button (only show if item is currently selected)
                     if (selectedItem != null &&
                         _selectedItem != null &&
                         _selectedItem!.id == selectedItem!.id)
@@ -1699,29 +1716,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         ),
                       ),
 
-                    // Right side buttons (Cancel and OK)
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    MediaQuery.of(context).size.width * 0.03,
-                                vertical: MediaQuery.of(context).size.height *
-                                    0.015), // Responsive padding
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                                fontSize:
-                                    MediaQuery.of(context).size.height * 0.022,
-                                fontWeight: FontWeight.w600), // Responsive text
-                          ),
-                        ),
-                        SizedBox(
-                            width: MediaQuery.of(context).size.width *
-                                0.02), // Responsive spacing
+                    // Right side: OK button
                         ElevatedButton(
                           onPressed: selectedItem == null
                               ? null
@@ -1783,24 +1778,18 @@ class _TimerScreenState extends State<TimerScreen> {
                             backgroundColor: AppColors.primaryBlue,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    MediaQuery.of(context).size.width * 0.04,
-                                vertical: MediaQuery.of(context).size.height *
-                                    0.018), // Responsive padding
+                            horizontal: MediaQuery.of(context).size.width * 0.04,
+                            vertical: MediaQuery.of(context).size.height * 0.018),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  10), // Responsive radius
+                          borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                           child: Text(
                             'OK',
                             style: TextStyle(
-                                fontSize:
-                                    MediaQuery.of(context).size.height * 0.025,
-                                fontWeight: FontWeight.bold), // Responsive text
+                            fontSize: MediaQuery.of(context).size.height * 0.025,
+                            fontWeight: FontWeight.bold),
                           ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -4520,16 +4509,16 @@ class _TimerScreenState extends State<TimerScreen> {
                                               ),
                                               child: Column(
                                                 children: [
-                                                  Text(
+                                          Text(
                                                     'Cycle Time Stats (${_timer.completedCycleTimes.length} cycles)',
-                                                    style: TextStyle(
-                                                      fontSize: isNarrow ? 10 : 12,
+                                            style: TextStyle(
+                                                      fontSize: isNarrow ? 13 : 16,
                                                       color: _getContrastingTextColor(_getStatusColor())
                                                           .withOpacity(0.7),
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                    textAlign: TextAlign.center,
-                                                  ),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
                                                   SizedBox(height: 4),
                                                   Row(
                                                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -4735,104 +4724,103 @@ class _TimerScreenState extends State<TimerScreen> {
               color: AppColors.textDark,
             ),
             SizedBox(width: 8),
-            Text(
-              'Session Statistics',
-              style: TextStyle(
+        Text(
+          'Session Statistics',
+          style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
-            ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
           ],
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: Column(
-            children: [
+            child: Column(
+              children: [
               // Value Added Block
-              Expanded(
+                Expanded(
                 flex: 2,
                 child: _buildLargeStatisticCard(
                   'Value Added',
-                  _formatTimeForStatistics(_getProductionActionTime()),
-                  Colors.green,
+                    _formatTimeForStatistics(_getProductionActionTime()),
+                    Colors.green,
                   Icons.trending_up,
+                  ),
                 ),
-              ),
               const SizedBox(height: 12),
               // No Value Block
-              Expanded(
+                Expanded(
                 flex: 2,
                 child: _buildLargeStatisticCard(
                   'No Value',
-                  _formatTimeForStatistics(_getNonProductionActionTime()),
-                  Colors.red,
+                    _formatTimeForStatistics(_getNonProductionActionTime()),
+                    Colors.red,
                   Icons.pause_circle_outline,
+                  ),
                 ),
-              ),
               const SizedBox(height: 12),
               // Total Time Block
-              Expanded(
+                Expanded(
                 flex: 2,
                 child: _buildLargeStatisticCard(
                   'Total Time',
-                  _formatTimeForStatistics(_timer.getTotalTime()),
-                  const Color(0xFF1976D2),
+                    _formatTimeForStatistics(_timer.getTotalTime()),
+                    const Color(0xFF1976D2),
                   Icons.access_time,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ),
       ],
     );
   }
 
-  // New large statistic card for column layout
+    // Compact statistic card for column layout
   Widget _buildLargeStatisticCard(String label, String value, Color color, IconData icon) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      height: 80, // Fixed height to prevent scrolling
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3), width: 2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: color,
-              ),
-              SizedBox(width: 8),
-              Flexible(
-                child: Text(
+          Icon(
+            icon,
+            size: 20,
+            color: color,
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
                   label,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     color: color,
                     fontWeight: FontWeight.w600,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-              ),
-            ],
+                SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    fontFamily: 'monospace',
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontFamily: 'monospace',
+        ),
+      ],
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -5218,14 +5206,14 @@ class _TimerScreenState extends State<TimerScreen> {
             children: [
               Icon(
                 Icons.analytics_outlined,
-                size: 18,
+                size: 20,
                 color: AppColors.textDark,
               ),
               SizedBox(width: 8),
               Text(
                 'Session Statistics',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
                 ),
@@ -5233,36 +5221,29 @@ class _TimerScreenState extends State<TimerScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactStatCard(
+          // Value Added Block
+          _buildLargeStatisticCard(
                   'Value Added',
                   _formatTimeForStatistics(_getProductionActionTime()),
                   Colors.green,
                   Icons.trending_up,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactStatCard(
+          const SizedBox(height: 8),
+          // No Value Block
+          _buildLargeStatisticCard(
                   'No Value',
                   _formatTimeForStatistics(_getNonProductionActionTime()),
                   Colors.red,
                   Icons.pause_circle_outline,
-                ),
-              ),
-            ],
           ),
           const SizedBox(height: 8),
-          _buildCompactStatCard(
+          // Total Time Block
+          _buildLargeStatisticCard(
             'Total Time',
             _formatTimeForStatistics(_timer.getTotalTime()),
             const Color(0xFF1976D2),
-            Icons.schedule,
-            fullWidth: true,
+            Icons.access_time,
           ),
-          // Finish button removed as per requirements
         ],
       ),
     );
@@ -5462,7 +5443,7 @@ class _TimerScreenState extends State<TimerScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: isNarrow ? 8 : 10,
+            fontSize: isNarrow ? 10 : 13,
             color: _getContrastingTextColor(_getStatusColor()).withOpacity(0.6),
             fontWeight: FontWeight.w500,
           ),
@@ -5470,7 +5451,7 @@ class _TimerScreenState extends State<TimerScreen> {
         Text(
           value,
           style: TextStyle(
-            fontSize: isNarrow ? 10 : 12,
+            fontSize: isNarrow ? 13 : 16,
             color: _getContrastingTextColor(_getStatusColor()),
             fontWeight: FontWeight.bold,
             fontFamily: 'monospace',
@@ -5581,8 +5562,8 @@ class _TimerScreenState extends State<TimerScreen> {
     IconData icon = Icons.pause_circle;
     Color buttonColor = AppColors.textDark;
 
-    // Use the color from MES setup if available
-    if (type.color != null && type.color!.isNotEmpty) {
+    // Use the color from MES setup if available (but override for specific types)
+    if (!type.name.toLowerCase().contains('shutdown') && type.color != null && type.color!.isNotEmpty) {
       try {
         String colorHex = type.color!.replaceAll('#', '');
         if (colorHex.length == 6) {
@@ -5644,7 +5625,7 @@ class _TimerScreenState extends State<TimerScreen> {
     } else if (type.name.toLowerCase().contains('shutdown')) {
       icon = Icons.power_settings_new;
       if (type.color == null || type.color!.isEmpty) {
-        buttonColor = Colors.red.shade600;
+        buttonColor = Colors.deepPurple.shade600;
       }
     }
 
@@ -5654,12 +5635,12 @@ class _TimerScreenState extends State<TimerScreen> {
           icon: icon,
           label: type.name,
           color: buttonColor,
-          onPressed: _selectedItem != null && !(_isCurrentlyInIdleMode() && !type.name.toLowerCase().contains('shutdown'))
+          onPressed: (type.name.toLowerCase().contains('shutdown') || _selectedItem != null) && !(_isCurrentlyInIdleMode() && !type.name.toLowerCase().contains('shutdown'))
               ? () {
                   _startAction(type);
                 }
-              : null, // Disable when no item selected or in Idle mode (except Shutdown)
-          description: _selectedItem != null
+              : null, // Allow Shutdown without item, disable other actions when no item selected or in Idle mode (except Shutdown)
+          description: (type.name.toLowerCase().contains('shutdown') || _selectedItem != null)
               ? (_isCurrentlyInIdleMode() && !type.name.toLowerCase().contains('shutdown')
                   ? 'Only Shutdown is available in Idle mode'
                   : (type.description ?? 'Track time for ${type.name}'))
