@@ -60,6 +60,31 @@ class _MESReportsScreenState extends State<MESReportsScreen>
           endDate: _endDate,
         ),
       ]);
+      
+      // Debug logging for MES reports data retrieval
+      print('🔍 MES REPORTS - DATA RETRIEVAL DEBUG:');
+      print('  📅 Date Filter: ${_startDate.toString()} to ${_endDate.toString()}');
+      print('  👤 User Filter: ${_selectedUserId}');
+      print('  📦 Item Filter: ${_selectedItemId}');
+      print('  📊 Total Records Retrieved: ${mesService.productionRecords.length}');
+      
+      if (mesService.productionRecords.isNotEmpty) {
+        print('  🗄️ FIRST FEW RECORDS:');
+        for (int i = 0; i < mesService.productionRecords.length && i < 3; i++) {
+          final record = mesService.productionRecords[i];
+          print('    Record $i: ${record.id}');
+          print('      - Item ID: ${record.itemId}');
+          print('      - User: ${record.userName}');
+          print('      - Start: ${record.startTime}');
+          print('      - End: ${record.endTime}');
+          print('      - Production Time: ${record.totalProductionTimeSeconds}s');
+          print('      - Interruption Time: ${record.totalInterruptionTimeSeconds}s');
+          print('      - Completed: ${record.isCompleted}');
+          print('      - Status: ${record.status}');
+        }
+      } else {
+        print('  ❌ NO RECORDS FOUND for the specified filters!');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -3015,13 +3040,83 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
         DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
     final toDateOnly = DateTime(_toDate.year, _toDate.month, _toDate.day);
 
-    for (var record in _filteredRecords) {
-      // Note: We calculate both value added and non-value added time from individual interruptions
-      // This gives us better control over date filtering and proper activity classification:
-      // - Production activities = Value Added time
-      // - All other activities (Counting, Breaks, etc.) = Non-Value Added time
+    print('🎯 PROCESS DETAILS - CALCULATING TOTALS:');
+    print('  📅 Date Range: ${_fromDate.toString().substring(0, 10)} to ${_toDate.toString().substring(0, 10)}');
+    print('  📊 Filtered Records: ${_filteredRecords.length}');
+    
+    for (int i = 0; i < _filteredRecords.length; i++) {
+      var record = _filteredRecords[i];
+      
+      print('  📝 Record ${i + 1}: ${record.id}');
+      print('    - Start: ${record.startTime}');
+      print('    - Production Time: ${record.totalProductionTimeSeconds}s');
+      print('    - Interruption Time: ${record.totalInterruptionTimeSeconds}s');
+      print('    - Status: ${record.status}');
+      print('    - Completed: ${record.isCompleted}');
+      
+      // Use aggregate production and interruption times from the main record
+      // These are now correctly calculated by the MES tablet
+      if (record.startTime.isAfter(_fromDate) && record.startTime.isBefore(_toDate.add(Duration(days: 1)))) {
+        
+        // Add production time (Value Added)
+        final productionTime = record.totalProductionTimeSeconds ?? 0;
+        _totalValueAddedSeconds += (productionTime is int ? productionTime : productionTime.toInt()) as int;
+        
+        // Add interruption time (Non-Value Added) 
+        final interruptionTime = record.totalInterruptionTimeSeconds ?? 0;
+        _totalNonValueAddedSeconds += (interruptionTime is int ? interruptionTime : interruptionTime.toInt()) as int;
+        
+        print('    ✅ Record included in calculation');
+        print('      + Production Time: ${record.totalProductionTimeSeconds ?? 0}s');
+        print('      + Interruption Time: ${record.totalInterruptionTimeSeconds ?? 0}s');
+        
+        // Calculate idle time for this specific record
+        // Idle time is usually the largest component of interruption time when no specific activities are logged
+        final recordProductionTime = (record.totalProductionTimeSeconds ?? 0) as num;
+        final recordInterruptionTime = (record.totalInterruptionTimeSeconds ?? 0) as num;
+        
+        // Calculate total logged interruption time from specific activities
+        int specificInterruptionsTime = 0;
+        if (record.interruptions != null && record.interruptions.isNotEmpty) {
+          print('      📋 FOUND ${record.interruptions.length} interruptions in record');
+          for (var interruption in record.interruptions) {
+            print('        - Interruption: ${interruption.typeName} (${interruption.durationSeconds}s)');
+            if (interruption.typeName.toLowerCase() != 'idle' && 
+                interruption.typeName.toLowerCase() != 'production') {
+              specificInterruptionsTime += (interruption.durationSeconds as num).toInt();
+              print('        ✅ Counted: ${interruption.typeName} (${interruption.durationSeconds}s)');
+            } else {
+              print('        ⏭️ Skipped: ${interruption.typeName} (production/idle)');
+            }
+          }
+        } else {
+          print('      ❌ NO interruptions found in record');
+        }
+        
+        // Idle time is the interruption time minus specific interruptions
+        final idleTime = recordInterruptionTime.toInt() - specificInterruptionsTime;
+        
+        print('      + Specific Interruptions Time: ${specificInterruptionsTime}s');
+        print('      + Calculated Idle Time: ${idleTime}s');
+        
+        // Add idle time as a non-value activity if there's any significant idle time
+        if (idleTime > 5) { // Only show idle periods longer than 5 seconds
+          final idleActivity = MESInterruption(
+            typeId: 'idle',
+            typeName: 'Idle',
+            startTime: record.startTime, // Approximate start time
+            endTime: record.endTime,
+            durationSeconds: idleTime,
+            notes: 'Timer paused/idle time',
+          );
+          _nonValueActivities.add(idleActivity);
+        }
+        
+      } else {
+        print('    ❌ Record outside date range - skipped');
+      }
 
-      // Filter and collect interruptions that fall within the date range
+      // Still collect interruptions for activity breakdown (if available)
       if (record.interruptions != null) {
         for (var interruption in record.interruptions) {
           final interruptionDate = DateTime(
@@ -3036,7 +3131,7 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
               interruptionDate
                   .isBefore(toDateOnly.add(const Duration(days: 1)))) {
             // Calculate duration - handle all possible cases
-            int durationSeconds = interruption.durationSeconds;
+            int durationSeconds = (interruption.durationSeconds as num).toInt();
 
             // If durationSeconds is 0 or null, try to calculate from timestamps
             if (durationSeconds <= 0) {
@@ -3098,17 +3193,17 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
               notes: interruption.notes,
             );
 
-            // Check if this is a Production activity (Value Added) or other activity (Non-Value Added)
+            // Only collect non-production activities for breakdown display
+            // (Total times are now taken from aggregate record fields above)
             final isProductionActivity =
                 interruption.typeName.toLowerCase().contains('production');
 
-            if (isProductionActivity) {
-              // Production activities count towards Value Added time
-              _totalValueAddedSeconds += durationSeconds;
-            } else {
-              // Other activities (Counting, Breaks, Maintenance, etc.) count towards Non-Value Added time
+            if (!isProductionActivity) {
+              // Collect non-production activities for breakdown display
               _nonValueActivities.add(correctedInterruption);
-              _totalNonValueAddedSeconds += durationSeconds;
+              print('      📋 Added interruption to activities: ${interruption.typeName} (${durationSeconds}s)');
+            } else {
+              print('      ⏭️ Skipped production activity: ${interruption.typeName}');
             }
           }
         }
@@ -3117,6 +3212,11 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
 
     // Sort non-value activities by start time (most recent first)
     _nonValueActivities.sort((a, b) => b.startTime.compareTo(a.startTime));
+    
+    print('🎯 PROCESS DETAILS - CALCULATION COMPLETE:');
+    print('  ✅ Final Value Added Total: ${_totalValueAddedSeconds}s (${Duration(seconds: _totalValueAddedSeconds)})');
+    print('  ✅ Final Non-Value Added Total: ${_totalNonValueAddedSeconds}s (${Duration(seconds: _totalNonValueAddedSeconds)})');
+    print('  ✅ Non-Value Activities Count: ${_nonValueActivities.length}');
   }
 
   Future<void> _selectFromDate() async {
@@ -3575,7 +3675,9 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
                                             width: 8,
                                             height: 8,
                                             decoration: BoxDecoration(
-                                              color: Colors.red.shade400,
+                                              color: activity.typeName == 'Idle' 
+                                                ? Colors.orange.shade400 
+                                                : Colors.red.shade400,
                                               shape: BoxShape.circle,
                                             ),
                                           ),
@@ -3583,8 +3685,11 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
                                           Expanded(
                                             child: Text(
                                               activity.typeName,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontWeight: FontWeight.w500,
+                                                color: activity.typeName == 'Idle' 
+                                                  ? Colors.orange.shade700 
+                                                  : Colors.black87,
                                               ),
                                             ),
                                           ),
@@ -3599,7 +3704,9 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
                                         style: TextStyle(
                                           fontFamily: 'monospace',
                                           fontWeight: FontWeight.w600,
-                                          color: Colors.red.shade700,
+                                          color: activity.typeName == 'Idle' 
+                                            ? Colors.orange.shade700 
+                                            : Colors.red.shade700,
                                         ),
                                       ),
                                     ),

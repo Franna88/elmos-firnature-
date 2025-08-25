@@ -155,6 +155,7 @@ class ProductionTimer {
   int _actionTime = 0;
 
   MESInterruptionType? get currentAction => _currentAction;
+  DateTime? get actionStartTime => _actionStartTime;
 
   // NEW: Item timer getters - only runs during Production action
   bool get isItemTimerRunning =>

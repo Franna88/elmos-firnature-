@@ -759,6 +759,14 @@ class MESService extends ChangeNotifier {
       String recordId, String typeId, String typeName, DateTime startTime,
       {DateTime? endTime, int durationSeconds = 0, String? notes}) async {
     try {
+      print('➕ MES SERVICE: addInterruptionToRecord called');
+      print('   - Record ID: $recordId');
+      print('   - Type ID: $typeId');
+      print('   - Type Name: $typeName');
+      print('   - Start Time: $startTime');
+      print('   - End Time: $endTime');
+      print('   - Duration Seconds: $durationSeconds');
+      
       // Find the record
       final index = _productionRecords.indexWhere((r) => r.id == recordId);
       if (index == -1) {
@@ -766,6 +774,7 @@ class MESService extends ChangeNotifier {
       }
 
       final record = _productionRecords[index];
+      print('   - Found record with ${record.interruptions.length} existing interruptions');
 
       // Create the new interruption
       final interruption = MESInterruption(
@@ -776,6 +785,8 @@ class MESService extends ChangeNotifier {
         durationSeconds: durationSeconds,
         notes: notes,
       );
+      
+      print('   - Created interruption: $typeName (typeId: $typeId, endTime: ${endTime == null ? "null" : "set"})');
 
       // Add to the list
       final updatedInterruptions =
@@ -784,15 +795,23 @@ class MESService extends ChangeNotifier {
       // Update total interruption time
       final totalInterruptionTime =
           record.totalInterruptionTimeSeconds + durationSeconds;
+      
+      print('   - Previous total interruption time: ${record.totalInterruptionTimeSeconds}s');
+      print('   - Adding duration: ${durationSeconds}s');
+      print('   - New total interruption time: ${totalInterruptionTime}s');
 
       // Create updated record
       final updatedRecord = record.copyWith(
         interruptions: updatedInterruptions,
         totalInterruptionTimeSeconds: totalInterruptionTime,
       );
+      
+      print('   - Updated record created, saving to Firestore...');
 
       // Save to Firestore
-      return await updateProductionRecord(updatedRecord);
+      final result = await updateProductionRecord(updatedRecord);
+      print('✅ MES SERVICE: Interruption added successfully');
+      return result;
     } catch (e) {
       rethrow;
     }
@@ -803,6 +822,13 @@ class MESService extends ChangeNotifier {
       String recordId, String typeId,
       {DateTime? endTime, int? durationSeconds, String? notes}) async {
     try {
+      print('🔧 MES SERVICE: updateInterruptionInRecord called');
+      print('   - Record ID: $recordId');
+      print('   - Type ID: $typeId');
+      print('   - End Time: $endTime');
+      print('   - Duration Seconds: $durationSeconds');
+      print('   - Notes: $notes');
+      
       // Find the record
       final index = _productionRecords.indexWhere((r) => r.id == recordId);
       if (index == -1) {
@@ -810,6 +836,7 @@ class MESService extends ChangeNotifier {
       }
 
       final record = _productionRecords[index];
+      print('   - Found record with ${record.interruptions.length} interruptions');
 
       // Find the interruption to update (find the most recent one with matching typeId)
       final interruptionIndex = record.interruptions.lastIndexWhere(
@@ -817,17 +844,27 @@ class MESService extends ChangeNotifier {
       );
 
       if (interruptionIndex == -1) {
+        print('   ❌ Active interruption not found!');
+        print('   📋 Available interruptions:');
+        for (int i = 0; i < record.interruptions.length; i++) {
+          final interrupt = record.interruptions[i];
+          print('      [$i] ${interrupt.typeName} (typeId: ${interrupt.typeId}, endTime: ${interrupt.endTime == null ? "null" : "set"})');
+        }
         throw Exception('Active interruption not found');
       }
 
       final interruption = record.interruptions[interruptionIndex];
+      print('   - Found interruption at index $interruptionIndex: ${interruption.typeName}');
+      print('   - Current duration: ${interruption.durationSeconds}s');
 
       // Create updated interruption
       final updatedInterruption = interruption.copyWith(
         endTime: endTime,
-        durationSeconds: durationSeconds ?? 0,
+        durationSeconds: durationSeconds,
         notes: notes,
       );
+      
+      print('   - Updated interruption duration: ${updatedInterruption.durationSeconds}s');
 
       // Update the list
       final updatedInterruptions =
@@ -838,21 +875,31 @@ class MESService extends ChangeNotifier {
       int additionalTime = 0;
       if (durationSeconds != null) {
         additionalTime = durationSeconds;
+        print('   - Using provided durationSeconds: ${additionalTime}s');
       } else if (endTime != null) {
         additionalTime = endTime.difference(interruption.startTime).inSeconds;
+        print('   - Calculated from endTime: ${additionalTime}s');
       }
 
       final totalInterruptionTime =
           record.totalInterruptionTimeSeconds + additionalTime;
+      
+      print('   - Previous total interruption time: ${record.totalInterruptionTimeSeconds}s');
+      print('   - Additional time: ${additionalTime}s');
+      print('   - New total interruption time: ${totalInterruptionTime}s');
 
       // Create updated record
       final updatedRecord = record.copyWith(
         interruptions: updatedInterruptions,
         totalInterruptionTimeSeconds: totalInterruptionTime,
       );
+      
+      print('   - Updated record created, saving to Firestore...');
 
       // Save to Firestore
-      return await updateProductionRecord(updatedRecord);
+      final result = await updateProductionRecord(updatedRecord);
+      print('✅ MES SERVICE: Interruption updated successfully');
+      return result;
     } catch (e) {
       rethrow;
     }

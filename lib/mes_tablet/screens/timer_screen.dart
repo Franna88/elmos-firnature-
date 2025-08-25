@@ -326,7 +326,7 @@ class _TimerScreenState extends State<TimerScreen> {
         await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
-                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                totalInterruptionTimeSeconds: _getNonProductionActionTime(),
                 itemCompletionRecords: _timer.completedItems,
               ),
             ),
@@ -814,13 +814,28 @@ class _TimerScreenState extends State<TimerScreen> {
       if (_recordId != null) {
         final mesService = Provider.of<MESService>(context, listen: false);
         final currentRecord = await mesService.getProductionRecord(_recordId!);
-        await mesService.updateProductionRecord(
-          currentRecord.copyWith(
+        final completedRecord = currentRecord.copyWith(
             status: ProductionStatus.completed,
             endTime: DateTime.now(),
-            // Add other completion fields as needed
-          ),
+          totalProductionTimeSeconds: _timer.getProductionTime(),
+          totalInterruptionTimeSeconds: _getNonProductionActionTime(),
+          itemCompletionRecords: _timer.completedItems,
+          isCompleted: true,
         );
+        await mesService.updateProductionRecord(completedRecord);
+        
+        print('🎯 JOB COMPLETION - FINAL RECORD UPDATE:');
+        print('    - Record ID: ${completedRecord.id}');
+        print('    - Item ID: ${completedRecord.itemId}');
+        print('    - User Name: ${completedRecord.userName}');
+        print('    - Start Time: ${completedRecord.startTime}');
+        print('    - End Time: ${completedRecord.endTime}');
+        print('    - Total Production Time: ${completedRecord.totalProductionTimeSeconds}s');
+        print('    - Total Interruption Time: ${completedRecord.totalInterruptionTimeSeconds}s');
+        print('    - Is Completed: ${completedRecord.isCompleted}');
+        print('    - Status: ${completedRecord.status}');
+        print('    - Interruptions: ${completedRecord.interruptions.length}');
+        print('    - Item Completions: ${completedRecord.itemCompletionRecords.length}');
       }
 
       // Reset all state for new item selection
@@ -2814,7 +2829,7 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
-  // Save production data to Firebase
+  // Save production data to Firebase using the correct MES service
   Future<void> _saveProductionDataToFirebase({
     required FurnitureItem item,
     required int expectedQty,
@@ -2822,37 +2837,49 @@ class _TimerScreenState extends State<TimerScreen> {
     required int finishedQty,
     required int rejectQty,
   }) async {
+    if (_recordId == null) {
+      print('❌ No record ID available - cannot save production data');
+      return;
+    }
+
     try {
-      final firestore = FirebaseFirestore.instance;
+      final mesService = Provider.of<MESService>(context, listen: false);
 
-      // Create production data document
-      final productionData = {
-        'itemId': item.id,
-        'itemName': item.name,
-        'processId': _process?.id,
-        'processName': _process?.name,
-        'userId': _user.id,
-        'userName': _user.name,
-        'expectedQty': expectedQty,
-        'qtyPerCycle': qtyPerCycle,
-        'finishedQty': finishedQty,
-        'rejectQty': rejectQty,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'status': 'active',
-      };
+      // Get the current production record
+      final currentRecord = await mesService.getProductionRecord(_recordId!);
 
-      // Save to production_data collection
-      await firestore
-          .collection('production_data')
-          .doc(
-              '${_user.id}_${item.id}_${DateTime.now().millisecondsSinceEpoch}')
-          .set(productionData);
+      // Update the production record with the new quantities and timing data
+      final updatedRecord = currentRecord.copyWith(
+        totalProductionTimeSeconds: _timer.getProductionTime(),
+        totalInterruptionTimeSeconds: _getNonProductionActionTime(),
+        itemCompletionRecords: _timer.completedItems,
+      );
 
-      print('🔥 Production data saved to Firebase: $productionData');
+      // Save the updated record to the correct mes_production_records collection
+      await mesService.updateProductionRecord(updatedRecord);
+
+      print('🔥 Production data saved to mes_production_records: ${updatedRecord.id}');
+      print('  📊 Production Time: ${_timer.getProductionTime()}s');
+      print('  📊 Interruption Time: ${_getNonProductionActionTime()}s');
+      print('  📊 Completed Items: ${_timer.completedItems.length}');
+      print('  🗄️ FULL RECORD DATA:');
+      print('    - Record ID: ${updatedRecord.id}');
+      print('    - Item ID: ${updatedRecord.itemId}');
+      print('    - User ID: ${updatedRecord.userId}');
+      print('    - User Name: ${updatedRecord.userName}');
+      print('    - Start Time: ${updatedRecord.startTime}');
+      print('    - End Time: ${updatedRecord.endTime}');
+      print('    - Total Production Time: ${updatedRecord.totalProductionTimeSeconds}s');
+      print('    - Total Interruption Time: ${updatedRecord.totalInterruptionTimeSeconds}s');
+      print('    - Is Completed: ${updatedRecord.isCompleted}');
+      print('    - Status: ${updatedRecord.status}');
+      print('    - Created At: ${updatedRecord.createdAt}');
+      print('    - Updated At: ${updatedRecord.updatedAt}');
+      print('    - Interruptions Count: ${updatedRecord.interruptions.length}');
+      print('    - Item Completion Records: ${updatedRecord.itemCompletionRecords.length}');
     } catch (e) {
-      print('❌ Error saving production data to Firebase: $e');
-      rethrow;
+      print('❌ Error saving production data to MES records: $e');
+      // Don't rethrow to avoid breaking the user workflow
     }
   }
 
@@ -2883,13 +2910,19 @@ class _TimerScreenState extends State<TimerScreen> {
   // Record action end in Firebase
   Future<void> _recordActionEnd(MESInterruptionType action) async {
     try {
-      print(
-          '🔥 Recording action END: ${action.name} (Duration: ${_timer.getActionTime()}s)');
-      final mesService = Provider.of<MESService>(context, listen: false);
+      // Calculate action duration BEFORE stopping the action
       final now = DateTime.now();
-
-      // Calculate action duration
-      final actionDuration = _timer.getActionTime();
+      int actionDuration = 0;
+      
+      if (_timer.currentAction != null && _timer.currentAction!.id == action.id) {
+        // Calculate duration from action start time to now
+        if (_timer.actionStartTime != null) {
+          actionDuration = now.difference(_timer.actionStartTime!).inSeconds;
+        }
+      }
+      
+      print('🔥 Recording action END: ${action.name} (Duration: ${actionDuration}s)');
+      final mesService = Provider.of<MESService>(context, listen: false);
 
       // Update the most recent interruption record for this action type
       final result = await mesService.updateInterruptionInRecord(
@@ -3330,7 +3363,7 @@ class _TimerScreenState extends State<TimerScreen> {
         await mesService.getProductionRecordWithActions(_recordId!).then(
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
-                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                totalInterruptionTimeSeconds: _getNonProductionActionTime(),
                 itemCompletionRecords: _timer.completedItems,
               ),
             ),
@@ -3351,7 +3384,7 @@ class _TimerScreenState extends State<TimerScreen> {
         await mesService.getProductionRecord(_recordId!).then(
               (record) => record.copyWith(
                 totalProductionTimeSeconds: _timer.getProductionTime(),
-                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                totalInterruptionTimeSeconds: _getNonProductionActionTime(),
                 itemCompletionRecords: _timer.completedItems,
               ),
             ),
@@ -3427,7 +3460,7 @@ class _TimerScreenState extends State<TimerScreen> {
               (record) => record.copyWith(
                 endTime: DateTime.now(),
                 totalProductionTimeSeconds: _timer.getProductionTime(),
-                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                totalInterruptionTimeSeconds: _getNonProductionActionTime(),
                 itemCompletionRecords: _timer.completedItems,
                 isCompleted: true,
               ),
@@ -3482,7 +3515,7 @@ class _TimerScreenState extends State<TimerScreen> {
               (record) => record.copyWith(
                 endTime: DateTime.now(),
                 totalProductionTimeSeconds: _timer.getProductionTime(),
-                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                totalInterruptionTimeSeconds: _getNonProductionActionTime(),
                 itemCompletionRecords: _timer.completedItems,
                 isCompleted: true,
               ),
@@ -3695,7 +3728,7 @@ class _TimerScreenState extends State<TimerScreen> {
               (record) => record.copyWith(
                 endTime: DateTime.now(),
                 totalProductionTimeSeconds: _timer.getProductionTime(),
-                totalInterruptionTimeSeconds: _timer.getTotalInterruptionTime(),
+                totalInterruptionTimeSeconds: _getNonProductionActionTime(),
                 itemCompletionRecords: _timer.completedItems,
                 isCompleted: false, // Mark as incomplete since shift ended
               ),
@@ -3733,7 +3766,7 @@ class _TimerScreenState extends State<TimerScreen> {
   // Show shift summary dialog
   Future<void> _showShiftSummary() async {
     final totalTime =
-        _timer.getProductionTime() + _timer.getTotalInterruptionTime();
+        _timer.getProductionTime() + _getNonProductionActionTime();
 
     return showDialog(
       context: context,
