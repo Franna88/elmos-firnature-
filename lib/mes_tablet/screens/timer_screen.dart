@@ -711,7 +711,7 @@ class _TimerScreenState extends State<TimerScreen> {
         _rejectQty = 0;
         _selectedAction = null;
         _isInProductionMode = false;
-        _timer.resetForNewJob(); // Clear timer but keep Total Time running
+        _timer.resetForNewItemInDay(); // Clear timer but keep Total Time and session stats running
       });
 
       // Ensure timer always has an action running - fallback to Idle
@@ -857,8 +857,8 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Handle Shutdown action - check total qty and confirm end of day
   void _handleShutdownAction(MESInterruptionType shutdownType) {
-    // Check if Total QTY is not 0
-    if (_finishedQty <= 0) {
+    // Check if Total QTY is not 0 (unless we're in Idle mode)
+    if (_finishedQty <= 0 && !_isCurrentlyInIdleMode()) {
       _showActionBlockedDialog(
         'Shutdown Blocked',
         'Shutdown can only be selected if Total QTY is not 0.\n\nCurrent Total QTY: $_finishedQty\n\nPlease complete some items first or update the finished quantity.',
@@ -4164,18 +4164,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                             textAlign: TextAlign.center,
                                           ),
 
-                                          // Item counter below action text
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            '${_timer.completedCount} items completed',
-                                            style: TextStyle(
-                                              fontSize: isNarrow ? 14 : 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: _getContrastingTextColor(
-                                                  _getStatusColor()),
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
+                                                                    // Removed duplicate item counter - already shown at top
 
                                           // Average time display
                                           if (_timer.completedCount > 0) ...[
@@ -5028,6 +5017,12 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Helper method to check if current action is Idle
+  bool _isCurrentlyInIdleMode() {
+    return _selectedAction != null && 
+           _selectedAction!.name.toLowerCase().contains('idle');
+  }
+
   // Helper method to get standard actions (Idle, Setup, Counting, End Job, Shutdown)
   List<Map<String, dynamic>> _getStandardActions() {
     List<Map<String, dynamic>> standardActions = [];
@@ -5080,9 +5075,11 @@ class _TimerScreenState extends State<TimerScreen> {
             icon: Icons.stop_circle,
             label: 'End Job',
             color: Colors.red.shade600,
-            onPressed: _selectedItem != null ? _handleEndJobAction : null,
+            onPressed: _selectedItem != null && !_isCurrentlyInIdleMode() ? _handleEndJobAction : null,
             description: _selectedItem != null
-                ? 'Complete current job and count items'
+                ? (_isCurrentlyInIdleMode()
+                    ? 'Only Shutdown is available in Idle mode'
+                    : 'Complete current job and count items')
                 : 'Please select an item first',
             isNarrow: MediaQuery.of(context).size.width < 1200,
             interruptionType: null,
@@ -5145,7 +5142,7 @@ class _TimerScreenState extends State<TimerScreen> {
     if (type.name.toLowerCase().contains('idle')) {
       icon = Icons.hourglass_empty;
       if (type.color == null || type.color!.isEmpty) {
-        buttonColor = Colors.grey.shade600;
+        buttonColor = Colors.red.shade600;
       }
     } else if (type.name.toLowerCase().contains('break')) {
       icon = Icons.coffee;
@@ -5200,13 +5197,15 @@ class _TimerScreenState extends State<TimerScreen> {
           icon: icon,
           label: type.name,
           color: buttonColor,
-          onPressed: _selectedItem != null
+          onPressed: _selectedItem != null && !(_isCurrentlyInIdleMode() && !type.name.toLowerCase().contains('shutdown'))
               ? () {
                   _startAction(type);
                 }
-              : null, // Disable when no item selected
+              : null, // Disable when no item selected or in Idle mode (except Shutdown)
           description: _selectedItem != null
-              ? (type.description ?? 'Track time for ${type.name}')
+              ? (_isCurrentlyInIdleMode() && !type.name.toLowerCase().contains('shutdown')
+                  ? 'Only Shutdown is available in Idle mode'
+                  : (type.description ?? 'Track time for ${type.name}'))
               : 'Please select an item first',
           isNarrow: isNarrow,
           interruptionType: type,
