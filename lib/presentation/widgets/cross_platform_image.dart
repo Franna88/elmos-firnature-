@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_network/image_network.dart';
-import 'dart:ui' as ui;
+
 import 'dart:typed_data';
 
 /// A widget that displays images across different platforms,
@@ -34,20 +34,25 @@ class CrossPlatformImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Only apply default dimensions if no width/height provided
-    final double actualWidth = width ?? 200.0;
-    final double actualHeight = height ?? 140.0;
+    // Safely handle dimensions with validation
+    final double actualWidth = _validateDimension(width, 200.0);
+    final double actualHeight = _validateDimension(height, 140.0);
+
+    // Safely get device pixel ratio with fallback
+    final double devicePixelRatio = _safeGetDevicePixelRatio(context);
 
     // Use cacheWidth and cacheHeight if provided, otherwise calculate based on device pixel ratio
-    // Handle infinity values gracefully
-    final int? effectiveCacheWidth = cacheWidth ??
-        (actualWidth.isInfinite
-            ? null
-            : (actualWidth * MediaQuery.of(context).devicePixelRatio).round());
-    final int? effectiveCacheHeight = cacheHeight ??
-        (actualHeight.isInfinite
-            ? null
-            : (actualHeight * MediaQuery.of(context).devicePixelRatio).round());
+    // Handle infinity values gracefully and validate cache dimensions
+    final int? effectiveCacheWidth = _calculateCacheDimension(
+      cacheWidth, 
+      actualWidth, 
+      devicePixelRatio,
+    );
+    final int? effectiveCacheHeight = _calculateCacheDimension(
+      cacheHeight, 
+      actualHeight, 
+      devicePixelRatio,
+    );
 
     // Default error widget if not provided
     final Widget defaultErrorWidget = Container(
@@ -83,15 +88,22 @@ class CrossPlatformImage extends StatelessWidget {
       ),
     );
 
-    // If imageUrl is null, return error widget
-    if (imageUrl == null) {
+    // If imageUrl is null or empty, return error widget
+    if (imageUrl == null || imageUrl!.trim().isEmpty) {
+      return errorWidget ?? defaultErrorWidget;
+    }
+
+    // Validate imageUrl to prevent engine errors
+    final validatedImageUrl = _validateImageUrl(imageUrl!);
+    if (validatedImageUrl == null) {
+      debugPrint('Invalid image URL detected: $imageUrl');
       return errorWidget ?? defaultErrorWidget;
     }
 
     // Handle different image types
-    if (imageUrl!.startsWith('data:image/')) {
+    if (validatedImageUrl.startsWith('data:image/')) {
       try {
-        final bytes = base64Decode(imageUrl!.split(',')[1]);
+        final bytes = base64Decode(validatedImageUrl.split(',')[1]);
         return SizedBox(
           width: actualWidth,
           height: actualHeight,
@@ -110,12 +122,12 @@ class CrossPlatformImage extends StatelessWidget {
         debugPrint('Error decoding data URL: $e');
         return errorWidget ?? defaultErrorWidget;
       }
-    } else if (imageUrl!.startsWith('assets/')) {
+    } else if (validatedImageUrl.startsWith('assets/')) {
       return SizedBox(
         width: actualWidth,
         height: actualHeight,
         child: Image.asset(
-          imageUrl!,
+          validatedImageUrl,
           width: actualWidth,
           height: actualHeight,
           fit: fit,
@@ -127,12 +139,12 @@ class CrossPlatformImage extends StatelessWidget {
       );
     } else {
       // Check if the image is already in our memory cache
-      if (!kIsWeb && _imageCache.containsKey(imageUrl)) {
+      if (!kIsWeb && _imageCache.containsKey(validatedImageUrl)) {
         return SizedBox(
           width: actualWidth,
           height: actualHeight,
           child: Image.memory(
-            _imageCache[imageUrl]!,
+            _imageCache[validatedImageUrl]!,
             width: actualWidth,
             height: actualHeight,
             fit: fit,
@@ -150,7 +162,7 @@ class CrossPlatformImage extends StatelessWidget {
           width: actualWidth,
           height: actualHeight,
           child: ImageNetwork(
-            image: imageUrl!,
+            image: validatedImageUrl,
             height: actualHeight,
             width: actualWidth,
             duration: 1000,
@@ -164,7 +176,7 @@ class CrossPlatformImage extends StatelessWidget {
           width: actualWidth,
           height: actualHeight,
           child: Image.network(
-            imageUrl!,
+            validatedImageUrl,
             width: actualWidth,
             height: actualHeight,
             fit: fit,
@@ -229,8 +241,6 @@ class CrossPlatformImage extends StatelessWidget {
         return BoxFitWeb.contain;
       case BoxFit.scaleDown:
         return BoxFitWeb.scaleDown;
-      default:
-        return BoxFitWeb.cover;
     }
   }
 
@@ -246,6 +256,102 @@ class CrossPlatformImage extends StatelessWidget {
       _imageCache.remove(url);
     } else {
       _imageCache.clear();
+    }
+  }
+
+  /// Validates and sanitizes dimension values to prevent engine errors
+  double _validateDimension(double? dimension, double defaultValue) {
+    if (dimension == null) return defaultValue;
+    if (dimension.isNaN || dimension.isInfinite || dimension <= 0) {
+      return defaultValue;
+    }
+    // Clamp to reasonable bounds to prevent memory issues
+    return dimension.clamp(1.0, 4000.0);
+  }
+
+  /// Safely gets device pixel ratio with proper context validation
+  double _safeGetDevicePixelRatio(BuildContext context) {
+    try {
+      final MediaQueryData? mediaQuery = MediaQuery.maybeOf(context);
+      return mediaQuery?.devicePixelRatio ?? 1.0;
+    } catch (e) {
+      debugPrint('Warning: Could not access MediaQuery, using default pixel ratio: $e');
+      return 1.0;
+    }
+  }
+
+  /// Calculates cache dimensions safely, preventing null/invalid values from reaching the engine
+  int? _calculateCacheDimension(
+    int? providedCache,
+    double actualDimension,
+    double devicePixelRatio,
+  ) {
+    if (providedCache != null) {
+      // Validate provided cache dimension
+      if (providedCache <= 0 || providedCache > 8000) {
+        return null; // Invalid cache dimension, let Flutter handle it
+      }
+      return providedCache;
+    }
+
+    // Calculate based on actual dimension and pixel ratio
+    if (actualDimension.isInfinite || actualDimension.isNaN || actualDimension <= 0) {
+      return null;
+    }
+
+    final calculatedCache = (actualDimension * devicePixelRatio).round();
+    
+    // Validate calculated cache dimension
+    if (calculatedCache <= 0 || calculatedCache > 8000) {
+      return null;
+    }
+
+    return calculatedCache;
+  }
+
+  /// Validates image URL to prevent engine errors
+  String? _validateImageUrl(String url) {
+    try {
+      final trimmedUrl = url.trim();
+      
+      // Check for empty or null-like strings
+      if (trimmedUrl.isEmpty || trimmedUrl == 'null' || trimmedUrl == 'undefined') {
+        return null;
+      }
+
+      // Validate different URL types
+      if (trimmedUrl.startsWith('data:image/')) {
+        // Validate data URL format
+        if (!trimmedUrl.contains(',') || trimmedUrl.split(',').length != 2) {
+          return null;
+        }
+        return trimmedUrl;
+      } else if (trimmedUrl.startsWith('assets/')) {
+        // Validate asset path
+        if (trimmedUrl.length < 8) { // assets/ + at least one character
+          return null;
+        }
+        return trimmedUrl;
+      } else if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+        // Validate network URL
+        try {
+          final uri = Uri.parse(trimmedUrl);
+          if (uri.host.isEmpty) {
+            return null;
+          }
+          return trimmedUrl;
+        } catch (e) {
+          debugPrint('Invalid URL format: $trimmedUrl');
+          return null;
+        }
+      } else {
+        // Unknown URL format, might be relative path or invalid
+        debugPrint('Unknown URL format: $trimmedUrl');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error validating image URL: $e');
+      return null;
     }
   }
 }

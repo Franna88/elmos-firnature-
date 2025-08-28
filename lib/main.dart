@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
-import 'utils/deep_link_handler.dart';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -336,14 +336,24 @@ class MyApp extends StatelessWidget {
 
   // Helper method to detect if the current device is mobile or tablet
   bool _isMobileDevice(BuildContext context) {
-    final MediaQueryData mediaQuery = MediaQuery.of(context);
-    // Increased breakpoint to include tablets (up to 1200px is common for larger tablets)
-    // - Mobile phones: < 600px
-    // - Small tablets: 600px-900px
-    // - Medium tablets: 900px-1024px
-    // - Large tablets: 1024px-1200px
-    // - Desktop/Web: > 1200px
-    return mediaQuery.size.width <= 1200;
+    try {
+      final MediaQueryData? mediaQuery = MediaQuery.maybeOf(context);
+      if (mediaQuery == null) {
+        // Fallback to assuming desktop if MediaQuery is not available
+        return false;
+      }
+      // Increased breakpoint to include tablets (up to 1200px is common for larger tablets)
+      // - Mobile phones: < 600px
+      // - Small tablets: 600px-900px
+      // - Medium tablets: 900px-1024px
+      // - Large tablets: 1024px-1200px
+      // - Desktop/Web: > 1200px
+      return mediaQuery.size.width <= 1200;
+    } catch (e) {
+      debugPrint('Warning: Could not access MediaQuery in _isMobileDevice: $e');
+      // Fallback to assuming desktop
+      return false;
+    }
   }
 }
 

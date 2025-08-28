@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/sop_service.dart';
-import '../../../data/services/print_service.dart';
+
 import '../../../data/models/sop_model.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../../core/theme/app_theme.dart';
-import 'dart:convert';
-import 'package:flutter/foundation.dart' show kDebugMode;
+
 import '../../widgets/cross_platform_image.dart';
 import '../../../data/services/category_service.dart';
 
@@ -21,8 +20,8 @@ class SOPsScreen extends StatefulWidget {
 class _SOPsScreenState extends State<SOPsScreen> {
   String _searchQuery = '';
   String _selectedDepartment = 'All';
-  final _printService = PrintService();
   bool _isLoading = true;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -34,23 +33,38 @@ class _SOPsScreenState extends State<SOPsScreen> {
   }
 
   Future<void> _refreshSOPs() async {
+    if (_disposed || !mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
 
-    final sopService = Provider.of<SOPService>(context, listen: false);
-    await sopService.refreshSOPs();
+    try {
+      final sopService = Provider.of<SOPService>(context, listen: false);
+      await sopService.refreshSOPs();
+    } catch (e) {
+      // Handle any errors silently to prevent crashes
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error refreshing SOPs: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
 
+    if (_disposed || !mounted) return;
+    
     setState(() {
       _isLoading = false;
     });
   }
 
-  // Method to handle printing an SOP
-  void _printSOP(SOP sop) {
-    final categoryService =
-        Provider.of<CategoryService>(context, listen: false);
-    _printService.printSOP(context, sop, categoryService);
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   @override
@@ -142,9 +156,11 @@ class _SOPsScreenState extends State<SOPsScreen> {
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
+                      if (mounted && !_disposed) {
+                        setState(() {
+                          _searchQuery = value;
+                        });
+                      }
                     },
                   ),
                 ),
@@ -164,7 +180,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                       );
                     }).toList(),
                     onChanged: (value) {
-                      if (value != null) {
+                      if (value != null && mounted && !_disposed) {
                         setState(() {
                           _selectedDepartment = value;
                         });
@@ -409,27 +425,6 @@ class _SOPsScreenState extends State<SOPsScreen> {
     }
 
     return AppColors.primaryBlue;
-  }
-
-  Widget _buildImage(String? imageUrl) {
-    if (imageUrl == null) {
-      return Container(
-        color: Colors.grey[100],
-        child: Center(
-          child: Icon(
-            Icons.image_not_supported,
-            size: 24,
-            color: AppColors.textLight.withOpacity(0.5),
-          ),
-        ),
-      );
-    }
-
-    return CrossPlatformImage(
-      imageUrl: imageUrl,
-      fit: BoxFit.cover,
-      errorWidget: _buildImageError(),
-    );
   }
 
   Widget _buildImageError() {
