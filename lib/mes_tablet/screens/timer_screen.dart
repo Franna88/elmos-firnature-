@@ -1259,6 +1259,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Proceed with action without business rule checks (used after validation)
   void _proceedWithAction(MESInterruptionType type) {
+    print('🔥 DEBUG: _proceedWithAction called for: ${type.name}');
     setState(() {
       // Business Rule 5: Reset production mode when other actions are selected
       if (!type.name.toLowerCase().contains('production')) {
@@ -1267,8 +1268,11 @@ class _TimerScreenState extends State<TimerScreen> {
 
       // Stop current action if any and record the end
       if (_timer.currentAction != null) {
+        print('🔄 Stopping current action: ${_timer.currentAction!.name}');
         _recordActionEnd(_timer.currentAction!);
         _timer.stopAction();
+      } else {
+        print('🔄 No current action to stop');
       }
 
       // Select and start the new action immediately
@@ -2910,6 +2914,17 @@ class _TimerScreenState extends State<TimerScreen> {
   // Record action end in Firebase
   Future<void> _recordActionEnd(MESInterruptionType action) async {
     try {
+      print('🔥 _recordActionEnd called for: ${action.name}');
+      print('   - Record ID: $_recordId');
+      print('   - Current Action: ${_timer.currentAction?.name ?? "NONE"}');
+      print('   - Action Start Time: ${_timer.actionStartTime}');
+      
+      // Check if we have a valid record ID
+      if (_recordId == null) {
+        print('❌ No record ID available - cannot save action end');
+        return;
+      }
+      
       // Calculate action duration BEFORE stopping the action
       final now = DateTime.now();
       int actionDuration = 0;

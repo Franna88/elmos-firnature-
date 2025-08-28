@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/mes_service.dart';
 import '../../widgets/app_scaffold.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import '../../../mes_tablet/screens/login_screen.dart' as mes_login;
 import '../../../mes_tablet/screens/item_selection_screen.dart' as mes_items;
 import '../../../mes_tablet/screens/timer_screen.dart' as mes_timer;
@@ -19,8 +19,8 @@ class MESScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    // Check if this iR on a mobile or tablet device
-    final bool isMobile = MediaQuery.of(context).size.width <= 1200;
+    // Check if this is on a mobile or tablet device
+    final bool isMobile = _isMobileDevice(context);
 
     // If on mobile/tablet, directly show the MES login screen
     if (isMobile) {
@@ -140,6 +140,20 @@ class MESScreen extends StatelessWidget {
       },
     );
   }
+
+  // Helper method to safely detect mobile device
+  bool _isMobileDevice(BuildContext context) {
+    try {
+      final MediaQueryData? mediaQuery = MediaQuery.maybeOf(context);
+      if (mediaQuery == null) {
+        return false; // Fallback to desktop
+      }
+      return mediaQuery.size.width <= 1200;
+    } catch (e) {
+      debugPrint('Warning: Could not access MediaQuery in MES screen: $e');
+      return false; // Fallback to desktop
+    }
+  }
 }
 
 // Wrapper for MES Tablet App
@@ -225,15 +239,20 @@ class MESTabletApp extends StatelessWidget {
 
   // Debug widget to show screen dimensions
   Widget _buildDimensionsOverlay(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return Container(
-      color: Colors.black.withOpacity(0.7),
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-      child: Text(
-        'Screen: ${size.width.toStringAsFixed(1)} × ${size.height.toStringAsFixed(1)}',
-        style:
-            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-    );
+    try {
+      final size = MediaQuery.maybeOf(context)?.size ?? const Size(0, 0);
+      return Container(
+        color: Colors.black.withOpacity(0.7),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        child: Text(
+          'Screen: ${size.width.toStringAsFixed(1)} × ${size.height.toStringAsFixed(1)}',
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      );
+    } catch (e) {
+      // Return empty container if MediaQuery access fails
+      return const SizedBox.shrink();
+    }
   }
 }

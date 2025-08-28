@@ -3141,9 +3141,9 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
                     .difference(interruption.startTime)
                     .inSeconds;
               } else {
-                // No endTime - this is likely an incomplete/corrupted record
-                // Skip interruptions without endTime to avoid inflated durations
-                continue;
+                // No endTime - keep duration as 0 but still include the activity
+                // This allows recorded activities to show up even without end times
+                durationSeconds = 0;
               }
             }
 
@@ -3196,7 +3196,7 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
             // Only collect non-production activities for breakdown display
             // (Total times are now taken from aggregate record fields above)
             final isProductionActivity =
-                interruption.typeName.toLowerCase().contains('production');
+                interruption.typeName.toLowerCase() == 'production';
 
             if (!isProductionActivity) {
               // Collect non-production activities for breakdown display

@@ -1940,8 +1940,25 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                             foregroundColor: Colors.white,
                           ),
                         )
-                      : const SizedBox
-                          .shrink() // Hide save button for new SOPs in last section
+                      : ElevatedButton.icon(
+                          onPressed: _isLoading ? null : () {
+                            // Validate current section before saving
+                            if (_validateCurrentSection()) {
+                              _updateSOPLocally().then((_) {
+                                _saveSOP().then((_) {
+                                  // Navigate back to SOP list after successful save
+                                  context.go('/mobile/sops');
+                                });
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.check),
+                          label: const Text('Done'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        )
                 // For existing SOPs, don't show save button at bottom
                 else
                   const SizedBox.shrink(),
