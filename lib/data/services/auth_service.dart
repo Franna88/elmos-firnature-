@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import '../../utils/debug_control.dart';
 
 class AuthService extends ChangeNotifier {
   // Firebase dependencies with nullable instantiation to handle initialization errors
@@ -70,8 +70,9 @@ class AuthService extends ChangeNotifier {
   };
 
   bool get isLoggedIn {
-    debugPrint(
-        '🔍 AUTH SERVICE: isLoggedIn getter called - returning: $_isLoggedIn (initialized: $_isInitialized)');
+    DebugControl.debugLog(
+        '🔍 AUTH SERVICE: isLoggedIn getter called - returning: $_isLoggedIn (initialized: $_isInitialized)', 
+        category: 'auth');
     // Only return true if we're both logged in AND initialized
     return _isLoggedIn && _isInitialized;
   }
@@ -88,22 +89,28 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> _initializeServices() async {
-    debugPrint('🚀 AUTH SERVICE: Starting initialization...');
+    DebugControl.debugLog('🚀 AUTH SERVICE: Starting initialization...', category: 'auth');
     try {
       // First try to load persisted login state
-      debugPrint('📂 AUTH SERVICE: Loading from storage...');
+      DebugControl.debugLog('📂 AUTH SERVICE: Loading from storage...', category: 'auth');
       await _loadFromStorage();
-      debugPrint(
-          '📂 AUTH SERVICE: Storage loaded. isLoggedIn: $_isLoggedIn, userEmail: $_userEmail');
+      DebugControl.debugLog(
+          '📂 AUTH SERVICE: Storage loaded. isLoggedIn: $_isLoggedIn, userEmail: $_userEmail', category: 'auth');
 
       // Then attempt to initialize Firebase (if available)
       try {
-        debugPrint('🔥 AUTH SERVICE: Initializing Firebase...');
+        DebugControl.debugLog('🔥 AUTH SERVICE: Initializing Firebase...', category: 'auth');
         _auth = FirebaseAuth.instance;
         _firestore = FirebaseFirestore.instance;
 
-        // Test if Firebase is working
-        await _auth!.authStateChanges().first;
+        // Test if Firebase is working with timeout
+        await _auth!.authStateChanges().first.timeout(
+          Duration(seconds: 10),
+          onTimeout: () {
+            DebugControl.debugLog('⏰ AUTH SERVICE: Firebase connection timeout', category: 'auth');
+            throw Exception('Firebase connection timeout');
+          },
+        );
 
         if (kDebugMode) {
           print(

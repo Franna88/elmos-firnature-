@@ -89,7 +89,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
       ...sopService.sops
           .map((sop) => sop.categoryName ?? 'Unknown')
           .toSet()
-          .toList()
+          
     ];
 
     return AppScaffold(
@@ -172,7 +172,7 @@ class _SOPsScreenState extends State<SOPsScreen> {
                       labelText: 'Category',
                       border: OutlineInputBorder(),
                     ),
-                    value: _selectedDepartment,
+                    initialValue: _selectedDepartment,
                     items: departments.map((department) {
                       return DropdownMenuItem<String>(
                         value: department,

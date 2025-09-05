@@ -16,7 +16,6 @@ import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../data/models/category_model.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../widgets/app_scaffold.dart';
 import '../../widgets/sop_viewer.dart';
 import '../../widgets/cross_platform_image.dart'; // Import CrossPlatformImage
 import 'package:qr_flutter/qr_flutter.dart';
@@ -2311,12 +2310,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                     children: [
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel',
-                            style: TextStyle(fontSize: 14)),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 10),
                         ),
+                        child: const Text('Cancel',
+                            style: TextStyle(fontSize: 14)),
                       ),
                       const SizedBox(width: 16),
                       FilledButton.icon(
@@ -3493,12 +3492,12 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                     children: [
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel',
-                            style: TextStyle(fontSize: 14)),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 10),
                         ),
+                        child: const Text('Cancel',
+                            style: TextStyle(fontSize: 14)),
                       ),
                       const SizedBox(width: 16),
                       FilledButton.icon(
@@ -3712,7 +3711,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
               'data:image/jpeg;base64,${base64Encode(imageBytes)}';
 
           // Use the SOP service to upload the image to Firebase Storage
-          final String? uploadedUrl =
+          final String uploadedUrl =
               await sopService.uploadImageFromDataUrl(dataUrl, sopId, stepId);
 
           if (kDebugMode) {
@@ -3965,7 +3964,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                         foregroundColor:
                             Theme.of(context).colorScheme.onPrimary,
                         child: Text(
-                          (this._sop.steps.length + 1).toString(),
+                          (_sop.steps.length + 1).toString(),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -4113,7 +4112,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                                 borderRadius: BorderRadius.circular(8),
                                 color: Theme.of(context)
                                     .colorScheme
-                                    .surfaceVariant
+                                    .surfaceContainerHighest
                                     .withOpacity(0.3),
                               ),
                               child: Center(
@@ -4632,7 +4631,7 @@ class _SOPEditorScreenState extends State<SOPEditorScreen>
                             prefixIcon: Icon(Icons.category_outlined,
                                 color: AppColors.accentTeal),
                           ),
-                          value:
+                          initialValue:
                               _sop.categoryId.isEmpty ? null : _sop.categoryId,
                           items: categories.map((category) {
                             return DropdownMenuItem<String>(

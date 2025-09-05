@@ -8,7 +8,7 @@ import '../../core/theme/app_theme.dart';
 class ProcessSelectionScreen extends StatefulWidget {
   final User? initialUser;
 
-  const ProcessSelectionScreen({Key? key, this.initialUser}) : super(key: key);
+  const ProcessSelectionScreen({super.key, this.initialUser});
 
   @override
   State<ProcessSelectionScreen> createState() => _ProcessSelectionScreenState();

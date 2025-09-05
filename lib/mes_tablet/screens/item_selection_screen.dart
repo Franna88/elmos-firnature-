@@ -13,8 +13,7 @@ class ItemSelectionScreen extends StatefulWidget {
   final User? initialUser;
   final MESProcess? initialProcess;
 
-  const ItemSelectionScreen({Key? key, this.initialUser, this.initialProcess})
-      : super(key: key);
+  const ItemSelectionScreen({super.key, this.initialUser, this.initialProcess});
 
   @override
   State<ItemSelectionScreen> createState() => _ItemSelectionScreenState();

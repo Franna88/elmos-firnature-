@@ -93,7 +93,7 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
                       labelText: 'Category',
                       border: OutlineInputBorder(),
                     ),
-                    value: _selectedCategory,
+                    initialValue: _selectedCategory,
                     items: categories.map((category) {
                       return DropdownMenuItem<String>(
                         value: category,

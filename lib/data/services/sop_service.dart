@@ -7,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/sop_model.dart';
 import 'qr_code_service.dart';
 import 'dart:convert';
-import 'package:flutter/rendering.dart';
 import 'package:image/image.dart' as img;
 import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
@@ -171,7 +170,7 @@ class SOPService extends ChangeNotifier {
           print('Firebase error message: ${e.message}');
         }
       }
-      throw e; // Re-throw to be caught by the caller
+      rethrow; // Re-throw to be caught by the caller
     }
   }
 
@@ -1052,7 +1051,7 @@ class SOPService extends ChangeNotifier {
       if (kDebugMode) {
         print('Error saving local SOP to Firebase: $e');
       }
-      throw e;
+      rethrow;
     }
   }
 

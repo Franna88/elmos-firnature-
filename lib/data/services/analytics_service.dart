@@ -78,9 +78,7 @@ class AnalyticsService extends ChangeNotifier {
 
   Future<void> _loadLocalEvents() async {
     try {
-      if (_prefs == null) {
-        _prefs = await SharedPreferences.getInstance();
-      }
+      _prefs ??= await SharedPreferences.getInstance();
 
       final localEventsJson = _prefs!.getString('local_analytics_events');
       if (localEventsJson != null) {
@@ -106,9 +104,7 @@ class AnalyticsService extends ChangeNotifier {
 
   Future<void> _saveLocalEvents() async {
     try {
-      if (_prefs == null) {
-        _prefs = await SharedPreferences.getInstance();
-      }
+      _prefs ??= await SharedPreferences.getInstance();
 
       await _prefs!
           .setString('local_analytics_events', jsonEncode(_localEvents));

@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:ui' as ui;
 import 'dart:convert';
-import 'dart:typed_data';
-import '../models/sop_model.dart';
 
 /// Service to handle QR code generation and scanning for SOPs
 class QRCodeService {

@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter/foundation.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/cross_platform_image.dart';
-import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../utils/populate_firebase.dart';
 import '../../../data/services/category_service.dart';
 
 class DashboardScreen extends StatefulWidget {

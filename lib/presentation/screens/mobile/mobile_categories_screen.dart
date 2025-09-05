@@ -156,7 +156,7 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
               builder: (context, snapshot) {
                 String version = "Version: ";
                 if (snapshot.hasData) {
-                  version += "${snapshot.data!.version}";
+                  version += snapshot.data!.version;
                 } else {
                   version += "Loading...";
                 }
@@ -420,7 +420,6 @@ class _MobileCategoriesScreenState extends State<MobileCategoriesScreen> {
     required String label,
     required Color color,
     required int flex,
-    bool isText = false,
   }) {
     // This method is kept for compatibility but not used anymore
     return const SizedBox.shrink();

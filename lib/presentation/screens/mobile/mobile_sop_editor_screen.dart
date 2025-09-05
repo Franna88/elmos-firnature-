@@ -672,7 +672,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
       // Upload the thumbnail to Firebase Storage
       final String thumbnailId =
           'thumbnail-${DateTime.now().millisecondsSinceEpoch}';
-      final String? imageUrl = await sopService.uploadImageFromDataUrl(
+      final String imageUrl = await sopService.uploadImageFromDataUrl(
           dataUrl, _sop.id, thumbnailId);
 
       if (kDebugMode) {
@@ -840,7 +840,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
           : '${_sop.id}_step_${DateTime.now().millisecondsSinceEpoch}';
 
       // Upload to Firebase Storage and get the URL
-      final String? imageUrl =
+      final String imageUrl =
           await sopService.uploadImageFromDataUrl(dataUrl, _sop.id, stepId);
 
       if (kDebugMode) {
@@ -1161,7 +1161,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                 labelText: 'Category',
                 border: OutlineInputBorder(),
               ),
-              value: _sop.categoryId.isNotEmpty ? _sop.categoryId : null,
+              initialValue: _sop.categoryId.isNotEmpty ? _sop.categoryId : null,
               hint: const Text('Select a category'),
               items: categories.map((category) {
                 return DropdownMenuItem<String>(
@@ -1522,7 +1522,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Tab navigation for steps
-                      Container(
+                      SizedBox(
                         height: 50,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
@@ -1722,7 +1722,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Reorder Steps'),
-                        content: Container(
+                        content: SizedBox(
                           width: double.maxFinite,
                           height: 300,
                           child: ReorderableListView.builder(
@@ -1854,7 +1854,7 @@ class _MobileSOPEditorScreenState extends State<MobileSOPEditorScreen> {
                           'Back button: navigating to step index: $_currentStepIndex');
                     }
                     context.go(
-                        '/mobile/sop/${_sop.id}?stepIndex=${_currentStepIndex}');
+                        '/mobile/sop/${_sop.id}?stepIndex=$_currentStepIndex');
                   },
           ),
           actions: [

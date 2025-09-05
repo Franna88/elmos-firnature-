@@ -136,7 +136,7 @@ class ProductionTimer {
   int _currentItemTimerSeconds = 0; // Pure item production time
 
   // NEW: Action tracking for current item
-  List<ActionRecord> _currentItemActionRecords =
+  final List<ActionRecord> _currentItemActionRecords =
       []; // Actions performed during current item
 
   // Timestamp trackers for overall session
@@ -171,12 +171,12 @@ class ProductionTimer {
   int get completedCount => _completedCount;
 
   // List of completed items with their times
-  List<ItemCompletionRecord> _completedItems = [];
+  final List<ItemCompletionRecord> _completedItems = [];
   List<ItemCompletionRecord> get completedItems =>
       List.unmodifiable(_completedItems);
 
   // Cycle time tracking
-  List<int> _completedCycleTimes = []; // Store each completed cycle time in seconds
+  final List<int> _completedCycleTimes = []; // Store each completed cycle time in seconds
   List<int> get completedCycleTimes => List.unmodifiable(_completedCycleTimes);
 
   // Track number of times production was started
@@ -327,9 +327,7 @@ class ProductionTimer {
     _actionTime = 0; // Reset for new action
 
     // Initialize session start time if this is the first action
-    if (_sessionStartTime == null) {
-      _sessionStartTime = now;
-    }
+    _sessionStartTime ??= now;
 
     // NEW: If this is Production action, start item timer and cycle timer
     if (action.name.toLowerCase().contains('production')) {
@@ -731,7 +729,7 @@ class ProductionTimer {
 
     int totalTime =
         _completedItems.fold(0, (sum, item) => sum + item.durationSeconds);
-    if (_completedItems.length == 0) return 0.0;
+    if (_completedItems.isEmpty) return 0.0;
 
     final average = totalTime / _completedItems.length;
     return average.isFinite ? average : 0.0;

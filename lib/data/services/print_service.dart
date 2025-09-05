@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
@@ -11,7 +10,6 @@ import 'package:flutter/services.dart';
 import '../models/sop_model.dart';
 import 'qr_code_service.dart';
 import 'category_service.dart';
-import 'package:image_network/image_network.dart';
 
 class PrintService {
   final QRCodeService _qrCodeService = QRCodeService();
@@ -71,10 +69,7 @@ class PrintService {
         debugPrint('Error loading logo: $e');
       }
 
-      if (logoImage == null) {
-        // Use embedded fallback logo if asset loading fails
-        logoImage = _getEmbeddedLogo();
-      }
+      logoImage ??= _getEmbeddedLogo();
 
       debugPrint('Logo loaded: ${logoImage != null ? 'success' : 'failed'}');
 
@@ -97,9 +92,7 @@ class PrintService {
           }
 
           // If the direct approach fails, fall back to network image loading
-          if (image == null) {
-            image = await _loadNetworkImage(step.imageUrl);
-          }
+          image ??= await _loadNetworkImage(step.imageUrl);
 
           if (image != null) {
             stepImages[step.id] = image;
@@ -121,7 +114,7 @@ class PrintService {
       }
 
       debugPrint(
-          'Image loading summary: ${imagesLoaded} loaded, ${imagesFailed} failed');
+          'Image loading summary: $imagesLoaded loaded, $imagesFailed failed');
 
       // Notify user about image status
       if (imagesFailed > 0 && imagesLoaded == 0 && context.mounted) {
@@ -170,7 +163,7 @@ class PrintService {
       const int stepsPerPage = 6;
 
       debugPrint(
-          'Generating PDF with ${stepsCount} steps across multiple pages');
+          'Generating PDF with $stepsCount steps across multiple pages');
 
       // Add first page with header, global information, and description
       pdf.addPage(
@@ -267,7 +260,7 @@ class PrintService {
           // Determine appropriate success message based on image loading success
           final String successMessage = imagesLoaded == sop.steps.length
               ? 'PDF generated successfully with all images'
-              : 'PDF generated successfully with ${imagesLoaded}/${sop.steps.length} images';
+              : 'PDF generated successfully with $imagesLoaded/${sop.steps.length} images';
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1111,15 +1104,12 @@ class PrintService {
         children: [
           // Left: Print date
           pw.Text(
-            "Printed on: " + _formatDate(DateTime.now()),
+            "Printed on: ${_formatDate(DateTime.now())}",
             style: const pw.TextStyle(fontSize: 10),
           ),
           // Center: Page number
           pw.Text(
-            "Page " +
-                context.pageNumber.toString() +
-                " of " +
-                context.pagesCount.toString(),
+            "Page ${context.pageNumber} of ${context.pagesCount}",
             style: const pw.TextStyle(fontSize: 10),
           ),
           // Right: Author
@@ -1476,6 +1466,6 @@ class PrintService {
   // Add this helper inside the PrintService class
   String _truncateWithEllipsis(String text, int maxChars) {
     if (text.length <= maxChars) return text;
-    return text.substring(0, maxChars - 3) + '...';
+    return '${text.substring(0, maxChars - 3)}...';
   }
 }

@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../data/models/sop_model.dart';
-import 'dart:convert';
-import '../../data/services/qr_code_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/sop_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/cross_platform_image.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:image_network/image_network.dart';
-import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 
 class SOPViewer extends StatefulWidget {
@@ -86,7 +82,7 @@ class _SOPViewerState extends State<SOPViewer> {
               // Main content area
               Expanded(
                 child: SingleChildScrollView(
-                  key: ValueKey('step-content-${_selectedStepIndex}'),
+                  key: ValueKey('step-content-$_selectedStepIndex'),
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -815,7 +811,7 @@ class _SOPViewerState extends State<SOPViewer> {
             Stack(
               key: ValueKey('step-image-stack-$index'),
               children: [
-                Container(
+                SizedBox(
                   height: 550,
                   width: double.infinity,
                   child: CrossPlatformImage(
@@ -1099,7 +1095,7 @@ class _SOPViewerState extends State<SOPViewer> {
                                 ],
                               ),
                             ))
-                        .toList(),
+                        ,
                   ],
                 ],
               ],

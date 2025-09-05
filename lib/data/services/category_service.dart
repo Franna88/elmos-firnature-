@@ -140,7 +140,7 @@ class CategoryService extends ChangeNotifier {
           print('Firebase error message: ${e.message}');
         }
       }
-      throw e; // Re-throw to be caught by the caller
+      rethrow; // Re-throw to be caught by the caller
     }
   }
 

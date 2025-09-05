@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -18,8 +19,8 @@ class _MESReportsScreenState extends State<MESReportsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _searchQuery = '';
-  String _selectedUserId = 'All';
-  String _selectedItemId = 'All';
+  final String _selectedUserId = 'All';
+  final String _selectedItemId = 'All';
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
   bool _isLoading = false;
@@ -64,8 +65,8 @@ class _MESReportsScreenState extends State<MESReportsScreen>
       // Debug logging for MES reports data retrieval
       print('🔍 MES REPORTS - DATA RETRIEVAL DEBUG:');
       print('  📅 Date Filter: ${_startDate.toString()} to ${_endDate.toString()}');
-      print('  👤 User Filter: ${_selectedUserId}');
-      print('  📦 Item Filter: ${_selectedItemId}');
+      print('  👤 User Filter: $_selectedUserId');
+      print('  📦 Item Filter: $_selectedItemId');
       print('  📊 Total Records Retrieved: ${mesService.productionRecords.length}');
       
       if (mesService.productionRecords.isNotEmpty) {
@@ -1605,7 +1606,7 @@ class _MESReportsScreenState extends State<MESReportsScreen>
       // Get item name - need to fetch from service
       // For now we'll use a placeholder that works with the structure
       for (final itemRecord in record.itemCompletionRecords) {
-        final key = '$date'; // Simplified key for now
+        final key = date; // Simplified key for now
 
         if (!dailyData.containsKey(key)) {
           dailyData[key] = {
@@ -3259,6 +3260,143 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
+  // Helper function to aggregate activities by type name and sum durations
+  Map<String, int> _aggregateActivitiesByType() {
+    final Map<String, int> aggregated = {};
+    
+    for (final activity in _nonValueActivities) {
+      final typeName = activity.typeName;
+      aggregated[typeName] = (aggregated[typeName] ?? 0) + activity.durationSeconds;
+    }
+    
+    return aggregated;
+  }
+
+  // Build activity grid with sorted cards (highest duration first) - Compact single-row layout
+  Widget _buildActivityGrid() {
+    final aggregatedActivities = _aggregateActivitiesByType();
+    
+    // Sort activities by duration (highest first)
+    final sortedEntries = aggregatedActivities.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    if (sortedEntries.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        height: 100,
+        child: Center(
+          child: Text(
+            'No activities found for the selected date range',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Use responsive column layout to fit all items without scrolling
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final spacing = 8.0;
+        final minCardWidth = 140.0;
+        
+        // Calculate optimal number of columns (2-3 columns work best)
+        int columns;
+        if (availableWidth > 600) {
+          columns = 3; // 3 columns for wider screens
+        } else if (availableWidth > 400) {
+          columns = 2; // 2 columns for medium screens
+        } else {
+          columns = 1; // 1 column for narrow screens
+        }
+        
+        // Calculate number of rows needed
+        final rows = (sortedEntries.length / columns).ceil();
+        final cardHeight = 70.0;
+        final totalHeight = (rows * cardHeight) + ((rows - 1) * spacing);
+        
+        return SizedBox(
+          height: totalHeight,
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              childAspectRatio: 2.0, // Adjust for proper card proportions
+            ),
+            itemCount: sortedEntries.length,
+            itemBuilder: (context, index) {
+              final entry = sortedEntries[index];
+              return _buildCompactActivityCard(entry.key, entry.value);
+            },
+          ),
+        );
+      },
+    );
+  }
+  
+  // Helper method to build compact activity cards
+  Widget _buildCompactActivityCard(String activityType, int totalDuration) {
+    final isIdle = activityType == 'Idle';
+    
+    return Container(
+      padding: const EdgeInsets.all(8), // Reduced padding
+      decoration: BoxDecoration(
+        color: isIdle ? Colors.orange.shade50 : Colors.red.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isIdle ? Colors.orange.shade200 : Colors.red.shade200,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isIdle ? Colors.orange.shade400 : Colors.red.shade400,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  activityType,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12, // Smaller font
+                    color: isIdle ? Colors.orange.shade700 : Colors.black87,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatDuration(totalDuration),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+              fontSize: 14, // Smaller font
+              color: isIdle ? Colors.orange.shade700 : Colors.red.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -3592,131 +3730,14 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
                         child: Column(
                           children: [
                             // Header
+                            // Activities Summary Grid - Sorted by Duration
                             Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(8),
-                                  topRight: Radius.circular(8),
-                                ),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Date & Time',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Activity',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 1,
-                                    child: Text(
-                                      'Duration',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              padding: const EdgeInsets.all(8),
+                              child: _buildActivityGrid(),
                             ),
 
-                            // Activities List
-                            ..._nonValueActivities.take(20).map((activity) {
-                              return Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom:
-                                        BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            DateFormat('MMM dd, yyyy')
-                                                .format(activity.startTime),
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          Text(
-                                            DateFormat('HH:mm:ss')
-                                                .format(activity.startTime),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: BoxDecoration(
-                                              color: activity.typeName == 'Idle' 
-                                                ? Colors.orange.shade400 
-                                                : Colors.red.shade400,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              activity.typeName,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                                color: activity.typeName == 'Idle' 
-                                                  ? Colors.orange.shade700 
-                                                  : Colors.black87,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Text(
-                                        _formatDuration(
-                                            activity.durationSeconds),
-                                        style: TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontWeight: FontWeight.w600,
-                                          color: activity.typeName == 'Idle' 
-                                            ? Colors.orange.shade700 
-                                            : Colors.red.shade700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-
-                            // Show more indicator if there are more than 20 activities
-                            if (_nonValueActivities.length > 20)
+                            // Summary info indicator
+                            if (_nonValueActivities.isNotEmpty)
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -3729,11 +3750,11 @@ class _ProcessDetailsDialogState extends State<_ProcessDetailsDialog> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.more_horiz,
+                                    Icon(Icons.summarize,
                                         color: Colors.grey.shade600),
                                     const SizedBox(width: 8),
                                     Text(
-                                      '${_nonValueActivities.length - 20} more activities not shown',
+                                      'Showing summary of ${_nonValueActivities.length} individual activities',
                                       style: TextStyle(
                                         color: Colors.grey.shade600,
                                         fontStyle: FontStyle.italic,

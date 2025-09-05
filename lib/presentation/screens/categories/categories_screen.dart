@@ -776,7 +776,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                     avatar: const Icon(Icons.add, size: 16),
                                     backgroundColor: Theme.of(context)
                                         .colorScheme
-                                        .surfaceVariant,
+                                        .surfaceContainerHighest,
                                     side: BorderSide(
                                         color: Theme.of(context)
                                             .colorScheme
@@ -1205,7 +1205,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                     avatar: const Icon(Icons.add, size: 16),
                                     backgroundColor: Theme.of(context)
                                         .colorScheme
-                                        .surfaceVariant,
+                                        .surfaceContainerHighest,
                                     side: BorderSide(
                                         color: Theme.of(context)
                                             .colorScheme

@@ -6,7 +6,6 @@ import '../../../data/services/user_management_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/models/user_model.dart';
 import '../../widgets/app_scaffold.dart';
-import '../../../core/theme/app_theme.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -226,7 +225,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 // Role filter
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedRole,
+                    initialValue: _selectedRole,
                     decoration: const InputDecoration(
                       labelText: 'Filter by Role',
                       border: OutlineInputBorder(),
@@ -845,7 +844,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
               ],
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 decoration: const InputDecoration(
                   labelText: 'Role',
                   border: OutlineInputBorder(),

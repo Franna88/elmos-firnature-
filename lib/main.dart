@@ -14,6 +14,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
 import 'util/setup_services.dart';
+import 'utils/debug_control.dart';
 
 // Screens
 // import 'presentation/screens/home_screen.dart';
@@ -51,51 +52,61 @@ import 'core/theme/app_theme.dart';
 // import 'utils/constants.dart';
 
 void main() async {
-  debugPrint('🚀 APP: Starting application...');
+  DebugControl.debugLog('🚀 APP: Starting application...');
   WidgetsFlutterBinding.ensureInitialized();
 
   // Configure URL strategy for Flutter web - ESSENTIAL for proper URL handling
   if (kIsWeb) {
     usePathUrlStrategy();
-    debugPrint('🌐 APP: Configured path URL strategy for web');
+    DebugControl.debugLog('🌐 APP: Configured path URL strategy for web');
   }
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  debugPrint('🔥 APP: Firebase initialized successfully');
-  debugPrint(
-      'Firebase project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
+  DebugControl.debugLog('🔥 APP: Firebase initialized successfully');
+  DebugControl.debugLogObject('Firebase project ID', DefaultFirebaseOptions.currentPlatform.projectId);
 
   // Initialize services
-  debugPrint('🔧 APP: Setting up services...');
+  DebugControl.debugLog('🔧 APP: Setting up services...');
   setupServices();
-  debugPrint('🔧 APP: Services setup complete');
+  DebugControl.debugLog('🔧 APP: Services setup complete');
 
-  debugPrint('🎬 APP: Running MyApp...');
+  DebugControl.debugLog('🎬 APP: Running MyApp...');
   runApp(const MyApp());
-  debugPrint('✅ APP: Firebase initialized successfully');
-  debugPrint(
-      'Firebase project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    debugPrint('🏗️ MYAPP: Building MyApp widget...');
+  State<MyApp> createState() => _MyAppState();
+}
 
+class _MyAppState extends State<MyApp> {
+  late final GoRouter _router;
+  late final AuthService _authService;
+
+  @override
+  void initState() {
+    super.initState();
+    // Create single instances that won't change
+    _authService = AuthService();
+    _router = _createRouter(_authService);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => AuthService()),
+        ChangeNotifierProvider.value(value: _authService),
         ChangeNotifierProvider(create: (context) => SOPService()),
         ChangeNotifierProvider(create: (context) => CategoryService()),
         ChangeNotifierProvider(create: (context) => MESService()),
         ChangeNotifierProxyProvider2<AuthService, SOPService, AnalyticsService>(
           create: (context) => AnalyticsService(
             sopService: Provider.of<SOPService>(context, listen: false),
-            authService: Provider.of<AuthService>(context, listen: false),
+            authService: _authService,
           ),
           update: (context, authService, sopService, previous) =>
               previous ??
@@ -105,104 +116,42 @@ class MyApp extends StatelessWidget {
               ),
         ),
         ChangeNotifierProxyProvider<AuthService, UserManagementService>(
-          create: (context) => UserManagementService(
-            Provider.of<AuthService>(context, listen: false),
-          ),
+          create: (context) => UserManagementService(_authService),
           update: (context, authService, previous) =>
               previous ?? UserManagementService(authService),
         ),
       ],
-      child: Consumer<AuthService>(
-        builder: (context, authService, child) {
-          debugPrint(
-              '🔄 MYAPP: Consumer<AuthService> rebuilding - isLoggedIn: ${authService.isLoggedIn}');
-          debugPrint('🔄 MYAPP: Creating router with authService...');
-          return MaterialApp.router(
-            title: "Elmo's Furniture SOP Manager",
-            theme: AppTheme.lightTheme,
-            themeMode: ThemeMode.light,
-            debugShowCheckedModeBanner: false,
-            routerConfig: _createRouter(authService),
-          );
-        },
+      child: MaterialApp.router(
+        title: "Elmo's Furniture SOP Manager",
+        theme: AppTheme.lightTheme,
+        themeMode: ThemeMode.light,
+        debugShowCheckedModeBanner: false,
+        routerConfig: _router,
       ),
     );
   }
 
   GoRouter _createRouter(AuthService authService) {
-    debugPrint('🛣️ ROUTER: Creating GoRouter...');
-    debugPrint(
-        '🛣️ ROUTER: Initial auth state - isLoggedIn: ${authService.isLoggedIn}, userEmail: ${authService.userEmail}');
-
     return GoRouter(
-      initialLocation: Uri.base.path,
+      initialLocation: '/',
       redirect: (context, state) {
-        final bool isLoggedIn = authService.isLoggedIn;
-        final bool isInitialized = authService.isInitialized;
-        final bool isLoginRoute = state.matchedLocation == '/login' ||
-            state.matchedLocation == '/mobile/login';
-        final bool isRegisterRoute = state.matchedLocation == '/register';
-
-        // Check if the user is on a mobile device
-        final bool isMobileDevice = _isMobileDevice(context);
-
-        // Add comprehensive logging for debugging
-        debugPrint('🔄 ROUTER REDIRECT DEBUG:');
-        debugPrint('  📍 Current location: ${state.matchedLocation}');
-        debugPrint('  🔐 Is logged in: $isLoggedIn');
-        debugPrint('  ⚙️ Is initialized: $isInitialized');
-        debugPrint('  📱 Is mobile device: $isMobileDevice');
-        debugPrint('  🚪 Is login route: $isLoginRoute');
-        debugPrint('  📝 Is register route: $isRegisterRoute');
-        debugPrint('  👤 User email: ${authService.userEmail}');
-        debugPrint('  🆔 User ID: ${authService.userId}');
-
-        // If AuthService is not yet initialized, don't redirect yet
-        if (!isInitialized) {
-          debugPrint('  ⏳ AuthService not initialized yet, waiting...');
-          return null;
-        }
-
-        // Special case: Allow direct access to specific SOPs via mobile web (for QR code scanning)
-        // This bypasses authentication for mobile SOP viewer when accessed directly
+        // Allow direct access to specific SOPs via mobile web (for QR code scanning)
         if (state.matchedLocation.startsWith('/mobile/sop/')) {
-          debugPrint('  ✅ Allowing direct access to mobile SOP viewer');
-          // No redirect needed - allow direct access to the SOP without login
           return null;
         }
-
-        // If logged in, redirect to appropriate main screen based on device
-        if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
-          final redirectPath = isMobileDevice ? '/mobile/selection' : '/sops';
-          debugPrint(
-              '  🔄 Logged in user on auth route, redirecting to: $redirectPath');
-          return redirectPath;
-        }
-
-        // If not logged in, redirect to appropriate login page based on device
-        if (!isLoggedIn && !isLoginRoute && !isRegisterRoute) {
-          final redirectPath = isMobileDevice ? '/mobile/login' : '/login';
-          debugPrint('  🔄 Not logged in, redirecting to: $redirectPath');
-          return redirectPath;
-        }
-
-        debugPrint('  ✅ No redirect needed');
+        
+        // Let InitializationScreen handle all routing logic
+        // This prevents router redirect loops
         return null;
       },
       routes: [
         GoRoute(
           path: '/',
-          builder: (context, state) => const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          ),
+          builder: (context, state) => const InitializationScreen(),
         ),
         GoRoute(
           path: '/login',
-          builder: (context, state) => _isMobileDevice(context)
-              ? const MobileLoginScreen()
-              : const LoginScreen(),
+          builder: (context, state) => _buildResponsiveLogin(context),
         ),
         GoRoute(
           path: '/mobile/login',
@@ -334,26 +283,99 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  // Helper method to detect if the current device is mobile or tablet
-  bool _isMobileDevice(BuildContext context) {
-    try {
-      final MediaQueryData? mediaQuery = MediaQuery.maybeOf(context);
-      if (mediaQuery == null) {
-        // Fallback to assuming desktop if MediaQuery is not available
-        return false;
-      }
-      // Increased breakpoint to include tablets (up to 1200px is common for larger tablets)
-      // - Mobile phones: < 600px
-      // - Small tablets: 600px-900px
-      // - Medium tablets: 900px-1024px
-      // - Large tablets: 1024px-1200px
-      // - Desktop/Web: > 1200px
-      return mediaQuery.size.width <= 1200;
-    } catch (e) {
-      debugPrint('Warning: Could not access MediaQuery in _isMobileDevice: $e');
-      // Fallback to assuming desktop
-      return false;
+  /// Safely builds responsive login screen without causing debug issues
+  Widget _buildResponsiveLogin(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Use LayoutBuilder instead of MediaQuery to prevent debug service issues
+        if (constraints.maxWidth <= 1200) {
+          return const MobileLoginScreen();
+        } else {
+          return const LoginScreen();
+        }
+      },
+    );
+  }
+}
+
+// Initialization screen that handles app startup properly
+class InitializationScreen extends StatefulWidget {
+  const InitializationScreen({super.key});
+
+  @override
+  State<InitializationScreen> createState() => _InitializationScreenState();
+}
+
+class _InitializationScreenState extends State<InitializationScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Start initialization check after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialization();
+    });
+  }
+
+  void _checkInitialization() async {
+    // Wait a moment for services to initialize
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    if (!mounted) return;
+    
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // Wait for AuthService to initialize (with timeout)
+    int attempts = 0;
+    while (!authService.isInitialized && attempts < 20) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      attempts++;
+      if (!mounted) return;
     }
+    
+    if (!mounted) return;
+    
+    // Once initialized, redirect based on auth status
+    if (authService.isLoggedIn) {
+      // User is logged in, go to main app
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go('/sops');
+        }
+      });
+    } else {
+      // User not logged in, go to login
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go('/login');
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Loading Elmo\'s Furniture App...',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Initializing services...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

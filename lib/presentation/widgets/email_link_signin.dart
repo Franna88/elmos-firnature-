@@ -5,7 +5,7 @@ import '../../data/services/auth_service.dart';
 class EmailLinkSignIn extends StatefulWidget {
   final VoidCallback? onSignInSuccess;
   
-  const EmailLinkSignIn({Key? key, this.onSignInSuccess}) : super(key: key);
+  const EmailLinkSignIn({super.key, this.onSignInSuccess});
 
   @override
   State<EmailLinkSignIn> createState() => _EmailLinkSignInState();

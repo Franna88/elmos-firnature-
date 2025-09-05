@@ -14,7 +14,7 @@ import '../../data/models/mes_interruption_model.dart';
 import '../widgets/cross_platform_image.dart';
 
 class MESManagementScreen extends StatefulWidget {
-  const MESManagementScreen({Key? key}) : super(key: key);
+  const MESManagementScreen({super.key});
 
   @override
   State<MESManagementScreen> createState() => _MESManagementScreenState();
@@ -276,7 +276,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          value: selectedStationId,
+                          initialValue: selectedStationId,
                           decoration: InputDecoration(
                             hintText: 'Select a station (optional)',
                             border: OutlineInputBorder(
@@ -607,7 +607,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                             ),
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String>(
-                              value: selectedProcessId,
+                              initialValue: selectedProcessId,
                               decoration: const InputDecoration(
                                 labelText: 'Process *',
                                 hintText: 'Select the manufacturing process',
@@ -1021,7 +1021,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          value: selectedStationId,
+                          initialValue: selectedStationId,
                           decoration: InputDecoration(
                             hintText: 'Select an area (optional)',
                             border: OutlineInputBorder(
@@ -1341,7 +1341,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
                               ),
                               const SizedBox(height: 16),
                               DropdownButtonFormField<String>(
-                                value: selectedProcessId,
+                                initialValue: selectedProcessId,
                                 decoration: const InputDecoration(
                                   labelText: 'Process *',
                                   hintText: 'Select the manufacturing process',
@@ -2035,7 +2035,7 @@ class _MESManagementScreenState extends State<MESManagementScreen>
 
 // Processes Tab Widget
 class _ProcessesTab extends StatelessWidget {
-  const _ProcessesTab({Key? key}) : super(key: key);
+  const _ProcessesTab();
 
   @override
   Widget build(BuildContext context) {
@@ -2301,7 +2301,7 @@ class _ProcessesTab extends StatelessWidget {
 class _ItemsTab extends StatelessWidget {
   final Function(BuildContext, MESItem) onEditItem;
 
-  const _ItemsTab({Key? key, required this.onEditItem}) : super(key: key);
+  const _ItemsTab({required this.onEditItem});
 
   @override
   Widget build(BuildContext context) {
@@ -2561,7 +2561,7 @@ class _ItemsTab extends StatelessWidget {
 
 // Interruption Types Tab (Enhanced from original)
 class _InterruptionTypesTab extends StatelessWidget {
-  const _InterruptionTypesTab({Key? key}) : super(key: key);
+  const _InterruptionTypesTab();
 
   @override
   Widget build(BuildContext context) {

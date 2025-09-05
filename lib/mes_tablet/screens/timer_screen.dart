@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/furniture_item.dart';
 import '../models/production_timer.dart';
 import '../models/user.dart';
@@ -16,7 +15,7 @@ import '../../data/services/sop_service.dart';
 import '../../presentation/widgets/sop_viewer.dart';
 
 class TimerScreen extends StatefulWidget {
-  const TimerScreen({Key? key}) : super(key: key);
+  const TimerScreen({super.key});
 
   @override
   State<TimerScreen> createState() => _TimerScreenState();
@@ -37,9 +36,9 @@ class _TimerScreenState extends State<TimerScreen> {
   MESInterruptionType?
       _selectedAction; // Currently selected action (not necessarily running)
   List<FurnitureItem> _availableItems = []; // Items available for selection
-  Map<String, String> _resumableItemRecordIds =
+  final Map<String, String> _resumableItemRecordIds =
       {}; // Track record IDs for resumable items
-  Set<String> _onHoldItemIds = {}; // Track which items are on hold
+  final Set<String> _onHoldItemIds = {}; // Track which items are on hold
 
   // Production data fields
   int _expectedQty = 0;
@@ -94,9 +93,13 @@ class _TimerScreenState extends State<TimerScreen> {
     });
 
     try {
-      // Get the arguments
-      final args =
-          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      // Get the arguments - handle null case
+      final routeArgs = ModalRoute.of(context)?.settings.arguments;
+      if (routeArgs == null) {
+        throw Exception('No route arguments provided to TimerScreen');
+      }
+      
+      final args = routeArgs as Map<String, dynamic>;
       _user = args['user'] as User;
       _process = args['process'] as MESProcess;
 
@@ -300,9 +303,27 @@ class _TimerScreenState extends State<TimerScreen> {
 
   @override
   void dispose() {
-    // Clean up timer resources
-    _timer.dispose();
+    print('🧹 TIMER SCREEN DISPOSE: Cleaning up resources...');
+    
+    // Record end of current action if any (but don't await to avoid blocking disposal)
+    if (_timer.currentAction != null) {
+      _recordActionEnd(_timer.currentAction!);
+    }
+    
+    // Stop the timer completely
+    try {
+      _timer.stopAction();
+      _timer.endShift();
+      _timer.dispose();
+    } catch (e) {
+      print('Warning: Error disposing timer: $e');
+    }
+    
+    // Cancel periodic saving
     _saveProgressTimer?.cancel();
+    _saveProgressTimer = null;
+    
+    print('✅ TIMER SCREEN DISPOSED: All resources cleaned up');
     super.dispose();
   }
 
@@ -387,11 +408,11 @@ class _TimerScreenState extends State<TimerScreen> {
     // Business Rules: Check if action is allowed
     final actionName = type.name.toLowerCase();
 
-    // Business Rule: No action can be triggered if no item selected (except Idle and Shutdown)
-    if (_selectedItem == null && !actionName.contains('idle') && !actionName.contains('shutdown')) {
+    // Business Rule: Standard actions require item selection (except Idle and Shutdown), but Other actions are allowed without item selection
+    if (_selectedItem == null && !actionName.contains('idle') && !actionName.contains('shutdown') && _isStandardAction(type)) {
       _showActionBlockedDialog(
         'No Item Selected',
-        'Please select an item first before starting any actions.\n\nAll action timers must run against a selected item for proper recording.',
+        'Please select an item first before starting standard actions.\n\nStandard action timers must run against a selected item for proper recording.',
       );
       return;
     }
@@ -1909,7 +1930,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 const SizedBox(height: 8),
 
                 // Number pad grid - Compact for screen fit
-                Container(
+                SizedBox(
                   height: 180, // Reduced height for better screen fit
                   child: GridView.count(
                     crossAxisCount: 3,
@@ -2473,7 +2494,7 @@ class _TimerScreenState extends State<TimerScreen> {
     Color iconColor, {
     String? helperText,
   }) {
-    return Container(
+    return SizedBox(
       width: 120, // Fixed narrow width for numbers
       child: TextFormField(
         controller: controller,
@@ -2512,7 +2533,7 @@ class _TimerScreenState extends State<TimerScreen> {
   }) {
     return GestureDetector(
       onTap: () => _showCompactNumberPad(controller, title),
-      child: Container(
+      child: SizedBox(
         height: 60, // Fixed height to prevent overflow
         child: TextFormField(
           controller: controller,
@@ -2893,6 +2914,13 @@ class _TimerScreenState extends State<TimerScreen> {
   Future<void> _recordActionStart(MESInterruptionType action) async {
     try {
       print('🔥 Recording action START: ${action.name} (ID: ${action.id})');
+      
+      // Skip recording if no production record exists (when no item is selected)
+      if (_recordId == null) {
+        print('⚠️ No production record available - skipping action recording for: ${action.name}');
+        return;
+      }
+      
       final mesService = Provider.of<MESService>(context, listen: false);
 
       // Add interruption record to track this action
@@ -3064,12 +3092,10 @@ class _TimerScreenState extends State<TimerScreen> {
                 ProductionTimer.formatDuration(elapsedSeconds);
 
             // Start timer only once when dialog is shown
-            if (timer == null) {
-              timer = Timer.periodic(const Duration(seconds: 1), (t) {
+            timer ??= Timer.periodic(const Duration(seconds: 1), (t) {
                 elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
                 setStateDialog(() {});
               });
-            }
 
             return Material(
               child: Container(
@@ -3645,7 +3671,7 @@ class _TimerScreenState extends State<TimerScreen> {
       context: context,
       barrierDismissible: true,
       builder: (context) => Dialog(
-        child: Container(
+        child: SizedBox(
           width: MediaQuery.of(context).size.width * 0.9,
           height: MediaQuery.of(context).size.height * 0.9,
           child: Column(
@@ -3774,6 +3800,84 @@ class _TimerScreenState extends State<TimerScreen> {
             duration: const Duration(seconds: 5),
           ),
         );
+      }
+    }
+  }
+
+  // Show exit confirmation dialog when user tries to go home
+  void _showExitConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Exit Timer?'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to exit the timer?\n\n'
+          'Current timer activity will be stopped and recorded. '
+          'Any unsaved production data will be saved.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+              _exitToHome();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Exit Timer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Properly stop timer and navigate to home
+  Future<void> _exitToHome() async {
+    try {
+      print('🏠 EXITING TIMER: Stopping timer and saving data...');
+      
+      // Record end of current action if any
+      if (_timer.currentAction != null) {
+        await _recordActionEnd(_timer.currentAction!);
+      }
+
+      // Save any pending production data
+      if (_recordId != null) {
+        await _saveProductionProgress();
+      }
+
+      // Stop the timer completely (no fallback to Idle)
+      _timer.stopAction();
+      _timer.endShift(); // Stop the entire timer system
+
+      // Cancel any periodic saving
+      _saveProgressTimer?.cancel();
+      _saveProgressTimer = null;
+
+      print('✅ TIMER STOPPED: Data saved, navigating to home');
+
+      // Navigate back to process selection screen
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/process_selection',
+            arguments: _user);
+      }
+    } catch (e) {
+      print('❌ Error during exit: $e');
+      // Still navigate back even if there was an error
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/process_selection',
+            arguments: _user);
       }
     }
   }
@@ -4008,8 +4112,7 @@ class _TimerScreenState extends State<TimerScreen> {
             icon: const Icon(Icons.home),
             tooltip: 'Home',
             onPressed: () {
-              Navigator.pushReplacementNamed(context, '/process_selection',
-                  arguments: _user);
+              _showExitConfirmationDialog();
             },
           ),
           IconButton(
@@ -4044,7 +4147,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Select Item Button at top
-                          Container(
+                          SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: _showItemSelectionDialog,
@@ -4720,7 +4823,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                       } else {
                                         return action['widget'] as Widget;
                                       }
-                                    }).toList(),
+                                    }),
 
                                     // Add spacing between sections
                                     SizedBox(height: isNarrow ? 12 : 16),
@@ -4732,7 +4835,7 @@ class _TimerScreenState extends State<TimerScreen> {
                                     // Other actions: All remaining interruption types
                                     ..._getOtherActions().map((type) {
                                       return _buildActionButton(type, isNarrow);
-                                    }).toList(),
+                                    }),
 
                                     // Help button always available
                                     _buildFullWidthButton(
@@ -5604,6 +5707,13 @@ class _TimerScreenState extends State<TimerScreen> {
     }).toList();
   }
 
+  // Helper method to check if an action is a standard action
+  bool _isStandardAction(MESInterruptionType type) {
+    final standardNames = ['idle', 'setup', 'counting', 'shutdown'];
+    final typeName = type.name.toLowerCase();
+    return standardNames.any((standardName) => typeName.contains(standardName));
+  }
+
   // Helper method to build action buttons with consistent styling
   Widget _buildActionButton(MESInterruptionType type, bool isNarrow) {
     // Determine icon based on type name or use default
@@ -5683,13 +5793,13 @@ class _TimerScreenState extends State<TimerScreen> {
           icon: icon,
           label: type.name,
           color: buttonColor,
-          onPressed: (type.name.toLowerCase().contains('shutdown') || _selectedItem != null) && !(_isCurrentlyInIdleMode() && !type.name.toLowerCase().contains('shutdown'))
+          onPressed: (!_isStandardAction(type) || type.name.toLowerCase().contains('shutdown') || _selectedItem != null) && !(_isCurrentlyInIdleMode() && _isStandardAction(type) && !type.name.toLowerCase().contains('shutdown'))
               ? () {
                   _startAction(type);
                 }
-              : null, // Allow Shutdown without item, disable other actions when no item selected or in Idle mode (except Shutdown)
-          description: (type.name.toLowerCase().contains('shutdown') || _selectedItem != null)
-              ? (_isCurrentlyInIdleMode() && !type.name.toLowerCase().contains('shutdown')
+              : null, // Allow Other actions and Shutdown without item, disable Standard actions when no item selected or in Idle mode (except Shutdown)
+          description: (!_isStandardAction(type) || type.name.toLowerCase().contains('shutdown') || _selectedItem != null)
+              ? (_isCurrentlyInIdleMode() && _isStandardAction(type) && !type.name.toLowerCase().contains('shutdown')
                   ? 'Only Shutdown is available in Idle mode'
                   : (type.description ?? 'Track time for ${type.name}'))
               : 'Please select an item first',

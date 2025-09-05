@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:convert';
 import 'package:alphabet_scroll_view/alphabet_scroll_view.dart';
 import '../../../data/services/sop_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/category_service.dart';
 import '../../../data/models/sop_model.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/services/qr_code_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import '../../../services/platform_specific/scanner_service.dart';
-import '../../../services/platform_specific/scanner_service_interface.dart';
 import '../../widgets/cross_platform_image.dart';
 
 class MobileSOPsScreen extends StatefulWidget {
@@ -167,7 +163,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
     // Get unique categories for filter dropdown
     final categories = [
       'All',
-      ...categoryService.categories.map((cat) => cat.name).toSet().toList()
+      ...categoryService.categories.map((cat) => cat.name).toSet()
     ];
 
     // Create AlphaModel list from SOPs for the alphabet scroller
@@ -298,7 +294,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
               builder: (context, snapshot) {
                 String version = "Version: ";
                 if (snapshot.hasData) {
-                  version += "${snapshot.data!.version}";
+                  version += snapshot.data!.version;
                 } else {
                   version += "Loading...";
                 }
@@ -415,7 +411,7 @@ class _MobileSOPsScreenState extends State<MobileSOPsScreen> {
                                   size: isTablet ? 24 : 20,
                                 ),
                               ),
-                              value: _selectedCategory,
+                              initialValue: _selectedCategory,
                               items: categories.map((category) {
                                 return DropdownMenuItem<String>(
                                   value: category,
